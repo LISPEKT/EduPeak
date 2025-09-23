@@ -1,0 +1,31 @@
+name: edu_peak
+description: "Приложение для подтягивания школьных предметов"
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.1.11
+  cupertino_icons: ^1.0.2
+  provider: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1  # ← ПЕРЕНЕСЕНО СЮДА
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "lib/assets/icons/icon.png"  # ← полный путь
+
+flutter:
+  uses-material-design: true
