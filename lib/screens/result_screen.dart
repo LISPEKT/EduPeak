@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'main_screen.dart';
+import 'lesson_screen.dart';
 import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
 
@@ -87,12 +88,8 @@ class ResultScreen extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
-            // ВОЗВРАЩАЕМСЯ НА ГЛАВНЫЙ ЭКРАН С ОБНОВЛЕНИЕМ ДАННЫХ
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const MainScreen()),
-                  (route) => false,
-            );
+            // ИСПРАВЛЕНО: Просто закрываем текущий экран (возвращаемся назад)
+            Navigator.pop(context);
           },
         ),
       ),
@@ -199,12 +196,8 @@ class ResultScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        // ВОЗВРАЩАЕМСЯ НА ГЛАВНЫЙ ЭКРАН С ОБНОВЛЕНИЕМ ДАННЫХ
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const MainScreen()),
-                              (route) => false,
-                        );
+                        // ИСПРАВЛЕНО: Просто закрываем текущий экран (возвращаемся назад)
+                        Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).primaryColor,
@@ -221,26 +214,35 @@ class ResultScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () {
-                      // ВОЗВРАЩАЕМСЯ НА ГЛАВНЫЙ ЭКРАН С ОБНОВЛЕНИЕМ ДАННЫХ
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (_) => const MainScreen()),
-                            (route) => false,
-                      );
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        // ИСПРАВЛЕНО: Закрываем все экраны до главного и открываем урок заново
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => LessonScreen(
+                              topic: topic,
+                              currentGrade: currentGrade,
+                              currentSubject: currentSubject,
+                            ),
+                          ),
+                              (route) => route.isFirst,
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(context).primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        side: BorderSide(color: Theme.of(context).primaryColor),
                       ),
-                      side: BorderSide(color: Theme.of(context).primaryColor),
-                    ),
-                    child: const Text(
-                      'Пройти тест еще раз',
-                      style: TextStyle(fontSize: 16),
+                      child: const Text(
+                        'Пройти тест еще раз',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
                 ],

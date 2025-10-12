@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'username_screen.dart';
-import 'main_screen.dart'; // ДОБАВИТЬ ЭТОТ ИМПОРТ
+import 'main_screen.dart';
 import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
 
@@ -18,12 +17,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // Проверяем, есть ли уже имя пользователя
-  Future<bool> _hasUsername() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.containsKey('username');
-  }
-
   Future<void> _login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -37,14 +30,11 @@ class _LoginScreenState extends State<LoginScreen> {
     // ВРЕМЕННАЯ ЗАГЛУШКА - всегда успешный вход
     await Future.delayed(const Duration(milliseconds: 1000));
 
-    // Сохраняем email как временный username, если его еще нет
-    final hasUsername = await _hasUsername();
-    if (!hasUsername) {
-      await UserDataStorage.saveUsername(_emailController.text.split('@').first);
-    }
+    // Сохраняем email как username
+    await UserDataStorage.saveUsername(_emailController.text.split('@').first);
 
     if (mounted) {
-      // Переходим сразу в главное меню, минуя экран имени
+      // Переходим сразу в главное меню
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const MainScreen()),

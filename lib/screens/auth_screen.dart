@@ -10,54 +10,88 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<Offset> _slideAnimation;
   bool _isLoading = false;
-  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _checkExistingAuth();
+
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.3, 1.0, curve: Curves.easeIn),
+    ));
+
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.4, 1.0, curve: Curves.elasticOut),
+    ));
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+    ));
+
+    _animationController.forward();
   }
 
-  Future<void> _checkExistingAuth() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final hasUsername = prefs.containsKey('username');
-
-      if (hasUsername && mounted) {
-        // Если пользователь уже авторизован, переходим сразу в главное
-        Navigator.pushReplacementNamed(context, '/main');
-        return;
-      }
-    } catch (e) {
-      print('Error checking auth: $e');
-    }
-
-    if (mounted) {
-      setState(() {
-        _isInitialized = true;
-      });
-    }
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
-  Future<void> _signInWithGoogle() async {
+  Future<void> _startLearning() async {
     if (_isLoading) return;
 
     setState(() => _isLoading = true);
 
     try {
-      // Имитация процесса входа через Google
-      await Future.delayed(const Duration(milliseconds: 1500));
+      // Имитация загрузки
+      await Future.delayed(const Duration(milliseconds: 1000));
 
       if (mounted) {
-        _navigateToAuthSelection();
+        // Переходим на экран выбора способа входа, НЕ создавая пользователя
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) => const AuthSelectionScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOut;
+              var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+              var offsetAnimation = animation.drive(tween);
+
+              return SlideTransition(position: offsetAnimation, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ошибка входа: $e'),
+            content: Text('Ошибка: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -69,63 +103,10 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
-  void _navigateToAuthSelection() {
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const AuthSelectionScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOut;
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          var offsetAnimation = animation.drive(tween);
-
-          return SlideTransition(position: offsetAnimation, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 400),
-      ),
-    );
-  }
-
-  void _skipAuth() async {
-    // Создаем временного пользователя
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', 'Ученик');
-    await prefs.setString('user_avatar', '👤');
-
-    Navigator.pushReplacementNamed(context, '/main');
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
-
-    if (!_isInitialized) {
-      return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF121212) : AppTheme.lightTheme.primaryColorDark,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Загрузка...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     return Scaffold(
       body: Container(
@@ -137,55 +118,67 @@ class _AuthScreenState extends State<AuthScreen> {
             end: Alignment.bottomCenter,
             colors: isDark
                 ? [
-              const Color(0xFF1E3A2E),
-              const Color(0xFF121212),
-              const Color(0xFF0A0A0A),
+              const Color(0xFF1B5E20), // Темно-зеленый
+              const Color(0xFF2E7D32), // Средне-зеленый
+              const Color(0xFF388E3C), // Светло-зеленый
             ]
                 : [
-              const Color(0xFF2E7D32),
-              const Color(0xFF4CAF50),
-              const Color(0xFF81C784),
+              const Color(0xFF4CAF50), // Светло-зеленый
+              const Color(0xFF66BB6A), // Очень светлый зеленый
+              const Color(0xFF81C784), // Бледно-зеленый
             ],
             stops: const [0.0, 0.6, 1.0],
           ),
         ),
         child: Stack(
           children: [
-            // Фоновые элементы
+            // Анимированные фоновые элементы
             Positioned(
-              top: size.height * 0.1,
+              top: size.height * 0.15,
               right: size.width * 0.1,
-              child: _AnimatedIcon(
-                icon: Icons.school,
-                delay: 0,
-                size: 40,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Icon(
+                  Icons.eco,
+                  size: 40,
+                  color: Colors.white.withOpacity(0.3),
+                ),
               ),
             ),
             Positioned(
-              top: size.height * 0.2,
+              top: size.height * 0.3,
               left: size.width * 0.05,
-              child: _AnimatedIcon(
-                icon: Icons.auto_stories,
-                delay: 200,
-                size: 30,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Icon(
+                  Icons.park,
+                  size: 30,
+                  color: Colors.white.withOpacity(0.2),
+                ),
               ),
             ),
             Positioned(
-              bottom: size.height * 0.25,
+              bottom: size.height * 0.3,
               right: size.width * 0.15,
-              child: _AnimatedIcon(
-                icon: Icons.psychology,
-                delay: 400,
-                size: 35,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Icon(
+                  Icons.psychology,
+                  size: 35,
+                  color: Colors.white.withOpacity(0.25),
+                ),
               ),
             ),
             Positioned(
-              bottom: size.height * 0.15,
+              bottom: size.height * 0.2,
               left: size.width * 0.1,
-              child: _AnimatedIcon(
-                icon: Icons.quiz,
-                delay: 600,
-                size: 25,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Icon(
+                  Icons.auto_stories,
+                  size: 25,
+                  color: Colors.white.withOpacity(0.2),
+                ),
               ),
             ),
 
@@ -195,29 +188,11 @@ class _AuthScreenState extends State<AuthScreen> {
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
                   children: [
-                    // Хедер с кнопкой пропуска
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: TextButton(
-                        onPressed: _skipAuth,
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.white70,
-                        ),
-                        child: const Text(
-                          'Пропустить',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
+                    const Spacer(flex: 2),
 
-                    const Spacer(),
-
-                    // Заголовок и описание
-                    _AnimatedContent(
-                      delay: 800,
+                    // Логотип и заголовок
+                    ScaleTransition(
+                      scale: _scaleAnimation,
                       child: Column(
                         children: [
                           Container(
@@ -228,8 +203,15 @@ class _AuthScreenState extends State<AuthScreen> {
                               shape: BoxShape.circle,
                               border: Border.all(
                                 color: Colors.white.withOpacity(0.3),
-                                width: 2,
+                                width: 3,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.2),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                ),
+                              ],
                             ),
                             child: Icon(
                               Icons.school,
@@ -237,37 +219,32 @@ class _AuthScreenState extends State<AuthScreen> {
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 40),
                           Text(
                             'EduPeak',
                             style: TextStyle(
-                              fontSize: 48,
+                              fontSize: 52,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                               fontFamily: 'Inter',
-                              letterSpacing: 1.2,
+                              letterSpacing: 1.5,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10,
+                                  color: Colors.black.withOpacity(0.3),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           Text(
-                            'Достигай новых вершин в обучении',
+                            'Покоряй вершины знаний',
                             style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white70,
+                              fontSize: 18,
+                              color: Colors.white.withOpacity(0.9),
                               fontFamily: 'Inter',
-                              height: 1.4,
+                              fontWeight: FontWeight.w500,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Подготовка к школе • Углубленное изучение • Персональный прогресс',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white60,
-                              fontFamily: 'Inter',
-                            ),
-                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
@@ -275,61 +252,126 @@ class _AuthScreenState extends State<AuthScreen> {
 
                     const Spacer(),
 
-                    // Кнопка входа
-                    _AnimatedContent(
-                      delay: 1200,
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _isLoading ? null : _signInWithGoogle,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF2E7D32),
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(25),
+                    // Статистика и описание
+                    SlideTransition(
+                      position: _slideAnimation,
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.2),
                                 ),
-                                elevation: 4,
-                                shadowColor: Colors.black.withOpacity(0.3),
                               ),
-                              child: _isLoading
-                                  ? SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    const Color(0xFF2E7D32),
-                                  ),
-                                ),
-                              )
-                                  : Row(
-                                mainAxisSize: MainAxisSize.min,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
-                                  Icon(Icons.account_circle, size: 20),
-                                  const SizedBox(width: 12),
-                                  const Text(
-                                    'Начать обучение',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  _StatItem(
+                                    value: '1000+',
+                                    label: 'Учеников',
+                                  ),
+                                  _StatItem(
+                                    value: '50+',
+                                    label: 'Тем',
+                                  ),
+                                  _StatItem(
+                                    value: '95%',
+                                    label: 'Успех',
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Присоединяйтесь к тысячам учеников',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white60,
+                            const SizedBox(height: 24),
+                            Text(
+                              'Присоединяйтесь к 1000+ учеников,\nуже покоряющих новые высоты',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.white.withOpacity(0.8),
+                                fontFamily: 'Inter',
+                                height: 1.5,
+                              ),
+                              textAlign: TextAlign.center,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            Text(
+                              'Экосистема обучения • Умный прогресс • Персональный рост',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white.withOpacity(0.6),
+                                fontFamily: 'Inter',
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const Spacer(),
+
+                    // Кнопка начать обучение
+                    SlideTransition(
+                      position: _slideAnimation,
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _startLearning,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: const Color(0xFF2E7D32),
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(25),
+                                  ),
+                                  elevation: 8,
+                                  shadowColor: Colors.black.withOpacity(0.3),
+                                ),
+                                child: _isLoading
+                                    ? SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      const Color(0xFF2E7D32),
+                                    ),
+                                  ),
+                                )
+                                    : Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.rocket_launch, size: 20),
+                                    const SizedBox(width: 12),
+                                    const Text(
+                                      'Начать обучение',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Бесплатно • Без регистрации • Сразу начать',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
 
@@ -345,137 +387,38 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
-// Анимированная иконка для фона
-class _AnimatedIcon extends StatefulWidget {
-  final IconData icon;
-  final int delay;
-  final double size;
+class _StatItem extends StatelessWidget {
+  final String value;
+  final String label;
 
-  const _AnimatedIcon({
-    required this.icon,
-    required this.delay,
-    required this.size,
+  const _StatItem({
+    required this.value,
+    required this.label,
   });
 
   @override
-  State<_AnimatedIcon> createState() => _AnimatedIconState();
-}
-
-class _AnimatedIconState extends State<_AnimatedIcon> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    );
-
-    _animation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _animation,
-      child: ScaleTransition(
-        scale: _animation,
-        child: Icon(
-          widget.icon,
-          size: widget.size,
-          color: Colors.white.withOpacity(0.1),
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontFamily: 'Inter',
+          ),
         ),
-      ),
-    );
-  }
-}
-
-// Анимированный контент
-class _AnimatedContent extends StatefulWidget {
-  final Widget child;
-  final int delay;
-
-  const _AnimatedContent({
-    required this.child,
-    required this.delay,
-  });
-
-  @override
-  State<_AnimatedContent> createState() => _AnimatedContentState();
-}
-
-class _AnimatedContentState extends State<_AnimatedContent> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _positionAnimation;
-  late Animation<double> _opacityAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _positionAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
-
-    _opacityAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
-
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SlideTransition(
-      position: _positionAnimation,
-      child: FadeTransition(
-        opacity: _opacityAnimation,
-        child: widget.child,
-      ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withOpacity(0.7),
+            fontFamily: 'Inter',
+          ),
+        ),
+      ],
     );
   }
 }

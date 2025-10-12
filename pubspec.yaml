@@ -11,21 +11,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  shared_preferences: ^2.2.2
-  url_launcher: ^6.1.11
+  shared_preferences: ^2.5.3
+  url_launcher: ^6.3.2
   cupertino_icons: ^1.0.2
   provider: ^6.1.1
+  image_picker: ^1.0.4
+  image_cropper: ^9.1.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  flutter_launcher_icons: ^0.13.1  # ← ПЕРЕНЕСЕНО СЮДА
+  flutter_launcher_icons: ^0.13.1
 
 flutter_icons:
   android: true
   ios: true
-  image_path: "lib/assets/icons/icon.png"  # ← полный путь
+  image_path: "lib/assets/icons/icon.png"
 
 flutter:
   uses-material-design: true

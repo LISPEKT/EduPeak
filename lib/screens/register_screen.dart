@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'username_screen.dart';
-import 'main_screen.dart'; // ДОБАВИТЬ ЭТОТ ИМПОРТ
+import 'main_screen.dart';
 import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
 
@@ -49,7 +48,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // ВРЕМЕННАЯ ЗАГЛУШКА - всегда успешная регистрация
     await Future.delayed(const Duration(milliseconds: 1000));
 
-    // Сохраняем email как временный username
+    // Сохраняем email как username
     await UserDataStorage.saveUsername(_emailController.text.split('@').first);
 
     if (mounted) {

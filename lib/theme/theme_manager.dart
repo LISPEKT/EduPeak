@@ -7,9 +7,12 @@ class ThemeManager with ChangeNotifier {
 
   bool _useSystemTheme = true;
   bool _useDarkTheme = false;
+  bool _isLoading = false;
 
   bool get useSystemTheme => _useSystemTheme;
   bool get useDarkTheme => _useDarkTheme;
+  bool get isLoading => _isLoading;
+
   ThemeMode get themeMode {
     if (_useSystemTheme) return ThemeMode.system;
     return _useDarkTheme ? ThemeMode.dark : ThemeMode.light;
@@ -20,50 +23,82 @@ class ThemeManager with ChangeNotifier {
   }
 
   Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    _useSystemTheme = prefs.getBool(_useSystemThemeKey) ?? true;
-    _useDarkTheme = prefs.getBool(_useDarkThemeKey) ?? false;
-    notifyListeners();
+    if (_isLoading) return;
+
+    _isLoading = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _useSystemTheme = prefs.getBool(_useSystemThemeKey) ?? true;
+      _useDarkTheme = prefs.getBool(_useDarkThemeKey) ?? false;
+    } catch (e) {
+      print('Error loading theme settings: $e');
+    } finally {
+      _isLoading = false;
+    }
   }
 
   Future<void> setUseSystemTheme(bool value) async {
+    if (_isLoading || _useSystemTheme == value) return;
+
+    _isLoading = true;
     _useSystemTheme = value;
     if (value) {
       _useDarkTheme = false;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_useSystemThemeKey, value);
-    if (value) {
-      await prefs.setBool(_useDarkThemeKey, false);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_useSystemThemeKey, value);
+      if (value) {
+        await prefs.setBool(_useDarkThemeKey, false);
+      }
+      notifyListeners();
+    } catch (e) {
+      print('Error saving system theme: $e');
+    } finally {
+      _isLoading = false;
     }
-
-    notifyListeners();
   }
 
   Future<void> setUseDarkTheme(bool value) async {
+    if (_isLoading || _useDarkTheme == value) return;
+
+    _isLoading = true;
     _useDarkTheme = value;
     if (value) {
       _useSystemTheme = false;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_useDarkThemeKey, value);
-    if (value) {
-      await prefs.setBool(_useSystemThemeKey, false);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_useDarkThemeKey, value);
+      if (value) {
+        await prefs.setBool(_useSystemThemeKey, false);
+      }
+      notifyListeners();
+    } catch (e) {
+      print('Error saving dark theme: $e');
+    } finally {
+      _isLoading = false;
     }
-
-    notifyListeners();
   }
 
   Future<void> setLightTheme() async {
+    if (_isLoading || (!_useSystemTheme && !_useDarkTheme)) return;
+
+    _isLoading = true;
     _useSystemTheme = false;
     _useDarkTheme = false;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_useSystemThemeKey, false);
-    await prefs.setBool(_useDarkThemeKey, false);
-
-    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_useSystemThemeKey, false);
+      await prefs.setBool(_useDarkThemeKey, false);
+      notifyListeners();
+    } catch (e) {
+      print('Error saving light theme: $e');
+    } finally {
+      _isLoading = false;
+    }
   }
 }

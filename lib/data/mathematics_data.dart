@@ -1,4 +1,3 @@
-// mathematics_subjects.dart
 import '../../models/subject.dart';
 import '../../models/topic.dart';
 import '../../models/question.dart';

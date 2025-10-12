@@ -63,16 +63,6 @@ class TopicPopup extends StatelessWidget {
               topic.description,
               style: Theme.of(context).textTheme.bodyLarge,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Объяснение темы',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              topic.explanation,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
