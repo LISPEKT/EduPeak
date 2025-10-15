@@ -1,8 +1,9 @@
+// lib/screens/register_screen.dart
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
 import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
+import '../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -15,14 +16,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _serverAvailable = true;
+  String _debugInfo = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _checkServer();
+  }
+
+  Future<void> _checkServer() async {
+    final available = await ApiService.checkServerAvailability();
+    final endpoints = await ApiService.checkEndpoints();
+
+    setState(() {
+      _serverAvailable = available;
+      _debugInfo = 'Сервер: ${available ? "доступен" : "недоступен"}\n';
+      endpoints.forEach((endpoint, status) {
+        _debugInfo += '$endpoint: ${status ? "OK" : "404"}\n';
+      });
+    });
+  }
 
   Future<void> _register() async {
     if (_emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
-        _confirmPasswordController.text.isEmpty) {
+        _confirmPasswordController.text.isEmpty ||
+        _usernameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Заполните все поля')),
       );
@@ -45,18 +69,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _isLoading = true);
 
-    // ВРЕМЕННАЯ ЗАГЛУШКА - всегда успешная регистрация
-    await Future.delayed(const Duration(milliseconds: 1000));
-
-    // Сохраняем email как username
-    await UserDataStorage.saveUsername(_emailController.text.split('@').first);
-
-    if (mounted) {
-      // После регистрации переходим сразу в главное меню
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainScreen()),
+    try {
+      final response = await ApiService.register(
+        name: _usernameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
+
+      if (response['success'] == true) {
+        await UserDataStorage.saveUsername(_usernameController.text.trim());
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? 'Ошибка регистрации')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -81,7 +122,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 40),
+            if (!_serverAvailable) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  border: Border.all(color: Colors.orange),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.orange),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Сервер недоступен. Проверьте подключение.',
+                        style: TextStyle(color: Colors.orange),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Для отладки - покажем информацию о endpoints
+            if (_debugInfo.isNotEmpty) ...[
+              GestureDetector(
+                onTap: () {
+                  print(_debugInfo);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(_debugInfo)),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    border: Border.all(color: Colors.blue),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.blue, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Нажмите для информации о сервере',
+                        style: TextStyle(color: Colors.blue, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 20),
             Text(
               'Создайте аккаунт',
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
@@ -96,6 +194,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             const SizedBox(height: 32),
+
+            // Поле имени пользователя
+            TextField(
+              controller: _usernameController,
+              decoration: InputDecoration(
+                labelText: 'Имя пользователя',
+                labelStyle: TextStyle(
+                  color: isDark ? Colors.white70 : null,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                prefixIcon: Icon(
+                  Icons.person,
+                  color: isDark ? Colors.white70 : null,
+                ),
+                filled: isDark,
+                fillColor: isDark ? const Color(0xFF1E1E1E) : null,
+              ),
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 16),
 
             // Поле email
             TextField(

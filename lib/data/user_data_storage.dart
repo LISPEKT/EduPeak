@@ -1,6 +1,8 @@
+// lib/data/user_data_storage.dart
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_stats.dart';
+import '../services/api_service.dart';
 
 class UserDataStorage {
   static const String _statsKey = 'user_stats';
@@ -14,13 +16,13 @@ class UserDataStorage {
   static Future<UserStats> getUserStats() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString(_statsKey);
+
     if (data != null) {
       try {
         final jsonData = json.decode(data);
         return UserStats.fromJson(jsonData);
       } catch (e) {
         print('Error loading user stats: $e');
-        // Возвращаем дефолтные значения при ошибке
         return _getDefaultStats();
       }
     }
@@ -71,20 +73,35 @@ class UserDataStorage {
     }
   }
 
-  static Future<void> updateTopicProgress(String subject, String topic, int correctAnswers) async {
+  static Future<void> updateTopicProgress(
+      String subject,
+      String topic,
+      int correctAnswers,
+      ) async {
     try {
       final stats = await getUserStats();
       if (!stats.topicProgress.containsKey(subject)) {
         stats.topicProgress[subject] = {};
       }
 
-      // Безопасное сохранение
-      final safeCorrectAnswers = correctAnswers.clamp(0, 100); // Максимум 100
-
+      final safeCorrectAnswers = correctAnswers.clamp(0, 100);
       stats.topicProgress[subject]![topic] = safeCorrectAnswers;
+
       await saveUserStats(stats);
     } catch (e) {
       print('Error updating topic progress: $e');
     }
+  }
+
+  static Future<void> clearUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_statsKey);
+    await prefs.remove(_usernameKey);
+    await prefs.remove('user_avatar_path');
+  }
+
+  static Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('is_logged_in') ?? false;
   }
 }

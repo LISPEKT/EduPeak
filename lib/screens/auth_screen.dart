@@ -1,6 +1,8 @@
+// lib/screens/auth_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_selection_screen.dart';
+import 'main_screen.dart'; // Добавляем импорт MainScreen
 import '../theme/app_theme.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -51,6 +53,19 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     ));
 
     _animationController.forward();
+    _checkExistingAuth();
+  }
+
+  Future<void> _checkExistingAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+
+    if (isLoggedIn && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const MainScreen()), // Теперь MainScreen доступен
+      );
+    }
   }
 
   @override
@@ -69,7 +84,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       await Future.delayed(const Duration(milliseconds: 1000));
 
       if (mounted) {
-        // Переходим на экран выбора способа входа, НЕ создавая пользователя
+        // Переходим на экран выбора способа входа
         Navigator.pushReplacement(
           context,
           PageRouteBuilder(

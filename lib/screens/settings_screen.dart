@@ -1,3 +1,4 @@
+// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,7 @@ import '../models/user_stats.dart';
 import '../theme/theme_manager.dart';
 import 'auth_screen.dart';
 import 'avatar_crop_screen.dart';
+import '../services/api_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -33,6 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
   bool _isSendingFeedback = false;
+  bool _isLoading = false;
   String _currentUsername = '';
 
   static const String _botToken = '8326804174:AAE0KfB3X1MIuW4YE9mT2zbl7eAnw4OHDJ4';
@@ -168,18 +171,39 @@ $feedback
         );
 
         if (editedImagePath != null && editedImagePath is String) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_avatar_path', editedImagePath);
+          setState(() => _isLoading = true);
 
-          widget.onAvatarUpdate(editedImagePath);
+          try {
+            final response = await ApiService.updateAvatar(editedImagePath);
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Фото профиля успешно обновлено'),
-                backgroundColor: Colors.green,
-              ),
-            );
+            if (response['success'] == true) {
+              // Сохраняем локально
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('user_avatar_path', editedImagePath);
+              widget.onAvatarUpdate(editedImagePath);
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Фото профиля успешно обновлено'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Ошибка загрузки: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          } finally {
+            if (mounted) {
+              setState(() => _isLoading = false);
+            }
           }
         }
       }
@@ -309,16 +333,18 @@ $feedback
             onPressed: () async {
               Navigator.pop(context);
 
-              // Полностью очищаем все данные пользователя
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
+              // Выходим из аккаунта на сервере
+              await ApiService.logout();
+
+              // Очищаем локальные данные
+              await UserDataStorage.clearUserData();
 
               // Закрываем экран настроек
               if (mounted) {
                 Navigator.pop(context);
               }
 
-              // Вызываем колбэк выхода, который отправит на AuthScreen
+              // Вызываем колбэк выхода
               widget.onLogout();
             },
             child: const Text(
@@ -389,33 +415,51 @@ $feedback
         child: Column(
           children: [
             GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Theme.of(context).primaryColor,
-                    width: 3,
+              onTap: _isLoading ? null : _pickImage,
+              child: Stack(
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Theme.of(context).primaryColor,
+                        width: 3,
+                      ),
+                      image: _isPhotoAvatar()
+                          ? DecorationImage(
+                        image: FileImage(File(widget.currentAvatar)),
+                        fit: BoxFit.cover,
+                      )
+                          : null,
+                    ),
+                    child: _isPhotoAvatar()
+                        ? null
+                        : Center(
+                      child: Icon(
+                        Icons.camera_alt,
+                        color: Theme.of(context).primaryColor,
+                        size: 32,
+                      ),
+                    ),
                   ),
-                  image: _isPhotoAvatar()
-                      ? DecorationImage(
-                          image: FileImage(File(widget.currentAvatar)),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: _isPhotoAvatar()
-                    ? null
-                    : Center(
-                        child: Icon(
-                          Icons.camera_alt,
-                          color: Theme.of(context).primaryColor,
-                          size: 32,
+                  if (_isLoading)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
                         ),
                       ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -777,24 +821,24 @@ $feedback
                 ),
                 child: _isSendingFeedback
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      )
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                  ),
+                )
                     : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.send, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            'Отправить через Telegram',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.send, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Отправить через Telegram',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -834,7 +878,7 @@ $feedback
             const SizedBox(height: 16),
             _buildInfoRow(
               title: 'Версия',
-              value: 'alpha 0.23.1',
+              value: 'alpha 0.24',
             ),
             _buildInfoRow(
               title: 'Разработчик',

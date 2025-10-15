@@ -1,3 +1,4 @@
+// lib/screens/main_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
@@ -9,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'topic_popup.dart';
 import 'settings_screen.dart';
 import 'auth_screen.dart';
+import '../services/api_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({Key? key}) : super(key: key);
@@ -32,13 +34,24 @@ class _MainScreenState extends State<MainScreen> {
     username: '',
   );
 
-  // Ключ для принудительного обновления списка
   final GlobalKey<_OptimizedTopicsListViewState> _topicsListKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    _checkAuthStatus();
     _loadUserData();
+  }
+
+  Future<void> _checkAuthStatus() async {
+    final isLoggedIn = await ApiService.isLoggedIn();
+    if (!isLoggedIn && mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthScreen()),
+            (route) => false,
+      );
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -61,7 +74,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _refreshData() async {
-    _topicsListKey.currentState?._clearCache(); // Очищаем кэш при обновлении
+    _topicsListKey.currentState?._clearCache();
     await _loadUserData();
   }
 
@@ -176,7 +189,7 @@ class _MainScreenState extends State<MainScreen> {
       if (subjects.isNotEmpty && !subjects.contains(_selectedSubject)) {
         _selectedSubject = subjects.first;
       }
-      _topicsListKey.currentState?._clearCache(); // Очищаем кэш при изменении фильтров
+      _topicsListKey.currentState?._clearCache();
     });
   }
 
@@ -184,7 +197,7 @@ class _MainScreenState extends State<MainScreen> {
     if (value != null) {
       setState(() {
         _selectedSubject = value;
-        _topicsListKey.currentState?._clearCache(); // Очищаем кэш при изменении фильтров
+        _topicsListKey.currentState?._clearCache();
       });
     }
   }
@@ -192,7 +205,7 @@ class _MainScreenState extends State<MainScreen> {
   void _onSearchChanged(String value) {
     setState(() {
       _searchQuery = value;
-      _topicsListKey.currentState?._clearCache(); // Очищаем кэш при поиске
+      _topicsListKey.currentState?._clearCache();
     });
   }
 
@@ -256,14 +269,14 @@ class _MainScreenState extends State<MainScreen> {
               onChanged: _onSearchChanged,
             ),
 
-            // ОПТИМИЗИРОВАННЫЙ список тем
+            // Список тем
             Expanded(
               child: _OptimizedTopicsList(
                 filteredTopics: _filteredTopics,
                 isTopicCompleted: _isTopicCompleted,
                 onTopicTap: (topic) => _showTopicPopup(context, topic),
                 onRefresh: _refreshData,
-                listKey: _topicsListKey, // Передаем ключ для управления состоянием
+                listKey: _topicsListKey,
               ),
             ),
           ],
@@ -273,7 +286,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ОПТИМИЗИРОВАННЫЙ список тем с ленивой загрузкой
 class _OptimizedTopicsList extends StatelessWidget {
   final List<dynamic> filteredTopics;
   final bool Function(String) isTopicCompleted;
@@ -296,7 +308,7 @@ class _OptimizedTopicsList extends StatelessWidget {
       child: filteredTopics.isEmpty
           ? _EmptyState()
           : _OptimizedTopicsListView(
-        key: listKey, // Используем переданный ключ
+        key: listKey,
         filteredTopics: filteredTopics,
         isTopicCompleted: isTopicCompleted,
         onTopicTap: onTopicTap,
@@ -305,7 +317,6 @@ class _OptimizedTopicsList extends StatelessWidget {
   }
 }
 
-// ОПТИМИЗИРОВАННЫЙ ListView с кэшированием
 class _OptimizedTopicsListView extends StatefulWidget {
   final List<dynamic> filteredTopics;
   final bool Function(String) isTopicCompleted;
@@ -323,10 +334,8 @@ class _OptimizedTopicsListView extends StatefulWidget {
 }
 
 class _OptimizedTopicsListViewState extends State<_OptimizedTopicsListView> {
-  // Кэш для уже созданных карточек тем
   final Map<String, Widget> _topicCardCache = {};
 
-  // Метод для очистки кэша
   void _clearCache() {
     _topicCardCache.clear();
     if (mounted) {
@@ -357,7 +366,6 @@ class _OptimizedTopicsListViewState extends State<_OptimizedTopicsListView> {
     );
   }
 
-  // Вспомогательные методы для безопасного получения данных
   String _getTopicName(dynamic topic) {
     if (topic is _TopicWithGrade) {
       return topic.topic.name;
@@ -375,7 +383,6 @@ class _OptimizedTopicsListViewState extends State<_OptimizedTopicsListView> {
   }
 }
 
-// ЛЕНИВАЯ карточка темы - создается только когда видна
 class _LazyTopicCard extends StatefulWidget {
   final dynamic topic;
   final bool isCompleted;
@@ -400,18 +407,16 @@ class _LazyTopicCard extends StatefulWidget {
 
 class _LazyTopicCardState extends State<_LazyTopicCard> with AutomaticKeepAliveClientMixin {
   @override
-  bool get wantKeepAlive => true; // Сохраняем состояние при скролле
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // Обязательно для AutomaticKeepAliveClientMixin
+    super.build(context);
 
-    // Используем кэшированную версию если есть
     if (widget.cache.containsKey(widget.cacheKey)) {
       return widget.cache[widget.cacheKey]!;
     }
 
-    // Создаем новую карточку и кэшируем
     final topicCard = _TopicCard(
       topic: widget.topic,
       isCompleted: widget.isCompleted,
@@ -423,8 +428,6 @@ class _LazyTopicCardState extends State<_LazyTopicCard> with AutomaticKeepAliveC
     return topicCard;
   }
 }
-
-// ОСТАВЛЯЕМ ВСЕ СУЩЕСТВУЮЩИЕ ВИДЖЕТЫ БЕЗ ИЗМЕНЕНИЙ
 
 class _ProfileHeader extends StatelessWidget {
   final String avatar;

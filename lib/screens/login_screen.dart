@@ -1,8 +1,10 @@
+// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
 import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
+import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -27,18 +29,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // ВРЕМЕННАЯ ЗАГЛУШКА - всегда успешный вход
-    await Future.delayed(const Duration(milliseconds: 1000));
-
-    // Сохраняем email как username
-    await UserDataStorage.saveUsername(_emailController.text.split('@').first);
-
-    if (mounted) {
-      // Переходим сразу в главное меню
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainScreen()),
+    try {
+      final response = await ApiService.login(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
+
+      if (response['success'] == true) {
+        // Сохраняем имя пользователя локально
+        final username = _emailController.text.split('@').first;
+        await UserDataStorage.saveUsername(username);
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? 'Ошибка входа')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка соединения: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
