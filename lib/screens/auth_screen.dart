@@ -63,7 +63,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     if (isLoggedIn && mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MainScreen()), // Теперь MainScreen доступен
+        MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
       );
     }
   }
@@ -287,7 +287,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
                                   _StatItem(
-                                    value: '1000+',
+                                    value: '1+',
                                     label: 'Учеников',
                                   ),
                                   _StatItem(
@@ -298,12 +298,16 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                     value: '95%',
                                     label: 'Успех',
                                   ),
+                                  _StatItem(
+                                    value: '14+',
+                                    label: 'Предметов',
+                                  ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 24),
                             Text(
-                              'Присоединяйтесь к 1000+ учеников,\nуже покоряющих новые высоты',
+                              'Присоединяйтесь и прокачивайте свои мозги',
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.white.withOpacity(0.8),
@@ -314,7 +318,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Экосистема обучения • Умный прогресс • Персональный рост',
+                              'Подготовка к ОГЭ/ЕГЭ • Олимпиадные задачи',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withOpacity(0.6),
@@ -379,7 +383,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Бесплатно • Без регистрации • Сразу начать',
+                              '',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.white.withOpacity(0.7),

@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
           themeMode: themeManager.themeMode,
           home: const AuthWrapper(),
           routes: {
-            '/main': (context) => const MainScreen(),
+            '/main': (context) => MainScreen(onLogout: () {}),
             '/auth': (context) => const AuthScreen(),
           },
           debugShowCheckedModeBanner: false,
@@ -60,28 +60,26 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuthStatus() async {
     try {
-      // Проверяем локальный статус авторизации
       final isLoggedIn = await ApiService.isLoggedIn();
 
-      if (isLoggedIn) {
-        // Если есть локальная авторизация, показываем главный экран
-        setState(() {
-          _isAuthenticated = true;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _isAuthenticated = false;
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isAuthenticated = isLoggedIn;
+        _isLoading = false;
+      });
     } catch (e) {
       print('Error checking auth status: $e');
       setState(() {
-        _isLoading = false;
         _isAuthenticated = false;
+        _isLoading = false;
       });
     }
+  }
+
+  // Метод для выхода
+  void _handleLogout() {
+    setState(() {
+      _isAuthenticated = false;
+    });
   }
 
   @override
@@ -107,6 +105,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
       );
     }
 
-    return _isAuthenticated ? const MainScreen() : const AuthScreen();
+    return _isAuthenticated
+        ? MainScreen(onLogout: _handleLogout)
+        : const AuthScreen();
   }
 }

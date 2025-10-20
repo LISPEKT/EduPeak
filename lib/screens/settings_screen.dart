@@ -302,6 +302,8 @@ $feedback
     }
   }
 
+  // В settings_screen.dart обновите метод _showLogoutDialog:
+
   void _showLogoutDialog() {
     showDialog(
       context: context,
@@ -331,21 +333,58 @@ $feedback
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(context); // Закрываем диалог
 
-              // Выходим из аккаунта на сервере
-              await ApiService.logout();
+              // Показываем индикатор загрузки
+              setState(() {
+                _isLoading = true;
+              });
 
-              // Очищаем локальные данные
-              await UserDataStorage.clearUserData();
+              try {
+                // Выходим из аккаунта на сервере
+                final logoutResult = await ApiService.logout();
 
-              // Закрываем экран настроек
-              if (mounted) {
-                Navigator.pop(context);
+                // Очищаем локальные данные
+                await UserDataStorage.clearUserData();
+
+                if (mounted) {
+                  // Закрываем экран настроек
+                  Navigator.pop(context);
+
+                  // Показываем сообщение о успешном выходе
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(logoutResult['success'] == true
+                          ? 'Выход выполнен успешно'
+                          : 'Выход выполнен (офлайн)'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+
+                  // Вызываем колбэк выхода который переведет на экран авторизации
+                  widget.onLogout();
+                }
+              } catch (e) {
+                if (mounted) {
+                  // Даже при ошибке очищаем данные и выходим
+                  await UserDataStorage.clearUserData();
+                  Navigator.pop(context);
+                  widget.onLogout();
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Выход выполнен (офлайн)'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() {
+                    _isLoading = false;
+                  });
+                }
               }
-
-              // Вызываем колбэк выхода
-              widget.onLogout();
             },
             child: const Text(
               'Выйти',
@@ -878,7 +917,7 @@ $feedback
             const SizedBox(height: 16),
             _buildInfoRow(
               title: 'Версия',
-              value: 'alpha 0.24',
+              value: 'alpha 0.25',
             ),
             _buildInfoRow(
               title: 'Разработчик',

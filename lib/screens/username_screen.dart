@@ -24,7 +24,7 @@ class _UsernameScreenState extends State<UsernameScreen> {
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const MainScreen()), // Используем конструктор без параметров
+        MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
       );
     }
   }

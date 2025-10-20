@@ -31,16 +31,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _checkServer() async {
     final available = await ApiService.checkServerAvailability();
-    final endpoints = await ApiService.checkEndpoints();
 
     setState(() {
       _serverAvailable = available;
       _debugInfo = 'Сервер: ${available ? "доступен" : "недоступен"}\n';
-      endpoints.forEach((endpoint, status) {
-        _debugInfo += '$endpoint: ${status ? "OK" : "404"}\n';
-      });
     });
   }
+
+  Future<void> _testEndpoints() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final results = await ApiService.discoverEndpoints();
+      print('🎯 Endpoints discovery results:');
+      results.forEach((endpoint, data) {
+        print('$endpoint: $data');
+      });
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Результаты теста endpoints'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: results.entries.map((entry) {
+                final endpoint = entry.key;
+                final data = entry.value as Map;
+                return ListTile(
+                  title: Text(endpoint),
+                  subtitle: Text('Status: ${data['status']} - Exists: ${data['exists']}'),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      print('Error testing endpoints: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // В register_screen.dart обновите метод _register:
 
   Future<void> _register() async {
     if (_emailController.text.isEmpty ||
@@ -49,6 +90,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _usernameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Заполните все поля')),
+      );
+      return;
+    }
+
+    // Проверка формата email
+    if (!_emailController.text.contains('@') || !_emailController.text.contains('.')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите корректный email')),
       );
       return;
     }
@@ -82,17 +131,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const MainScreen()),
+            MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
           );
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response['message'] ?? 'Ошибка регистрации')),
+          SnackBar(
+            content: Text(response['message'] ?? 'Ошибка регистрации'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
+        SnackBar(
+          content: Text('Ошибка: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) {
@@ -147,38 +202,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ],
 
-            // Для отладки - покажем информацию о endpoints
-            if (_debugInfo.isNotEmpty) ...[
-              GestureDetector(
-                onTap: () {
-                  print(_debugInfo);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(_debugInfo)),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    border: Border.all(color: Colors.blue),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info, color: Colors.blue, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Нажмите для информации о сервере',
-                        style: TextStyle(color: Colors.blue, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-
             const SizedBox(height: 20),
             Text(
               'Создайте аккаунт',
@@ -195,7 +218,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 32),
 
-            // Поле имени пользователя
             TextField(
               controller: _usernameController,
               decoration: InputDecoration(
@@ -219,7 +241,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Поле email
             TextField(
               controller: _emailController,
               decoration: InputDecoration(
@@ -244,7 +265,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Поле пароля
             TextField(
               controller: _passwordController,
               obscureText: _obscurePassword,
@@ -280,7 +300,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Подтверждение пароля
             TextField(
               controller: _confirmPasswordController,
               obscureText: _obscureConfirmPassword,
@@ -324,9 +343,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
 
-            const Spacer(),
-
-            // Кнопка регистрации
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

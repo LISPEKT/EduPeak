@@ -7,10 +7,13 @@ import '../services/api_service.dart';
 class UserDataStorage {
   static const String _statsKey = 'user_stats';
   static const String _usernameKey = 'username';
+  static const String _lastSyncKey = 'last_sync';
 
   static Future<void> saveUserStats(UserStats stats) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_statsKey, json.encode(stats.toJson()));
+
+    await _syncProgressToServer(stats);
   }
 
   static Future<UserStats> getUserStats() async {
@@ -26,6 +29,12 @@ class UserDataStorage {
         return _getDefaultStats();
       }
     }
+
+    final serverStats = await _loadProgressFromServer();
+    if (serverStats != null) {
+      return serverStats;
+    }
+
     return _getDefaultStats();
   }
 
@@ -43,7 +52,6 @@ class UserDataStorage {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_usernameKey, username);
 
-    // Обновляем статистику с новым именем
     final stats = await getUserStats();
     stats.username = username;
     await saveUserStats(stats);
@@ -88,6 +96,12 @@ class UserDataStorage {
       stats.topicProgress[subject]![topic] = safeCorrectAnswers;
 
       await saveUserStats(stats);
+
+      await ApiService.updateTopicProgress(
+        subject: subject,
+        topic: topic,
+        correctAnswers: safeCorrectAnswers,
+      );
     } catch (e) {
       print('Error updating topic progress: $e');
     }
@@ -98,10 +112,52 @@ class UserDataStorage {
     await prefs.remove(_statsKey);
     await prefs.remove(_usernameKey);
     await prefs.remove('user_avatar_path');
+    await prefs.remove('last_sync');
+
+    await ApiService.logout();
   }
 
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('is_logged_in') ?? false;
+  }
+
+  static Future<void> _syncProgressToServer(UserStats stats) async {
+    try {
+      for (final subjectEntry in stats.topicProgress.entries) {
+        final subject = subjectEntry.key;
+        for (final topicEntry in subjectEntry.value.entries) {
+          final topic = topicEntry.key;
+          final correctAnswers = topicEntry.value;
+
+          await ApiService.updateTopicProgress(
+            subject: subject,
+            topic: topic,
+            correctAnswers: correctAnswers,
+          );
+        }
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastSyncKey, DateTime.now().toIso8601String());
+
+    } catch (e) {
+      print('Error syncing progress to server: $e');
+    }
+  }
+
+  static Future<UserStats?> _loadProgressFromServer() async {
+    try {
+      final response = await ApiService.getUserProgress();
+      if (response['success'] == true && response['progress'] != null) {
+        final progressData = response['progress'];
+        final stats = _getDefaultStats();
+
+        return stats;
+      }
+    } catch (e) {
+      print('Error loading progress from server: $e');
+    }
+    return null;
   }
 }

@@ -13,7 +13,9 @@ import 'auth_screen.dart';
 import '../services/api_service.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+  final VoidCallback onLogout;
+
+  const MainScreen({Key? key, required this.onLogout}) : super(key: key);
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -209,6 +211,33 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SettingsScreen(
+          onLogout: () {
+            widget.onLogout();
+          },
+          currentAvatar: _avatar,
+          onAvatarUpdate: (newAvatar) {
+            setState(() {
+              _avatar = newAvatar;
+            });
+            SharedPreferences.getInstance().then((prefs) {
+              prefs.setString('user_avatar_path', newAvatar);
+            });
+          },
+          onUsernameUpdate: (newUsername) {
+            setState(() {
+              _username = newUsername;
+            });
+          },
+        ),
+      ),
+    ).then((_) => _refreshData());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -223,36 +252,7 @@ class _MainScreenState extends State<MainScreen> {
               username: _username,
               dailyCompleted: _dailyCompleted,
               streakDays: _userStats.streakDays,
-              onSettingsPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SettingsScreen(
-                      onLogout: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const AuthScreen()),
-                              (route) => false,
-                        );
-                      },
-                      currentAvatar: _avatar,
-                      onAvatarUpdate: (newAvatar) {
-                        setState(() {
-                          _avatar = newAvatar;
-                        });
-                        SharedPreferences.getInstance().then((prefs) {
-                          prefs.setString('user_avatar_path', newAvatar);
-                        });
-                      },
-                      onUsernameUpdate: (newUsername) {
-                        setState(() {
-                          _username = newUsername;
-                        });
-                      },
-                    ),
-                  ),
-                ).then((_) => _refreshData());
-              },
+              onSettingsPressed: _openSettings,
             ),
 
             // Выбор класса и предмета
