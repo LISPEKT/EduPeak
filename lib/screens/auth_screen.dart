@@ -133,14 +133,14 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
             end: Alignment.bottomCenter,
             colors: isDark
                 ? [
-              const Color(0xFF1B5E20), // Темно-зеленый
-              const Color(0xFF2E7D32), // Средне-зеленый
-              const Color(0xFF388E3C), // Светло-зеленый
+              Theme.of(context).primaryColorDark ?? const Color(0xFF1B5E20),
+              Theme.of(context).primaryColor ?? const Color(0xFF2E7D32),
+              Theme.of(context).primaryColorLight ?? const Color(0xFF388E3C),
             ]
                 : [
-              const Color(0xFF4CAF50), // Светло-зеленый
-              const Color(0xFF66BB6A), // Очень светлый зеленый
-              const Color(0xFF81C784), // Бледно-зеленый
+              Theme.of(context).primaryColorLight ?? const Color(0xFF4CAF50),
+              const Color(0xFF66BB6A),
+              const Color(0xFF81C784),
             ],
             stops: const [0.0, 0.6, 1.0],
           ),

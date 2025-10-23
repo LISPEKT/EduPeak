@@ -21,7 +21,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _serverAvailable = true;
-  String _debugInfo = '';
 
   @override
   void initState() {
@@ -31,54 +30,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _checkServer() async {
     final available = await ApiService.checkServerAvailability();
-
     setState(() {
       _serverAvailable = available;
-      _debugInfo = 'Сервер: ${available ? "доступен" : "недоступен"}\n';
     });
-  }
-
-  Future<void> _testEndpoints() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final results = await ApiService.discoverEndpoints();
-      print('🎯 Endpoints discovery results:');
-      results.forEach((endpoint, data) {
-        print('$endpoint: $data');
-      });
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Результаты теста endpoints'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: results.entries.map((entry) {
-                final endpoint = entry.key;
-                final data = entry.value as Map;
-                return ListTile(
-                  title: Text(endpoint),
-                  subtitle: Text('Status: ${data['status']} - Exists: ${data['exists']}'),
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      print('Error testing endpoints: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
   }
 
   Future<void> _register() async {
@@ -87,7 +41,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _confirmPasswordController.text.isEmpty ||
         _usernameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните все поля')),
+        const SnackBar(
+          content: Text('Заполните все поля'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -95,21 +52,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Проверка формата email
     if (!_emailController.text.contains('@') || !_emailController.text.contains('.')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите корректный email')),
+        const SnackBar(
+          content: Text('Введите корректный email'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Пароли не совпадают')),
+        const SnackBar(
+          content: Text('Пароли не совпадают'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
 
     if (_passwordController.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Пароль должен быть не менее 6 символов')),
+        const SnackBar(
+          content: Text('Пароль должен быть не менее 6 символов'),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -117,7 +83,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Исправленный вызов с правильными аргументами
       final response = await ApiService.register(
         _usernameController.text.trim(),
         _emailController.text.trim(),
@@ -126,11 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (response['success'] == true) {
         await UserDataStorage.saveUsername(_usernameController.text.trim());
-
-        // Устанавливаем статус входа
         await UserDataStorage.setLoggedIn(true);
-
-        // Синхронизируем данные с сервером
         await UserDataStorage.syncFromServer();
 
         if (mounted) {
@@ -163,10 +124,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : AppTheme.lightTheme.scaffoldBackgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Создание аккаунта'),
         backgroundColor: Theme.of(context).cardColor,
@@ -194,7 +153,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning, color: Colors.orange),
+                    const Icon(Icons.warning, color: Colors.orange),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -207,50 +166,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ],
 
-            if (_debugInfo.isNotEmpty) ...[
-              GestureDetector(
-                onTap: () {
-                  print(_debugInfo);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(_debugInfo)),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    border: Border.all(color: Colors.blue),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.info, color: Colors.blue, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Нажмите для информации о сервере',
-                        style: TextStyle(color: Colors.blue, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-
             const SizedBox(height: 20),
             Text(
               'Создайте аккаунт',
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: isDark ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Введите вашу почту и придумайте пароль',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 32),
 
@@ -259,20 +185,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: InputDecoration(
                 labelText: 'Имя пользователя',
                 labelStyle: TextStyle(
-                  color: isDark ? Colors.white70 : null,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
                 prefixIcon: Icon(
                   Icons.person,
-                  color: isDark ? Colors.white70 : null,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
-                filled: isDark,
-                fillColor: isDark ? const Color(0xFF1E1E1E) : null,
+                filled: true,
+                fillColor: Theme.of(context).cardColor,
               ),
               style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
             const SizedBox(height: 16),
@@ -282,20 +221,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: InputDecoration(
                 labelText: 'Email',
                 labelStyle: TextStyle(
-                  color: isDark ? Colors.white70 : null,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
                 prefixIcon: Icon(
                   Icons.email,
-                  color: isDark ? Colors.white70 : null,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
-                filled: isDark,
-                fillColor: isDark ? const Color(0xFF1E1E1E) : null,
+                filled: true,
+                fillColor: Theme.of(context).cardColor,
               ),
               style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
               keyboardType: TextInputType.emailAddress,
             ),
@@ -307,19 +259,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: InputDecoration(
                 labelText: 'Пароль',
                 labelStyle: TextStyle(
-                  color: isDark ? Colors.white70 : null,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
                 prefixIcon: Icon(
                   Icons.lock,
-                  color: isDark ? Colors.white70 : null,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                    color: isDark ? Colors.white70 : Colors.grey,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                   onPressed: () {
                     setState(() {
@@ -327,11 +292,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     });
                   },
                 ),
-                filled: isDark,
-                fillColor: isDark ? const Color(0xFF1E1E1E) : null,
+                filled: true,
+                fillColor: Theme.of(context).cardColor,
               ),
               style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
             const SizedBox(height: 16),
@@ -342,19 +307,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
               decoration: InputDecoration(
                 labelText: 'Подтвердите пароль',
                 labelStyle: TextStyle(
-                  color: isDark ? Colors.white70 : null,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                    width: 2,
+                  ),
+                ),
                 prefixIcon: Icon(
                   Icons.lock_outline,
-                  color: isDark ? Colors.white70 : null,
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
-                    color: isDark ? Colors.white70 : Colors.grey,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                   onPressed: () {
                     setState(() {
@@ -362,11 +340,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     });
                   },
                 ),
-                filled: isDark,
-                fillColor: isDark ? const Color(0xFF1E1E1E) : null,
+                filled: true,
+                fillColor: Theme.of(context).cardColor,
               ),
               style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
 
@@ -374,7 +352,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Text(
               'Пароль должен содержать не менее 6 символов',
               style: TextStyle(
-                color: isDark ? Colors.white54 : Colors.black45,
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 fontSize: 12,
               ),
             ),
@@ -388,7 +366,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _register,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.lightTheme.primaryColor,
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

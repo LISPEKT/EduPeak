@@ -196,24 +196,29 @@ class UserDataStorage {
 
       final safeCorrectAnswers = correctAnswers.clamp(0, 100);
       final previousProgress = stats.topicProgress[subject]![topic] ?? 0;
-      stats.topicProgress[subject]![topic] = safeCorrectAnswers;
 
-      await saveUserStats(stats);
+      // Сохраняем только если новый результат лучше
+      if (safeCorrectAnswers > previousProgress) {
+        stats.topicProgress[subject]![topic] = safeCorrectAnswers;
+        await saveUserStats(stats);
 
-      print('📚 Topic progress updated: $subject - $topic: $previousProgress → $safeCorrectAnswers');
+        print('📚 Topic progress updated: $subject - $topic: $previousProgress → $safeCorrectAnswers');
 
-      if (await isLoggedIn()) {
-        try {
-          // Используем статический метод напрямую
-          await ApiService.updateTopicProgress(
-            subject,
-            topic,
-            safeCorrectAnswers,
-          );
-          print('☁️ Progress synced to server');
-        } catch (e) {
-          print('⚠️ Failed to sync progress to server: $e');
+        // Отправляем на сервер если пользователь авторизован
+        if (await isLoggedIn()) {
+          try {
+            await ApiService.updateTopicProgress(
+              subject,
+              topic,
+              safeCorrectAnswers,
+            );
+            print('☁️ Progress synced to server');
+          } catch (e) {
+            print('⚠️ Failed to sync progress to server: $e');
+          }
         }
+      } else {
+        print('📊 Progress not updated (current: $previousProgress, new: $safeCorrectAnswers)');
       }
     } catch (e) {
       print('❌ Error updating topic progress: $e');
@@ -292,26 +297,27 @@ class UserDataStorage {
   static Future<void> syncFromServer() async {
     if (await isLoggedIn()) {
       try {
-        print('☁️ Starting server sync...');
+        print('☁️ Starting FULL server sync...');
 
         final apiService = ApiService();
         await apiService.initialize();
 
+        // 1. Синхронизация профиля
         final serverProfile = await apiService.getProfile();
         if (serverProfile != null) {
           final serverName = serverProfile['name'] ?? '';
           final serverAvatarUrl = serverProfile['avatar_url'] ?? '';
 
+          // Синхронизация имени
           if (serverName.isNotEmpty) {
-            final currentName = await getUsername();
-            if (currentName.isEmpty || currentName == 'Пользователь') {
-              await saveUsername(serverName);
-              print('👤 Name synced from server: $serverName');
-            }
+            await saveUsername(serverName);
+            print('👤 Name synced from server: $serverName');
           }
 
-          if (serverAvatarUrl.isNotEmpty) {
+          // Синхронизация аватара
+          if (serverAvatarUrl.isNotEmpty && serverAvatarUrl != '') {
             try {
+              print('🖼️ Downloading avatar from: $serverAvatarUrl');
               final downloadedPath = await apiService.downloadAvatar(serverAvatarUrl);
               if (downloadedPath != null) {
                 await saveAvatar(downloadedPath);
@@ -323,16 +329,54 @@ class UserDataStorage {
           }
         }
 
-        // УБРАН проблемный вызов getUserProgress
-        print('📊 Progress sync completed (local only)');
+        // 2. Синхронизация прогресса с сервера
+        try {
+          print('📥 Downloading progress from server...');
+          final serverProgress = await ApiService.getUserProgress();
+          if (serverProgress != null && serverProgress['progress'] != null) {
+            final progressData = serverProgress['progress'] as Map<String, dynamic>;
+
+            final stats = await getUserStats();
+            bool hasUpdates = false;
+
+            // Обновляем локальный прогресс данными с сервера
+            for (final subject in progressData.keys) {
+              final topics = progressData[subject] as Map<String, dynamic>;
+              if (!stats.topicProgress.containsKey(subject)) {
+                stats.topicProgress[subject] = {};
+              }
+
+              for (final topic in topics.keys) {
+                final serverValue = topics[topic];
+                final localValue = stats.topicProgress[subject]![topic] ?? 0;
+
+                // Берем максимальное значение между сервером и локальным
+                if (serverValue is int && serverValue > localValue) {
+                  stats.topicProgress[subject]![topic] = serverValue;
+                  hasUpdates = true;
+                  print('🔄 Progress updated from server: $subject - $topic: $serverValue');
+                }
+              }
+            }
+
+            if (hasUpdates) {
+              await saveUserStats(stats);
+              print('✅ Server progress applied to local storage');
+            } else {
+              print('📊 Local progress is up to date');
+            }
+          }
+        } catch (e) {
+          print('⚠️ Failed to sync progress from server: $e');
+        }
 
         // Сохраняем время последней синхронизации
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_lastSyncKey, DateTime.now().toIso8601String());
 
-        print('✅ Server sync completed');
+        print('✅ FULL server sync completed');
       } catch (e) {
-        print('⚠️ Server sync failed: $e');
+        print('❌ Server sync failed: $e');
       }
     }
   }

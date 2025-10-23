@@ -5,6 +5,7 @@ import 'main_screen.dart';
 import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -101,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SnackBar(
           content: Text('Сервер недоступен. Проверьте подключение к интернету.'),
           backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
@@ -111,7 +112,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       print('🔄 Starting login process...');
-      // Исправленный вызов с правильными аргументами
       final response = await ApiService.login(
         _emailController.text.trim(),
         _passwordController.text,
@@ -170,7 +170,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _navigateToRegister() {
-    Navigator.pushNamed(context, '/register');
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+    );
   }
 
   @override
@@ -179,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : AppTheme.lightTheme.scaffoldBackgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Используем тему приложения
       appBar: AppBar(
         title: const Text('Вход в аккаунт'),
         backgroundColor: Theme.of(context).cardColor,
@@ -190,7 +193,6 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          // Кнопка для проверки соединения с сервером
           IconButton(
             icon: _testingConnection
                 ? const SizedBox(
@@ -216,7 +218,6 @@ class _LoginScreenState extends State<LoginScreen> {
               Text(
                 'Войдите в свой аккаунт',
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: isDark ? Colors.white : Colors.black87,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -230,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     : '⚠️ Сервер недоступен. Проверьте подключение.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: _serverAvailable
-                      ? (isDark ? Colors.white70 : Colors.black54)
+                      ? Theme.of(context).textTheme.bodyMedium?.color
                       : Colors.orange,
                 ),
               ),
@@ -243,41 +244,41 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   labelText: 'Email',
                   labelStyle: TextStyle(
-                    color: isDark ? Colors.white70 : Colors.black54,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                   hintText: 'example@email.com',
                   hintStyle: TextStyle(
-                    color: isDark ? Colors.white38 : Colors.black38,
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                      color: Theme.of(context).dividerColor,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                      color: Theme.of(context).dividerColor,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: colorScheme.primary,
+                      color: Theme.of(context).primaryColor,
                       width: 2,
                     ),
                   ),
                   prefixIcon: Icon(
                     Icons.email,
-                    color: isDark ? Colors.white70 : Colors.grey.shade600,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
-                  filled: isDark,
-                  fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+                  filled: true,
+                  fillColor: Theme.of(context).cardColor,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
                 style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                   fontSize: 16,
                 ),
                 keyboardType: TextInputType.emailAddress,
@@ -293,39 +294,39 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   labelText: 'Пароль',
                   labelStyle: TextStyle(
-                    color: isDark ? Colors.white70 : Colors.black54,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                   hintText: 'Введите ваш пароль',
                   hintStyle: TextStyle(
-                    color: isDark ? Colors.white38 : Colors.black38,
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                      color: Theme.of(context).dividerColor,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                      color: Theme.of(context).dividerColor,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: colorScheme.primary,
+                      color: Theme.of(context).primaryColor,
                       width: 2,
                     ),
                   ),
                   prefixIcon: Icon(
                     Icons.lock,
-                    color: isDark ? Colors.white70 : Colors.grey.shade600,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                      color: isDark ? Colors.white70 : Colors.grey.shade600,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                     ),
                     onPressed: () {
                       setState(() {
@@ -333,12 +334,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                   ),
-                  filled: isDark,
-                  fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+                  filled: true,
+                  fillColor: Theme.of(context).cardColor,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
                 style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                   fontSize: 16,
                 ),
                 textInputAction: TextInputAction.done,
@@ -351,22 +352,27 @@ class _LoginScreenState extends State<LoginScreen> {
               Center(
                 child: GestureDetector(
                   onTap: _navigateToRegister,
-                  child: RichText(
-                    text: TextSpan(
-                      text: 'Нет аккаунта? ',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: 'Зарегистрируйтесь',
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-
-                          ),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: RichText(
+                        text: TextSpan(
+                          text: 'Нет аккаунта? ',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          children: [
+                            TextSpan(
+                              text: 'Зарегистрируйтесь',
+                              style: TextStyle(
+                                color: Theme.of(context).primaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -378,22 +384,29 @@ class _LoginScreenState extends State<LoginScreen> {
               if (!_serverAvailable) ...[
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
+                  child: OutlinedButton(
                     onPressed: _testingConnection ? null : _testServerConnection,
-                    icon: _testingConnection
-                        ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                        : const Icon(Icons.refresh),
-                    label: Text(_testingConnection ? 'Проверка...' : 'Проверить подключение'),
                     style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      side: BorderSide(color: colorScheme.primary),
+                      side: BorderSide(color: Theme.of(context).primaryColor),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _testingConnection
+                            ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                            : const Icon(Icons.refresh),
+                        const SizedBox(width: 8),
+                        Text(_testingConnection ? 'Проверка...' : 'Проверить подключение'),
+                      ],
                     ),
                   ),
                 ),
@@ -406,18 +419,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading || !_serverAvailable ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _serverAvailable
-                        ? colorScheme.primary
-                        : Colors.grey,
+                    backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 2,
-                    shadowColor: _serverAvailable
-                        ? colorScheme.primary.withOpacity(0.3)
-                        : Colors.grey.withOpacity(0.3),
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -433,7 +441,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
                     ),
                   ),
                 ),

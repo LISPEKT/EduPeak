@@ -307,7 +307,21 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final html = response.data.toString();
-        return _parseUserDataFromHtml(html);
+        final userData = _parseUserDataFromHtml(html);
+
+        // Дополнительная проверка - если редирект на логин, значит не авторизован
+        if (html.contains('/login') || html.contains('Вход в систему')) {
+          print('❌ Not authenticated - redirect to login detected');
+          return null;
+        }
+
+        return userData;
+      } else if (response.statusCode == 302) {
+        final location = response.headers['location']?.first;
+        if (location != null && location.contains('/login')) {
+          print('❌ Not authenticated - redirect to login');
+          return null;
+        }
       }
 
       return null;
@@ -676,40 +690,86 @@ class ApiService {
 
   Map<String, dynamic> _parseUserDataFromHtml(String html) {
     try {
-      // Парсим имя пользователя
-      final namePattern1 = RegExp(r'<p class="text-gray-600">([^<]+)</p>');
-      final namePattern2 = RegExp(r'<h2[^>]*>([^<]+)</h2>');
-      final namePattern3 = RegExp(r'<div[^>]*class="[^"]*name[^"]*"[^>]*>([^<]+)</div>');
+      print('🔍 Parsing profile HTML...');
 
-      String name = 'Пользователь';
-      final nameMatch1 = namePattern1.firstMatch(html);
-      final nameMatch2 = namePattern2.firstMatch(html);
-      final nameMatch3 = namePattern3.firstMatch(html);
-
-      if (nameMatch1 != null) {
-        name = nameMatch1.group(1)!.trim();
-      } else if (nameMatch2 != null) {
-        name = nameMatch2.group(1)!.trim();
-      } else if (nameMatch3 != null) {
-        name = nameMatch3.group(1)!.trim();
+      // Проверяем, что это действительно страница профиля, а не логин
+      if (html.contains('Вход в систему') ||
+          html.contains('login') ||
+          !html.contains('profile') && !html.contains('Профиль')) {
+        print('❌ This is not a profile page');
+        return {
+          'name': '',
+          'email': '',
+          'avatar_url': '',
+          'streak': 0,
+        };
       }
 
-      // Парсим аватар
-      final avatarPattern1 = RegExp(r'<img[^>]*src="([^"]*avatar[^"]*)"');
-      final avatarPattern2 = RegExp(r'<img[^>]*src="([^"]*uploads[^"]*)"');
-      final avatarPattern3 = RegExp(r'<img[^>]*src="(/storage/[^"]*)"');
+      // Парсим имя пользователя - улучшенные паттерны
+      String name = '';
 
+      // Паттерн 1: Ищем в заголовках
+      final namePattern1 = RegExp(r'<h[1-6][^>]*>([^<]+)</h[1-6]>');
+      final namePattern2 = RegExp(r'<div[^>]*class="[^"]*name[^"]*"[^>]*>([^<]+)</div>');
+      final namePattern3 = RegExp(r'<p[^>]*class="[^"]*text[^"]*"[^>]*>([^<]+)</p>');
+      final namePattern4 = RegExp(r'<strong>([^<]+)</strong>');
+      final namePattern5 = RegExp(r'Имя[^>]*>([^<]+)<');
+
+      final matches = [
+        ...namePattern1.allMatches(html),
+        ...namePattern2.allMatches(html),
+        ...namePattern3.allMatches(html),
+        ...namePattern4.allMatches(html),
+        ...namePattern5.allMatches(html),
+      ];
+
+      for (final match in matches) {
+        final candidate = match.group(1)!.trim();
+        if (candidate.isNotEmpty &&
+            candidate != 'Профиль' &&
+            candidate != 'Вход в систему' &&
+            !candidate.contains('@') &&
+            candidate.length > 2) {
+          name = candidate;
+          break;
+        }
+      }
+
+      // Если имя не найдено, используем часть email
+      if (name.isEmpty) {
+        final emailMatch = RegExp(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}').firstMatch(html);
+        if (emailMatch != null) {
+          final email = emailMatch.group(0)!;
+          name = email.split('@').first;
+        } else {
+          name = 'Пользователь';
+        }
+      }
+
+      // Парсим аватар - улучшенные паттерны
       String avatarUrl = '';
-      final avatarMatch1 = avatarPattern1.firstMatch(html);
-      final avatarMatch2 = avatarPattern2.firstMatch(html);
-      final avatarMatch3 = avatarPattern3.firstMatch(html);
 
-      if (avatarMatch1 != null) {
-        avatarUrl = avatarMatch1.group(1)!;
-      } else if (avatarMatch2 != null) {
-        avatarUrl = avatarMatch2.group(1)!;
-      } else if (avatarMatch3 != null) {
-        avatarUrl = '$_baseUrl${avatarMatch3.group(1)!}';
+      final avatarPattern1 = RegExp(r'<img[^>]*src="([^"]*avatar[^"]*)"', caseSensitive: false);
+      final avatarPattern2 = RegExp(r'<img[^>]*src="([^"]*uploads[^"]*)"', caseSensitive: false);
+      final avatarPattern3 = RegExp(r'<img[^>]*src="(/storage/[^"]*)"', caseSensitive: false);
+      final avatarPattern4 = RegExp(r'<img[^>]*src="(.*\.(jpg|jpeg|png|gif))"', caseSensitive: false);
+
+      final avatarMatches = [
+        ...avatarPattern1.allMatches(html),
+        ...avatarPattern2.allMatches(html),
+        ...avatarPattern3.allMatches(html),
+        ...avatarPattern4.allMatches(html),
+      ];
+
+      for (final match in avatarMatches) {
+        final candidate = match.group(1)!;
+        if (candidate.isNotEmpty &&
+            !candidate.contains('logo') &&
+            !candidate.contains('icon') &&
+            (candidate.contains('avatar') || candidate.contains('user') || candidate.contains('profile'))) {
+          avatarUrl = candidate;
+          break;
+        }
       }
 
       // Если URL относительный, делаем его абсолютным
@@ -717,7 +777,7 @@ class ApiService {
         avatarUrl = '$_baseUrl$avatarUrl';
       }
 
-      print('👤 Parsed user data - Name: $name, Avatar: $avatarUrl');
+      print('👤 Parsed user data - Name: "$name", Avatar: "$avatarUrl"');
 
       return {
         'name': name,

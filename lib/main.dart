@@ -64,7 +64,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
       final isLoggedIn = await ApiService.isLoggedIn();
 
       if (isLoggedIn) {
-        // Синхронизируем данные при запуске приложения
+        // ПОЛНАЯ синхронизация данных при запуске приложения
+        print('🔄 App start - syncing with server...');
         await UserDataStorage.syncFromServer();
       }
 
