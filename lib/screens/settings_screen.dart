@@ -174,28 +174,43 @@ $feedback
           setState(() => _isLoading = true);
 
           try {
+            print('🖼️ Starting avatar upload process...');
+
+            // Сохраняем локально
+            await UserDataStorage.saveAvatar(editedImagePath);
+            widget.onAvatarUpdate(editedImagePath);
+
+            // Пытаемся загрузить на сервер
             final response = await ApiService.updateAvatar(editedImagePath);
 
             if (response['success'] == true) {
-              // Сохраняем локально
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString('user_avatar_path', editedImagePath);
-              widget.onAvatarUpdate(editedImagePath);
-
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Фото профиля успешно обновлено'),
+                  SnackBar(
+                    content: Text(response['message'] ?? 'Фото профиля успешно обновлено'),
                     backgroundColor: Colors.green,
                   ),
                 );
               }
+              print('✅ Avatar updated successfully');
+            } else {
+              // Если загрузка на сервер не удалась, но локальное сохранение прошло успешно
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(response['message'] ?? 'Фото сохранено локально, но не загружено на сервер'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+              print('⚠️ Avatar saved locally but server upload failed');
             }
           } catch (e) {
+            print('❌ Error during avatar update: $e');
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Ошибка загрузки: $e'),
+                  content: Text('Ошибка обновления аватара: $e'),
                   backgroundColor: Colors.red,
                 ),
               );
@@ -208,6 +223,7 @@ $feedback
         }
       }
     } catch (e) {
+      print('❌ Error picking image: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -228,7 +244,12 @@ $feedback
       return;
     }
 
+    // Сохраняем локально
     await UserDataStorage.saveUsername(newUsername);
+
+    // Обновляем на сервере
+    await UserDataStorage.updateUsernameOnServer(newUsername);
+
     widget.onUsernameUpdate(newUsername);
 
     setState(() {
@@ -302,8 +323,6 @@ $feedback
     }
   }
 
-  // В settings_screen.dart обновите метод _showLogoutDialog:
-
   void _showLogoutDialog() {
     showDialog(
       context: context,
@@ -336,54 +355,43 @@ $feedback
               Navigator.pop(context); // Закрываем диалог
 
               // Показываем индикатор загрузки
-              setState(() {
-                _isLoading = true;
-              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Выход выполняется...'),
+                    backgroundColor: Colors.blue,
+                  ),
+                );
+              }
 
+              // Сразу очищаем локальные данные
+              await UserDataStorage.clearUserData();
+
+              // Уведомляем сервер о выходе в фоне (fire-and-forget)
               try {
-                // Выходим из аккаунта на сервере
-                final logoutResult = await ApiService.logout();
-
-                // Очищаем локальные данные
-                await UserDataStorage.clearUserData();
-
-                if (mounted) {
-                  // Закрываем экран настроек
-                  Navigator.pop(context);
-
-                  // Показываем сообщение о успешном выходе
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(logoutResult['success'] == true
-                          ? 'Выход выполнен успешно'
-                          : 'Выход выполнен (офлайн)'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-
-                  // Вызываем колбэк выхода который переведет на экран авторизации
-                  widget.onLogout();
-                }
+                await ApiService.logout();
+                print('✅ Logout successful from server');
               } catch (e) {
-                if (mounted) {
-                  // Даже при ошибке очищаем данные и выходим
-                  await UserDataStorage.clearUserData();
-                  Navigator.pop(context);
-                  widget.onLogout();
+                print('⚠️ Server logout failed: $e');
+              }
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('Выход выполнен (офлайн)'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                }
-              } finally {
-                if (mounted) {
-                  setState(() {
-                    _isLoading = false;
-                  });
-                }
+              // Вызываем колбэк выхода
+              widget.onLogout();
+
+              // Переходим на экран авторизации
+              if (mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AuthScreen()),
+                      (route) => false,
+                );
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Выход выполнен успешно'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
               }
             },
             child: const Text(
@@ -917,7 +925,7 @@ $feedback
             const SizedBox(height: 16),
             _buildInfoRow(
               title: 'Версия',
-              value: 'alpha 0.25',
+              value: 'alpha 0.27.1',
             ),
             _buildInfoRow(
               title: 'Разработчик',

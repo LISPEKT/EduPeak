@@ -81,8 +81,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // В register_screen.dart обновите метод _register:
-
   Future<void> _register() async {
     if (_emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
@@ -119,14 +117,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Исправленный вызов с правильными аргументами
       final response = await ApiService.register(
-        name: _usernameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+        _usernameController.text.trim(),
+        _emailController.text.trim(),
+        _passwordController.text,
       );
 
       if (response['success'] == true) {
         await UserDataStorage.saveUsername(_usernameController.text.trim());
+
+        // Устанавливаем статус входа
+        await UserDataStorage.setLoggedIn(true);
+
+        // Синхронизируем данные с сервером
+        await UserDataStorage.syncFromServer();
 
         if (mounted) {
           Navigator.pushReplacement(
@@ -198,6 +203,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+            ],
+
+            if (_debugInfo.isNotEmpty) ...[
+              GestureDetector(
+                onTap: () {
+                  print(_debugInfo);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(_debugInfo)),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    border: Border.all(color: Colors.blue),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.blue, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Нажмите для информации о сервере',
+                        style: TextStyle(color: Colors.blue, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -342,6 +378,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 fontSize: 12,
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            const Spacer(),
 
             SizedBox(
               width: double.infinity,

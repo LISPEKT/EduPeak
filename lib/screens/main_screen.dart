@@ -46,13 +46,26 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _checkAuthStatus() async {
-    final isLoggedIn = await ApiService.isLoggedIn();
-    if (!isLoggedIn && mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const AuthScreen()),
-            (route) => false,
-      );
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+      if (!isLoggedIn && mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const AuthScreen()),
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      print('Error checking auth status: $e');
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const AuthScreen()),
+              (route) => false,
+        );
+      }
     }
   }
 
@@ -60,19 +73,30 @@ class _MainScreenState extends State<MainScreen> {
     try {
       final stats = await UserDataStorage.getUserStats();
       final username = await UserDataStorage.getUsername();
-      final prefs = await SharedPreferences.getInstance();
+      final avatar = await UserDataStorage.getAvatar();
 
       if (mounted) {
         setState(() {
           _userStats = stats;
           _username = username;
-          _avatar = prefs.getString('user_avatar_path') ?? '👤';
+          _avatar = avatar;
           _dailyCompleted = stats.dailyCompletion[DateTime.now().toIso8601String().split('T')[0]] ?? false;
         });
       }
+
+      print('👤 User data loaded - Username: $username, Avatar: ${avatar != '👤' ? "Custom" : "Default"}, Streak: ${stats.streakDays} days');
+      print('📊 Progress stats: ${stats.topicProgress.length} subjects, ${_calculateTotalTopics(stats)} topics completed');
     } catch (e) {
-      print('Error loading user data: $e');
+      print('❌ Error loading user data: $e');
     }
+  }
+
+  int _calculateTotalTopics(UserStats stats) {
+    int total = 0;
+    for (final subject in stats.topicProgress.values) {
+      total += subject.length;
+    }
+    return total;
   }
 
   Future<void> _refreshData() async {
@@ -181,7 +205,15 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   bool _isPhotoAvatar() {
-    return _avatar.startsWith('/');
+    if (_avatar == '👤') return false;
+
+    try {
+      final file = File(_avatar);
+      return file.existsSync();
+    } catch (e) {
+      print('❌ Error checking avatar file: $e');
+      return false;
+    }
   }
 
   void _onGradeChanged(int? value) {
@@ -224,14 +256,13 @@ class _MainScreenState extends State<MainScreen> {
             setState(() {
               _avatar = newAvatar;
             });
-            SharedPreferences.getInstance().then((prefs) {
-              prefs.setString('user_avatar_path', newAvatar);
-            });
+            UserDataStorage.saveAvatar(newAvatar);
           },
           onUsernameUpdate: (newUsername) {
             setState(() {
               _username = newUsername;
             });
+            UserDataStorage.saveUsername(newUsername);
           },
         ),
       ),

@@ -14,17 +14,72 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  bool _serverAvailable = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _testingConnection = false;
 
-  // В login_screen.dart обновите метод _login:
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkServerAvailability();
+  }
+
+  Future<void> _checkServerAvailability() async {
+    setState(() => _testingConnection = true);
+    try {
+      final available = await ApiService.checkServerAvailability();
+      setState(() {
+        _serverAvailable = available;
+        _testingConnection = false;
+      });
+    } catch (e) {
+      setState(() {
+        _serverAvailable = false;
+        _testingConnection = false;
+      });
+    }
+  }
+
+  Future<void> _testServerConnection() async {
+    setState(() => _testingConnection = true);
+
+    try {
+      final available = await ApiService.checkServerAvailability();
+      setState(() => _serverAvailable = available);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(available ? '✅ Сервер доступен' : '❌ Сервер недоступен'),
+          backgroundColor: available ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      setState(() => _serverAvailable = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка проверки: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      setState(() => _testingConnection = false);
+    }
+  }
 
   Future<void> _login() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Заполните все поля')),
+        const SnackBar(
+          content: Text('Заполните все поля'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
       );
       return;
     }
@@ -32,7 +87,22 @@ class _LoginScreenState extends State<LoginScreen> {
     // Проверка формата email
     if (!_emailController.text.contains('@') || !_emailController.text.contains('.')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите корректный email')),
+        const SnackBar(
+          content: Text('Введите корректный email'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    if (!_serverAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Сервер недоступен. Проверьте подключение к интернету.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
       );
       return;
     }
@@ -40,20 +110,38 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
+      print('🔄 Starting login process...');
+      // Исправленный вызов с правильными аргументами
       final response = await ApiService.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+        _emailController.text.trim(),
+        _passwordController.text,
       );
+
+      print('📡 Login result: $response');
 
       if (response['success'] == true) {
         // Сохраняем имя пользователя локально
         final username = _emailController.text.split('@').first;
         await UserDataStorage.saveUsername(username);
 
+        // Устанавливаем статус входа
+        await UserDataStorage.setLoggedIn(true);
+
+        // Синхронизируем данные с сервером
+        await UserDataStorage.syncFromServer();
+
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
+          );
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Вход выполнен успешно'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
           );
         }
       } else {
@@ -61,14 +149,17 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(
             content: Text(response['message'] ?? 'Ошибка входа'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     } catch (e) {
+      print('❌ Login exception: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Ошибка соединения: $e'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
         ),
       );
     } finally {
@@ -78,9 +169,14 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _navigateToRegister() {
+    Navigator.pushNamed(context, '/register');
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: isDark ? Colors.black : AppTheme.lightTheme.scaffoldBackgroundColor,
@@ -93,121 +189,268 @@ class _LoginScreenState extends State<LoginScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          // Кнопка для проверки соединения с сервером
+          IconButton(
+            icon: _testingConnection
+                ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+                : const Icon(Icons.wifi_find),
+            onPressed: _testingConnection ? null : _testServerConnection,
+            tooltip: 'Проверить подключение к серверу',
+          ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 20),
 
-            const SizedBox(height: 40),
-            Text(
-              'Войдите в свой аккаунт',
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                color: isDark ? Colors.white : Colors.black87,
+              // Заголовок
+              Text(
+                'Войдите в свой аккаунт',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Введите вашу почту и пароль',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isDark ? Colors.white70 : Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 32),
 
-            // Поле email
-            TextField(
-              controller: _emailController,
-              decoration: InputDecoration(
-                labelText: 'Email',
-                labelStyle: TextStyle(
-                  color: isDark ? Colors.white70 : null,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: Icon(
-                  Icons.email,
-                  color: isDark ? Colors.white70 : null,
-                ),
-                filled: isDark,
-                fillColor: isDark ? const Color(0xFF1E1E1E) : null,
-              ),
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
-            // Поле пароля
-            TextField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              decoration: InputDecoration(
-                labelText: 'Пароль',
-                labelStyle: TextStyle(
-                  color: isDark ? Colors.white70 : null,
+              // Описание
+              Text(
+                _serverAvailable
+                    ? 'Введите ваши учетные данные для входа'
+                    : '⚠️ Сервер недоступен. Проверьте подключение.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: _serverAvailable
+                      ? (isDark ? Colors.white70 : Colors.black54)
+                      : Colors.orange,
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                prefixIcon: Icon(
-                  Icons.lock,
-                  color: isDark ? Colors.white70 : null,
-                ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                    color: isDark ? Colors.white70 : Colors.grey,
+              ),
+
+              const SizedBox(height: 32),
+
+              // Поле email
+              TextField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  labelStyle: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
-                    });
-                  },
-                ),
-                filled: isDark,
-                fillColor: isDark ? const Color(0xFF1E1E1E) : null,
-              ),
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-
-            const Spacer(),
-
-            // Кнопка входа
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.lightTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
+                  hintText: 'example@email.com',
+                  hintStyle: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                    ),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.email,
+                    color: isDark ? Colors.white70 : Colors.grey.shade600,
+                  ),
+                  filled: isDark,
+                  fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: 16,
+                ),
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+              ),
+
+              const SizedBox(height: 16),
+
+              // Поле пароля
+              TextField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: 'Пароль',
+                  labelStyle: TextStyle(
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
-                )
-                    : const Text(
-                  'Войти',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                  hintText: 'Введите ваш пароль',
+                  hintStyle: TextStyle(
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? Colors.white30 : Colors.grey.shade400,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.lock,
+                    color: isDark ? Colors.white70 : Colors.grey.shade600,
+                  ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                      color: isDark ? Colors.white70 : Colors.grey.shade600,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  filled: isDark,
+                  fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.grey.shade50,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                ),
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: 16,
+                ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _login(),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Ссылка на регистрацию
+              Center(
+                child: GestureDetector(
+                  onTap: _navigateToRegister,
+                  child: RichText(
+                    text: TextSpan(
+                      text: 'Нет аккаунта? ',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: 'Зарегистрируйтесь',
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
+
+              const Spacer(),
+
+              // Кнопка проверки сервера (если недоступен)
+              if (!_serverAvailable) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _testingConnection ? null : _testServerConnection,
+                    icon: _testingConnection
+                        ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                        : const Icon(Icons.refresh),
+                    label: Text(_testingConnection ? 'Проверка...' : 'Проверить подключение'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      side: BorderSide(color: colorScheme.primary),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Кнопка входа
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading || !_serverAvailable ? null : _login,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _serverAvailable
+                        ? colorScheme.primary
+                        : Colors.grey,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                    shadowColor: _serverAvailable
+                        ? colorScheme.primary.withOpacity(0.3)
+                        : Colors.grey.withOpacity(0.3),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                    ),
+                  )
+                      : const Text(
+                    'Войти',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 }

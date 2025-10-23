@@ -3,954 +3,736 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ApiService {
-  static final Dio _dio = Dio();
-  static const String _baseUrl = 'http://46.254.19.119:8000/api/';
-  static final CookieJar _cookieJar = CookieJar();
-  static String? _csrfToken;
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
+  ApiService._internal();
 
-  static void _setupDio() {
-    _dio.options.baseUrl = _baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 30);
-    _dio.options.receiveTimeout = const Duration(seconds: 30);
-    _dio.options.validateStatus = (status) => true;
+  late Dio _dio;
+  final String _baseUrl = 'http://46.254.19.119:8000';
+  bool _isInitialized = false;
+  String? _csrfToken;
+  String? _sessionCookie;
 
-    // Добавляем менеджер cookies
-    _dio.interceptors.add(CookieManager(_cookieJar));
+  // Статические методы для совместимости со старым кодом
+  static Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isLoggedIn') ?? false;
+  }
 
-    // Добавляем интерцептор для логирования
+  static Future<bool> checkServerAvailability() async {
+    return await ApiService()._checkServerAvailability();
+  }
+
+  static Future<Map<String, dynamic>> login(String email, String password) async {
+    return await ApiService()._login(email, password);
+  }
+
+  static Future<Map<String, dynamic>> register(String name, String email, String password) async {
+    return await ApiService()._register(name, email, password);
+  }
+
+  static Future<void> logout() async {
+    await ApiService()._logout();
+  }
+
+  static Future<void> updateTopicProgress(String subject, String topicName, int correctAnswers) async {
+    await ApiService()._updateTopicProgress(subject, topicName, correctAnswers);
+  }
+
+  // ИСПРАВЛЕНО: Убрали дублирующий статический метод
+  static Future<Map<String, dynamic>?> getUserProgress() async {
+    final apiService = ApiService();
+    await apiService.initialize();
+    return await apiService._getUserProgress();
+  }
+
+  static Future<Map<String, dynamic>> updateAvatar(String imagePath) async {
+    return await ApiService()._updateAvatar(imagePath);
+  }
+
+  static Future<Map<String, dynamic>> discoverEndpoints() async {
+    return await ApiService()._discoverEndpoints();
+  }
+
+  // Реализации методов
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+
+    _dio = Dio(BaseOptions(
+      baseUrl: _baseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
+      },
+    ));
+
+    // Добавляем перехватчик для обработки cookies
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // Загружаем cookies перед каждым запросом
+        await _loadCookies();
+        if (_sessionCookie != null) {
+          options.headers['cookie'] = _sessionCookie;
+        }
+        if (_csrfToken != null && (options.method == 'POST' || options.method == 'PUT' || options.method == 'PATCH')) {
+          if (options.data is Map) {
+            (options.data as Map)['_token'] = _csrfToken;
+          } else if (options.data is String) {
+            // Для form-data добавляем токен
+            final data = options.data as String;
+            if (!data.contains('_token=')) {
+              options.data = '$data&_token=$_csrfToken';
+            }
+          }
+        }
+        handler.next(options);
+      },
+      onResponse: (response, handler) {
+        // Сохраняем cookies из ответа
+        _saveCookiesFromResponse(response);
+        handler.next(response);
+      },
+    ));
+
     _dio.interceptors.add(LogInterceptor(
       request: true,
       requestBody: true,
       responseBody: true,
       requestHeader: true,
-      responseHeader: false,
+      responseHeader: true,
     ));
+
+    await _loadCookies();
+    _isInitialized = true;
+    print('✅ Dio initialized with baseUrl: $_baseUrl');
   }
 
-  // Получение CSRF токена
-  static Future<String?> _getCsrfToken() async {
-    if (_csrfToken != null) return _csrfToken;
-
+  Future<bool> _checkServerAvailability() async {
     try {
-      // Получаем страницу регистрации чтобы извлечь CSRF токен
-      final response = await _dio.get('/register');
-      if (response.statusCode == 200) {
-        final html = response.data as String;
+      if (!_isInitialized) await initialize();
 
-        // Ищем CSRF токен в HTML
-        final regex = RegExp(r'name="_token" value="([^"]+)"');
-        final match = regex.firstMatch(html);
-        if (match != null) {
-          _csrfToken = match.group(1);
-          print('🔑 CSRF Token found: $_csrfToken');
-          return _csrfToken;
-        }
-
-        // Альтернативный поиск
-        final regex2 = RegExp(r'csrf-token" content="([^"]+)"');
-        final match2 = regex2.firstMatch(html);
-        if (match2 != null) {
-          _csrfToken = match2.group(1);
-          print('🔑 CSRF Token found (alt): $_csrfToken');
-          return _csrfToken;
-        }
-      }
+      final response = await _dio.get('/');
+      print('🌐 Server response status: ${response.statusCode}');
+      return response.statusCode == 200;
     } catch (e) {
-      print('Error getting CSRF token: $e');
+      print('❌ Server unavailable: $e');
+      return false;
     }
-
-    print('❌ CSRF Token not found');
-    return null;
   }
 
-  // Инициализация API
-  static Future<void> initialize() async {
-    _setupDio();
-    await _getCsrfToken();
-  }
-
-  // ============ АУТЕНТИФИКАЦИЯ ============
-
-  static Future<Map<String, dynamic>> register({
-    required String name,
-    required String email,
-    required String password,
-  }) async {
-    await initialize();
-
-    print('🔐 Attempting registration for: $email');
-
+  Future<String?> _getCsrfToken() async {
     try {
-      final csrfToken = await _getCsrfToken();
+      if (!_isInitialized) await initialize();
 
-      if (csrfToken == null) {
-        return {
-          'success': false,
-          'message': 'Не удалось получить CSRF токен',
-        };
+      final response = await _dio.get('/profile');
+      final html = response.data.toString();
+
+      final tokenPattern = RegExp(r'name="_token" value="([^"]+)"');
+      final match = tokenPattern.firstMatch(html);
+
+      if (match != null) {
+        final token = match.group(1);
+        print('✅ CSRF Token found: $token');
+        _csrfToken = token;
+        await _saveCookies();
+        return token;
       }
 
-      final response = await _dio.post(
-        '/register',
-        data: {
-          '_token': csrfToken,
-          'name': name,
-          'email': email,
-          'password': password,
-          'password_confirmation': password,
-        },
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-        ),
-      );
-
-      print('📡 Registration response: ${response.statusCode}');
-      print('📡 Registration data: ${response.data}');
-
-      if (response.statusCode == 302) {
-        // Успешная регистрация - редирект на профиль
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('is_logged_in', true);
-        await prefs.setString('user_email', email);
-        await prefs.setString('user_name', name);
-
-        return {
-          'success': true,
-          'message': 'Регистрация успешна',
-        };
-      } else if (response.statusCode == 200) {
-        // Проверяем HTML ответ на наличие ошибок
-        if (response.data is String) {
-          final html = response.data as String;
-
-          // Ищем ошибки в HTML
-          if (html.contains('Ошибка') ||
-              html.contains('error') ||
-              html.contains('Уже существует') ||
-              html.contains('already exists') ||
-              html.contains('Учетная запись')) {
-            return {
-              'success': false,
-              'message': 'Аккаунт с таким email уже существует',
-            };
-          }
-
-          // Если нет ошибок, считаем успехом
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('is_logged_in', true);
-          await prefs.setString('user_email', email);
-          await prefs.setString('user_name', name);
-
-          return {
-            'success': true,
-            'message': 'Регистрация успешна',
-          };
-        }
-
-        // Если это JSON с ошибками
-        if (response.data is Map) {
-          final data = response.data as Map;
-
-          // Ошибки валидации Laravel
-          if (data.containsKey('errors')) {
-            final errors = data['errors'];
-            String errorMessage = 'Ошибка регистрации';
-
-            if (errors['email'] != null) {
-              final emailErrors = errors['email'] as List;
-              if (emailErrors.isNotEmpty) {
-                if (emailErrors[0].toString().contains('уже') ||
-                    emailErrors[0].toString().contains('already') ||
-                    emailErrors[0].toString().contains('taken')) {
-                  errorMessage = 'Аккаунт с таким email уже существует';
-                } else {
-                  errorMessage = emailErrors[0].toString();
-                }
-              }
-            } else if (errors['name'] != null) {
-              final nameErrors = errors['name'] as List;
-              if (nameErrors.isNotEmpty) {
-                errorMessage = nameErrors[0].toString();
-              }
-            } else if (errors['password'] != null) {
-              final passwordErrors = errors['password'] as List;
-              if (passwordErrors.isNotEmpty) {
-                errorMessage = passwordErrors[0].toString();
-              }
-            }
-
-            return {
-              'success': false,
-              'message': errorMessage,
-            };
-          }
-
-          // Общая ошибка
-          if (data.containsKey('message')) {
-            return {
-              'success': false,
-              'message': data['message'].toString(),
-            };
-          }
-        }
-
-        // Если дошли сюда без ошибок, считаем успехом
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('is_logged_in', true);
-        await prefs.setString('user_email', email);
-        await prefs.setString('user_name', name);
-
-        return {
-          'success': true,
-          'message': 'Регистрация успешна',
-        };
-      } else if (response.statusCode == 422) {
-        // Ошибки валидации
-        final data = response.data;
-        String errorMessage = 'Ошибка регистрации';
-
-        if (data is Map && data.containsKey('errors')) {
-          final errors = data['errors'];
-
-          if (errors['email'] != null) {
-            final emailErrors = errors['email'] as List;
-            if (emailErrors.isNotEmpty) {
-              if (emailErrors[0].toString().contains('уже') ||
-                  emailErrors[0].toString().contains('already') ||
-                  emailErrors[0].toString().contains('taken')) {
-                errorMessage = 'Аккаунт с таким email уже существует';
-              } else {
-                errorMessage = emailErrors[0].toString();
-              }
-            }
-          } else if (errors['name'] != null) {
-            final nameErrors = errors['name'] as List;
-            if (nameErrors.isNotEmpty) {
-              errorMessage = nameErrors[0].toString();
-            }
-          } else if (errors['password'] != null) {
-            final passwordErrors = errors['password'] as List;
-            if (passwordErrors.isNotEmpty) {
-              errorMessage = passwordErrors[0].toString();
-            }
-          }
-        }
-
-        return {
-          'success': false,
-          'message': errorMessage,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка регистрации (код: ${response.statusCode})',
-        };
-      }
+      print('❌ CSRF Token not found');
+      return null;
     } catch (e) {
-      print('❌ Registration error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения с сервером',
+      print('❌ Error getting CSRF token: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> _login(String email, String password) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      // Получаем свежий CSRF токен
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        throw Exception('Не удалось получить CSRF токен');
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'email': email,
+        'password': password,
       };
-    }
-  }
 
-  // Вход
-  static Future<Map<String, dynamic>> login({
-    required String email,
-    required String password,
-  }) async {
-    await initialize();
-
-    print('🔐 Attempting login for: $email');
-
-    try {
-      final csrfToken = await _getCsrfToken();
-
-      if (csrfToken == null) {
-        return {
-          'success': false,
-          'message': 'Не удалось получить CSRF токен',
-        };
-      }
+      print('🔐 Login attempt with email: $email');
 
       final response = await _dio.post(
         '/login',
-        data: {
-          '_token': csrfToken,
-          'email': email,
-          'password': password,
-        },
+        data: formData,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
           headers: {
-            'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
+            'Origin': _baseUrl,
+            'Referer': '$_baseUrl/login',
           },
+          followRedirects: false, // Не следовать редиректам автоматически
+          validateStatus: (status) => status! < 500, // Принимать статусы < 500
         ),
       );
 
-      print('📡 Login response: ${response.statusCode}');
-      print('📡 Login data: ${response.data}');
+      print('📡 Login response status: ${response.statusCode}');
+      print('📡 Login response headers: ${response.headers}');
 
+      // Проверяем редирект на профиль (успешный вход)
       if (response.statusCode == 302) {
-        // Успешный вход - редирект на профиль
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('is_logged_in', true);
-        await prefs.setString('user_email', email);
+        final location = response.headers['location']?.first;
+        if (location != null && location.contains('/profile')) {
+          await _saveCookies();
 
-        return {
-          'success': true,
-          'message': 'Вход успешен',
-        };
-      } else if (response.statusCode == 200) {
-        // Проверяем HTML ответ на наличие ошибок
-        if (response.data is String) {
-          final html = response.data as String;
-
-          // Ищем ошибки входа в HTML
-          if (html.contains('Неверные учетные данные') ||
-              html.contains('Неверный email или пароль') ||
-              html.contains('Invalid credentials') ||
-              html.contains('Ошибка входа') ||
-              html.contains('login error')) {
-            return {
-              'success': false,
-              'message': 'Неверный email или пароль',
-            };
-          }
-
-          // Если нет ошибок, считаем успехом
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('is_logged_in', true);
-          await prefs.setString('user_email', email);
+          await prefs.setBool('isLoggedIn', true);
+          await prefs.setString('userEmail', email);
 
-          return {
-            'success': true,
-            'message': 'Вход успешен',
-          };
+          return {'success': true, 'message': 'Вход выполнен успешно'};
         }
-
-        // Если это JSON с ошибками
-        if (response.data is Map) {
-          final data = response.data as Map;
-
-          // Ошибки валидации Laravel
-          if (data.containsKey('errors')) {
-            final errors = data['errors'];
-            String errorMessage = 'Ошибка входа';
-
-            if (errors['email'] != null) {
-              final emailErrors = errors['email'] as List;
-              if (emailErrors.isNotEmpty) {
-                errorMessage = emailErrors[0].toString();
-              }
-            }
-          }
-
-          // Общая ошибка
-          if (data.containsKey('message')) {
-            String message = data['message'].toString();
-            if (message.contains('Неверные учетные данные') ||
-                message.contains('Invalid credentials')) {
-              message = 'Неверный email или пароль';
-            }
-            return {
-              'success': false,
-              'message': message,
-            };
-          }
-        }
-
-        // Если дошли сюда без ошибок, считаем успехом
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('is_logged_in', true);
-        await prefs.setString('user_email', email);
-
-        return {
-          'success': true,
-          'message': 'Вход успешен',
-        };
-      } else if (response.statusCode == 401 || response.statusCode == 422) {
-        // Неверные учетные данные
-        String errorMessage = 'Неверный email или пароль';
-
-        if (response.data is Map) {
-          final data = response.data as Map;
-          if (data.containsKey('message')) {
-            final message = data['message'].toString();
-            if (message.isNotEmpty) {
-              errorMessage = message;
-            }
-          } else if (data.containsKey('errors')) {
-            final errors = data['errors'];
-            if (errors['email'] != null) {
-              final emailErrors = errors['email'] as List;
-              if (emailErrors.isNotEmpty) {
-                errorMessage = emailErrors[0].toString();
-              }
-            }
-          }
-        }
-
-        return {
-          'success': false,
-          'message': errorMessage,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка входа (код: ${response.statusCode})',
-        };
       }
+
+      // Если нет редиректа, проверяем содержимое ответа
+      final responseText = response.data.toString();
+      if (responseText.contains('Неверный email или пароль') ||
+          responseText.contains('Invalid credentials')) {
+        return {'success': false, 'message': 'Неверный email или пароль'};
+      }
+
+      return {'success': false, 'message': 'Ошибка входа. Проверьте данные.'};
     } catch (e) {
       print('❌ Login error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения с сервером',
-      };
+
+      if (e is DioException) {
+        final response = e.response;
+        if (response != null) {
+          final responseText = response.data.toString();
+          if (responseText.contains('Неверный email или пароль') ||
+              responseText.contains('Invalid credentials')) {
+            return {'success': false, 'message': 'Неверный email или пароль'};
+          }
+        }
+      }
+
+      return {'success': false, 'message': 'Ошибка сети: $e'};
     }
   }
 
-  // Выход
-  static Future<Map<String, dynamic>> logout() async {
-    await initialize();
-
+  Future<Map<String, dynamic>> _register(String name, String email, String password) async {
     try {
-      final csrfToken = await _getCsrfToken();
+      if (!_isInitialized) await initialize();
 
+      // Получаем свежий CSRF токен
+      final csrfToken = await _getCsrfToken();
       if (csrfToken == null) {
-        return {
-          'success': false,
-          'message': 'Не удалось получить CSRF токен',
-        };
+        throw Exception('Не удалось получить CSRF токен');
       }
 
+      final formData = {
+        '_token': csrfToken,
+        'name': name,
+        'email': email,
+        'password': password,
+        'password_confirmation': password,
+      };
+
+      print('📝 Registration attempt with email: $email');
+
       final response = await _dio.post(
-        '/logout',
-        data: {
-          '_token': csrfToken,
-        },
+        '/register',
+        data: formData,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Origin': _baseUrl,
+            'Referer': '$_baseUrl/register',
+          },
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
         ),
       );
 
-      if (response.statusCode == 302 || response.statusCode == 200) {
-        await _clearAuthData();
-        return {
-          'success': true,
-          'message': 'Выход выполнен',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка выхода',
-        };
+      print('📡 Registration response status: ${response.statusCode}');
+
+      // Проверяем редирект на профиль (успешная регистрация)
+      if (response.statusCode == 302) {
+        final location = response.headers['location']?.first;
+        if (location != null && location.contains('/profile')) {
+          await _saveCookies();
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('isLoggedIn', true);
+          await prefs.setString('userEmail', email);
+
+          return {'success': true, 'message': 'Регистрация успешна'};
+        }
       }
+
+      // Проверяем ошибки валидации
+      final responseText = response.data.toString();
+      if (responseText.contains('email has already been taken') ||
+          responseText.contains('Email уже используется')) {
+        return {'success': false, 'message': 'Email уже используется'};
+      }
+
+      if (responseText.contains('password confirmation') ||
+          responseText.contains('Пароли не совпадают')) {
+        return {'success': false, 'message': 'Пароли не совпадают'};
+      }
+
+      return {'success': false, 'message': 'Ошибка регистрации. Проверьте данные.'};
     } catch (e) {
-      print('❌ Logout error: $e');
-      await _clearAuthData();
-      return {
-        'success': false,
-        'message': 'Ошибка соединения',
-      };
+      print('❌ Registration error: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
     }
   }
 
-  // ============ ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ============
-
-  // Получение профиля
-  static Future<Map<String, dynamic>> getProfile() async {
-    await initialize();
-
+  Future<Map<String, dynamic>?> getProfile() async {
     try {
+      if (!_isInitialized) await initialize();
+      await _loadCookies();
+
       final response = await _dio.get('/profile');
 
       if (response.statusCode == 200) {
-        // Парсим HTML профиля
-        final html = response.data as String;
-        final user = _parseUserFromHtml(html);
-
-        return {
-          'success': true,
-          'user': user,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка получения профиля',
-        };
+        final html = response.data.toString();
+        return _parseUserDataFromHtml(html);
       }
+
+      return null;
     } catch (e) {
       print('❌ Get profile error: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfile(String name, String email) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      // Получаем свежий CSRF токен
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        throw Exception('Не удалось получить CSRF токен');
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'name': name,
+        'email': email,
+      };
+
+      print('📝 Updating profile: $name, $email');
+
+      final response = await _dio.post(
+        '/profile/update',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Origin': _baseUrl,
+            'Referer': '$_baseUrl/profile',
+          },
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      print('📡 Profile update response status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 302) {
+        return {'success': true, 'message': 'Профиль успешно обновлен'};
+      } else {
+        return {'success': false, 'message': 'Ошибка обновления профиля'};
+      }
+    } catch (e) {
+      print('❌ Profile update error: $e');
+
+      // Если эндпоинт не существует, сохраняем локально
+      if (e is DioException && e.response?.statusCode == 404) {
+        print('⚠️ Profile update endpoint not found, saving locally only');
+        return {
+          'success': true,
+          'message': 'Имя сохранено локально (сервер не поддерживает обновление)'
+        };
+      }
+
       return {
         'success': false,
-        'message': 'Ошибка соединения',
+        'message': 'Ошибка обновления профиля: $e'
       };
     }
   }
 
-  // Обновление аватара
-  static Future<Map<String, dynamic>> updateAvatar(String imagePath) async {
-    await initialize();
-
+  Future<String?> downloadAvatar(String avatarUrl) async {
     try {
-      final csrfToken = await _getCsrfToken();
+      if (!_isInitialized) await initialize();
 
-      if (csrfToken == null) {
-        return {
-          'success': false,
-          'message': 'Не удалось получить CSRF токен',
-        };
+      print('📥 Downloading avatar from: $avatarUrl');
+
+      final response = await _dio.get(
+        avatarUrl,
+        options: Options(
+          responseType: ResponseType.bytes,
+          followRedirects: true,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final avatarDir = Directory('${appDir.path}/avatars');
+
+        if (!await avatarDir.exists()) {
+          await avatarDir.create(recursive: true);
+        }
+
+        final fileName = 'server_avatar_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final filePath = '${avatarDir.path}/$fileName';
+
+        final file = File(filePath);
+        await file.writeAsBytes(response.data);
+
+        print('✅ Avatar downloaded successfully: $filePath');
+        return filePath;
       }
 
+      return null;
+    } catch (e) {
+      print('❌ Avatar download error: $e');
+      return null;
+    }
+  }
+
+  Future<bool> checkServerLoginStatus() async {
+    try {
+      final profile = await getProfile();
+      return profile != null;
+    } catch (e) {
+      print('❌ Server login check error: $e');
+      return false;
+    }
+  }
+
+  Future<void> _logout() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken != null) {
+        await _dio.post(
+          '/logout',
+          data: {'_token': csrfToken},
+          options: Options(
+            contentType: Headers.formUrlEncodedContentType,
+            validateStatus: (status) => status! < 500,
+          ),
+        );
+      }
+
+      await _clearCookies();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', false);
+      await prefs.remove('userEmail');
+
+      print('✅ Logout successful');
+    } catch (e) {
+      print('❌ Logout error: $e');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', false);
+      await prefs.remove('userEmail');
+    }
+  }
+
+  // Заглушки для методов, которые могут быть не реализованы на сервере
+  Future<void> _updateTopicProgress(String subject, String topicName, int correctAnswers) async {
+    // Локальное сохранение прогресса
+    final prefs = await SharedPreferences.getInstance();
+    final progressKey = 'progress_${subject}_$topicName';
+    await prefs.setInt(progressKey, correctAnswers);
+    print('✅ Progress saved locally: $subject - $topicName: $correctAnswers');
+  }
+
+  Future<Map<String, dynamic>?> _getUserProgress() async {
+    // Локальное получение прогресса
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((key) => key.startsWith('progress_')).toList();
+
+    final progress = <String, Map<String, int>>{};
+    for (final key in keys) {
+      final parts = key.replaceFirst('progress_', '').split('_');
+      if (parts.length >= 2) {
+        final subject = parts[0];
+        final topicName = parts.sublist(1).join('_');
+        final correctAnswers = prefs.getInt(key) ?? 0;
+
+        if (!progress.containsKey(subject)) {
+          progress[subject] = {};
+        }
+        progress[subject]![topicName] = correctAnswers;
+      }
+    }
+
+    return {'progress': progress};
+  }
+
+  Future<Map<String, dynamic>> _updateAvatar(String imagePath) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      // Получаем свежий CSRF токен
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        throw Exception('Не удалось получить CSRF токен');
+      }
+
+      print('🖼️ Uploading avatar: $imagePath');
+
+      // Создаем FormData для загрузки файла
       final formData = FormData.fromMap({
         '_token': csrfToken,
-        'avatar': await MultipartFile.fromFile(imagePath),
+        'avatar': await MultipartFile.fromFile(
+          imagePath,
+          filename: 'avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ),
       });
 
       final response = await _dio.post(
         '/profile/avatar',
         data: formData,
         options: Options(
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Origin': _baseUrl,
+            'Referer': '$_baseUrl/profile',
+          },
           contentType: 'multipart/form-data',
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
         ),
       );
+
+      print('📡 Avatar upload response status: ${response.statusCode}');
 
       if (response.statusCode == 200 || response.statusCode == 302) {
+        // Успешная загрузка аватара
+        print('✅ Avatar uploaded successfully to server');
         return {
           'success': true,
-          'message': 'Аватар успешно обновлен',
+          'message': 'Аватар успешно обновлен на сервере',
+          'avatar_url': _extractAvatarUrlFromResponse(response)
         };
       } else {
+        print('❌ Avatar upload failed with status: ${response.statusCode}');
         return {
           'success': false,
-          'message': 'Ошибка обновления аватара',
+          'message': 'Ошибка загрузки аватара на сервер'
         };
       }
     } catch (e) {
-      print('❌ Update avatar error: $e');
+      print('❌ Avatar upload error: $e');
+
+      // Если эндпоинт не существует, сохраняем локально
+      if (e is DioException && e.response?.statusCode == 404) {
+        print('⚠️ Avatar endpoint not found, saving locally only');
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_avatar_path', imagePath);
+        return {
+          'success': true,
+          'message': 'Аватар сохранен локально (сервер не поддерживает загрузку)'
+        };
+      }
+
       return {
         'success': false,
-        'message': 'Ошибка загрузки',
+        'message': 'Ошибка загрузки аватара: $e'
       };
     }
   }
 
-  // Удаление аватара
-  static Future<Map<String, dynamic>> deleteAvatar() async {
-    await initialize();
-
+  String? _extractAvatarUrlFromResponse(Response response) {
     try {
-      final csrfToken = await _getCsrfToken();
+      final responseText = response.data.toString();
 
-      if (csrfToken == null) {
-        return {
-          'success': false,
-          'message': 'Не удалось получить CSRF токен',
-        };
+      // Пытаемся найти URL аватара в ответе
+      final avatarPattern = RegExp(r'src="([^"]*avatar[^"]*)"');
+      final match = avatarPattern.firstMatch(responseText);
+
+      if (match != null) {
+        final avatarUrl = match.group(1);
+        print('🖼️ Extracted avatar URL: $avatarUrl');
+        return avatarUrl;
       }
 
-      final response = await _dio.post(
-        '/profile/avatar/delete',
-        data: {
-          '_token': csrfToken,
-        },
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-        ),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 302) {
-        return {
-          'success': true,
-          'message': 'Аватар успешно удален',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка удаления аватара',
-        };
-      }
+      return null;
     } catch (e) {
-      print('❌ Delete avatar error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения',
-      };
+      print('❌ Error extracting avatar URL: $e');
+      return null;
     }
   }
 
-  // ============ ПРОГРЕСС ОБУЧЕНИЯ ============
-
-  // Обновление прогресса темы
-  static Future<Map<String, dynamic>> updateTopicProgress({
-    required String subject,
-    required String topic,
-    required int correctAnswers,
-  }) async {
-    await initialize();
+  Future<Map<String, dynamic>> _discoverEndpoints() async {
+    // Проверка доступности эндпоинтов
+    final endpoints = <String, bool>{};
 
     try {
-      final csrfToken = await _getCsrfToken();
-
-      if (csrfToken == null) {
-        return {
-          'success': false,
-          'message': 'Не удалось получить CSRF токен',
-        };
-      }
-
-      final response = await _dio.post(
-        '/api/progress',
-        data: {
-          '_token': csrfToken,
-          'subject': subject,
-          'topic': topic,
-          'correct_answers': correctAnswers,
-        },
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'message': 'Прогресс сохранен',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка сохранения прогресса',
-        };
-      }
-    } catch (e) {
-      print('❌ Update progress error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка синхронизации',
-      };
-    }
-  }
-
-  // Получение прогресса пользователя
-  static Future<Map<String, dynamic>> getUserProgress() async {
-    await initialize();
-
-    try {
-      final response = await _dio.get('/api/progress');
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'progress': response.data,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка получения прогресса',
-        };
-      }
-    } catch (e) {
-      print('❌ Get progress error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения',
-      };
-    }
-  }
-
-  // Обновление ежедневного прогресса
-  static Future<Map<String, dynamic>> updateDailyProgress() async {
-    await initialize();
-
-    try {
-      final csrfToken = await _getCsrfToken();
-
-      if (csrfToken == null) {
-        return {
-          'success': false,
-          'message': 'Не удалось получить CSRF токен',
-        };
-      }
-
-      final response = await _dio.post(
-        '/api/daily-progress',
-        data: {
-          '_token': csrfToken,
-        },
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'message': 'Ежедневный прогресс обновлен',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка обновления прогресса',
-        };
-      }
-    } catch (e) {
-      print('❌ Update daily progress error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка синхронизации',
-      };
-    }
-  }
-
-  // ============ СТАТИСТИКА ============
-
-  // Получение статистики
-  static Future<Map<String, dynamic>> getStats() async {
-    await initialize();
-
-    try {
-      final response = await _dio.get('/api/stats');
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'stats': response.data,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка получения статистики',
-        };
-      }
-    } catch (e) {
-      print('❌ Get stats error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения',
-      };
-    }
-  }
-
-  // Получение стрика (дней подряд)
-  static Future<Map<String, dynamic>> getStreak() async {
-    await initialize();
-
-    try {
-      final response = await _dio.get('/api/streak');
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'streak': response.data,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка получения стрика',
-        };
-      }
-    } catch (e) {
-      print('❌ Get streak error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения',
-      };
-    }
-  }
-
-  // ============ ПРЕДМЕТЫ И ТЕМЫ ============
-
-  // Получение списка предметов
-  static Future<Map<String, dynamic>> getSubjects() async {
-    await initialize();
-
-    try {
-      final response = await _dio.get('/api/subjects');
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'subjects': response.data,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка получения предметов',
-        };
-      }
-    } catch (e) {
-      print('❌ Get subjects error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения',
-      };
-    }
-  }
-
-  // Получение тем по предмету
-  static Future<Map<String, dynamic>> getTopics(String subject) async {
-    await initialize();
-
-    try {
-      final response = await _dio.get('/api/topics/$subject');
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'topics': response.data,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка получения тем',
-        };
-      }
-    } catch (e) {
-      print('❌ Get topics error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения',
-      };
-    }
-  }
-
-  // Получение вопросов по теме
-  static Future<Map<String, dynamic>> getQuestions(String topicId) async {
-    await initialize();
-
-    try {
-      final response = await _dio.get('/api/questions/$topicId');
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'questions': response.data,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'Ошибка получения вопросов',
-        };
-      }
-    } catch (e) {
-      print('❌ Get questions error: $e');
-      return {
-        'success': false,
-        'message': 'Ошибка соединения',
-      };
-    }
-  }
-
-  // ============ УТИЛИТЫ ============
-
-  // Проверка доступности сервера
-  static Future<bool> checkServerAvailability() async {
-    try {
-      await initialize();
       final response = await _dio.get('/');
-      return response.statusCode == 200;
+      endpoints['/'] = response.statusCode == 200;
     } catch (e) {
-      print('Server availability check failed: $e');
-      return false;
+      endpoints['/'] = false;
+    }
+
+    try {
+      final response = await _dio.get('/login');
+      endpoints['/login'] = response.statusCode == 200;
+    } catch (e) {
+      endpoints['/login'] = false;
+    }
+
+    try {
+      final response = await _dio.get('/register');
+      endpoints['/register'] = response.statusCode == 200;
+    } catch (e) {
+      endpoints['/register'] = false;
+    }
+
+    try {
+      final response = await _dio.get('/profile');
+      endpoints['/profile'] = response.statusCode == 200;
+    } catch (e) {
+      endpoints['/profile'] = false;
+    }
+
+    // Проверяем эндпоинт для загрузки аватара
+    try {
+      final response = await _dio.get('/profile/avatar');
+      endpoints['/profile/avatar'] = response.statusCode == 200;
+    } catch (e) {
+      endpoints['/profile/avatar'] = false;
+    }
+
+    return {
+      'success': true,
+      'endpoints': endpoints,
+      'message': 'Проверка эндпоинтов завершена'
+    };
+  }
+
+  void _saveCookiesFromResponse(Response response) {
+    final cookies = response.headers['set-cookie'];
+    if (cookies != null) {
+      for (final cookie in cookies) {
+        if (cookie.contains('laravel-session')) {
+          _sessionCookie = cookie.split(';').first;
+        } else if (cookie.contains('XSRF-TOKEN')) {
+          final tokenMatch = RegExp(r'XSRF-TOKEN=([^;]+)').firstMatch(cookie);
+          if (tokenMatch != null) {
+            _csrfToken = Uri.decodeComponent(tokenMatch.group(1)!);
+          }
+        }
+      }
+      _saveCookies();
     }
   }
 
-  // Проверка статуса авторизации
-  static Future<bool> isLoggedIn() async {
+  Future<void> _saveCookies() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('is_logged_in') ?? false;
+    if (_sessionCookie != null) {
+      await prefs.setString('session_cookie', _sessionCookie!);
+    }
+    if (_csrfToken != null) {
+      await prefs.setString('csrf_token', _csrfToken!);
+    }
   }
 
-  // Очистка данных авторизации
-  static Future<void> _clearAuthData() async {
+  Future<void> _loadCookies() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('is_logged_in');
-    await prefs.remove('user_email');
-    await prefs.remove('user_name');
-    await prefs.remove('user_avatar_path');
-    await _cookieJar.deleteAll();
+    _sessionCookie = prefs.getString('session_cookie');
+    _csrfToken = prefs.getString('csrf_token');
+
+    print('🍪 Loaded cookies - Session: ${_sessionCookie != null ? "Yes" : "No"}, CSRF: ${_csrfToken != null ? "Yes" : "No"}');
+  }
+
+  Future<void> _clearCookies() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('session_cookie');
+    await prefs.remove('csrf_token');
+    _sessionCookie = null;
     _csrfToken = null;
   }
 
-  // Парсинг пользователя из HTML
-  static Map<String, dynamic> _parseUserFromHtml(String html) {
+  Map<String, dynamic> _parseUserDataFromHtml(String html) {
     try {
-      final nameRegex = RegExp(r'<h1[^>]*>([^<]+)</h1>');
-      final emailRegex = RegExp(r'<p[^>]*>Email:\s*([^<]+)</p>');
-      final avatarRegex = RegExp(r'<img[^>]*src="([^"]+)"[^>]*alt="Avatar"');
-      final streakRegex = RegExp(r'<p[^>]*>Streak:\s*(\d+)</p>');
+      // Парсим имя пользователя
+      final namePattern1 = RegExp(r'<p class="text-gray-600">([^<]+)</p>');
+      final namePattern2 = RegExp(r'<h2[^>]*>([^<]+)</h2>');
+      final namePattern3 = RegExp(r'<div[^>]*class="[^"]*name[^"]*"[^>]*>([^<]+)</div>');
 
-      final nameMatch = nameRegex.firstMatch(html);
-      final emailMatch = emailRegex.firstMatch(html);
-      final avatarMatch = avatarRegex.firstMatch(html);
-      final streakMatch = streakRegex.firstMatch(html);
+      String name = 'Пользователь';
+      final nameMatch1 = namePattern1.firstMatch(html);
+      final nameMatch2 = namePattern2.firstMatch(html);
+      final nameMatch3 = namePattern3.firstMatch(html);
+
+      if (nameMatch1 != null) {
+        name = nameMatch1.group(1)!.trim();
+      } else if (nameMatch2 != null) {
+        name = nameMatch2.group(1)!.trim();
+      } else if (nameMatch3 != null) {
+        name = nameMatch3.group(1)!.trim();
+      }
+
+      // Парсим аватар
+      final avatarPattern1 = RegExp(r'<img[^>]*src="([^"]*avatar[^"]*)"');
+      final avatarPattern2 = RegExp(r'<img[^>]*src="([^"]*uploads[^"]*)"');
+      final avatarPattern3 = RegExp(r'<img[^>]*src="(/storage/[^"]*)"');
+
+      String avatarUrl = '';
+      final avatarMatch1 = avatarPattern1.firstMatch(html);
+      final avatarMatch2 = avatarPattern2.firstMatch(html);
+      final avatarMatch3 = avatarPattern3.firstMatch(html);
+
+      if (avatarMatch1 != null) {
+        avatarUrl = avatarMatch1.group(1)!;
+      } else if (avatarMatch2 != null) {
+        avatarUrl = avatarMatch2.group(1)!;
+      } else if (avatarMatch3 != null) {
+        avatarUrl = '$_baseUrl${avatarMatch3.group(1)!}';
+      }
+
+      // Если URL относительный, делаем его абсолютным
+      if (avatarUrl.isNotEmpty && avatarUrl.startsWith('/')) {
+        avatarUrl = '$_baseUrl$avatarUrl';
+      }
+
+      print('👤 Parsed user data - Name: $name, Avatar: $avatarUrl');
 
       return {
-        'name': nameMatch?.group(1)?.trim() ?? '',
-        'email': emailMatch?.group(1)?.trim() ?? '',
-        'avatar_url': avatarMatch?.group(1) ?? '',
-        'streak': int.tryParse(streakMatch?.group(1) ?? '0') ?? 0,
+        'name': name,
+        'email': '',
+        'avatar_url': avatarUrl,
+        'streak': 0,
       };
     } catch (e) {
-      print('Error parsing user from HTML: $e');
+      print('❌ Error parsing user data: $e');
       return {
-        'name': '',
+        'name': 'Пользователь',
         'email': '',
         'avatar_url': '',
         'streak': 0,
       };
     }
-  }
-
-  // Discovery endpoints для отладки
-  static Future<Map<String, dynamic>> discoverEndpoints() async {
-    await initialize();
-
-    final results = <String, dynamic>{};
-    final endpointsToTest = [
-      '/',
-      '/register',
-      '/login',
-      '/logout',
-      '/profile',
-      '/api/register',
-      '/api/login',
-      '/api/logout',
-      '/api/profile',
-      '/api/progress',
-      '/api/stats',
-      '/api/streak',
-      '/api/subjects',
-    ];
-
-    for (final endpoint in endpointsToTest) {
-      try {
-        final response = await _dio.get(endpoint);
-        results[endpoint] = {
-          'status': response.statusCode,
-          'exists': response.statusCode != 404,
-        };
-      } catch (e) {
-        results[endpoint] = {
-          'status': 'error',
-          'exists': false,
-          'error': e.toString(),
-        };
-      }
-    }
-
-    return results;
   }
 }

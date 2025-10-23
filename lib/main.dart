@@ -7,6 +7,7 @@ import 'screens/main_screen.dart';
 import 'screens/auth_screen.dart';
 import 'theme/theme_manager.dart';
 import 'services/api_service.dart';
+import 'data/user_data_storage.dart';
 
 void main() {
   runApp(
@@ -61,6 +62,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _checkAuthStatus() async {
     try {
       final isLoggedIn = await ApiService.isLoggedIn();
+
+      if (isLoggedIn) {
+        // Синхронизируем данные при запуске приложения
+        await UserDataStorage.syncFromServer();
+      }
 
       setState(() {
         _isAuthenticated = isLoggedIn;
