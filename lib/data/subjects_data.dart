@@ -10,7 +10,7 @@ import 'physics_data.dart';
 // import 'biology_data.dart';
 // import 'chemistry_data.dart';
 // import 'geography_data.dart';
-// import 'history_data.dart';
+import 'history_data.dart';
 // import 'social_studies_data.dart';
 // import 'statistics_probability_data.dart';
 import '../models/subject.dart';
@@ -40,7 +40,7 @@ final Map<int, List<Subject>> subjectsByGrade = {
     // ...englishSubjects5,
     // ...literatureSubjects5,
     // ...biologySubjects5,
-    // ...historySubjects5,
+    ...historySubjects5,
     // ...geographySubjects5,
   ],
   6: [
@@ -51,7 +51,7 @@ final Map<int, List<Subject>> subjectsByGrade = {
     // ...englishSubjects6,
     // ...literatureSubjects6,
     // ...biologySubjects6,
-    // ...historySubjects6,
+    ...historySubjects6,
     // ...geographySubjects6,
     // ...socialStudiesSubjects6,
   ],
@@ -64,7 +64,7 @@ final Map<int, List<Subject>> subjectsByGrade = {
     // ...englishSubjects7,
     // ...literatureSubjects7,
     // ...biologySubjects7,
-    // ...historySubjects7,
+    ...historySubjects7,
     // ...geographySubjects7,
     // ...socialStudiesSubjects7,
   ],
@@ -78,7 +78,7 @@ final Map<int, List<Subject>> subjectsByGrade = {
     // ...literatureSubjects8,
     // ...biologySubjects8,
     // ...chemistrySubjects8,
-    // ...historySubjects8,
+    ...historySubjects8,
     // ...geographySubjects8,
     // ...socialStudiesSubjects8,
   ],
@@ -92,7 +92,7 @@ final Map<int, List<Subject>> subjectsByGrade = {
     // ...literatureSubjects9,
     // ...biologySubjects9,
     // ...chemistrySubjects9,
-    // ...historySubjects9,
+    ...historySubjects9,
     // ...geographySubjects9,
     // ...socialStudiesSubjects9,
   ],
@@ -106,7 +106,7 @@ final Map<int, List<Subject>> subjectsByGrade = {
     // ...literatureSubjects10,
     // ...biologySubjects10,
     // ...chemistrySubjects10,
-    // ...historySubjects10,
+    ...historySubjects10,
     // ...geographySubjects10,
     // ...socialStudiesSubjects10,
     // ...computerScienceSubjects10,
@@ -122,7 +122,7 @@ final Map<int, List<Subject>> subjectsByGrade = {
     // ...literatureSubjects11,
     // ...biologySubjects11,
     // ...chemistrySubjects11,
-    // ...historySubjects11,
+    ...historySubjects11,
     // ...geographySubjects11,
     // ...socialStudiesSubjects11,
     // ...computerScienceSubjects11,
@@ -141,7 +141,8 @@ final Map<String, String> subjectEmojis = {
   'Физика': '⚡',
   'Химия': '🧪',
   'География': '🌍',
-  'История': '🏛️',
+  'История России': '🇷🇺',
+  'Всеобщая история': '🏛️',
   'Обществознание': '👥',
   'Информатика': '💻',
   'Статистика и вероятность': '📊',

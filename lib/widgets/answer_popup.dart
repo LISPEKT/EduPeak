@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 class AnswerPopup extends StatelessWidget {
   final dynamic question;
@@ -14,8 +13,8 @@ class AnswerPopup extends StatelessWidget {
     required this.selectedAnswer,
     required this.onContinue,
     required this.isLastQuestion,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +170,7 @@ class AnswerPopup extends StatelessWidget {
                               ),
                               child: Text(
                                 getCorrectAnswer(),
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Colors.green,
                                   fontWeight: FontWeight.w500,
                                 ),

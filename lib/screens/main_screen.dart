@@ -1,4 +1,3 @@
-// lib/screens/main_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
@@ -10,7 +9,11 @@ import '../theme/app_theme.dart';
 import 'topic_popup.dart';
 import 'settings_screen.dart';
 import 'auth_screen.dart';
+import 'profile_screen.dart';
+import 'statistics_screen.dart';
+import 'subscription_screen.dart';
 import '../services/api_service.dart';
+import '../localization.dart';
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -37,6 +40,7 @@ class _MainScreenState extends State<MainScreen> {
   );
 
   final GlobalKey<_OptimizedTopicsListViewState> _topicsListKey = GlobalKey();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -80,12 +84,17 @@ class _MainScreenState extends State<MainScreen> {
           _userStats = stats;
           _username = username;
           _avatar = avatar;
-          _dailyCompleted = stats.dailyCompletion[DateTime.now().toIso8601String().split('T')[0]] ?? false;
+          _dailyCompleted =
+              stats.dailyCompletion[DateTime.now().toIso8601String().split(
+                  'T')[0]] ?? false;
         });
       }
 
-      print('👤 User data loaded - Username: $username, Avatar: ${avatar != '👤' ? "Custom" : "Default"}, Streak: ${stats.streakDays} days');
-      print('📊 Progress stats: ${stats.topicProgress.length} subjects, ${_calculateTotalTopics(stats)} topics completed');
+      print('👤 User data loaded - Username: $username, Avatar: ${avatar != '👤'
+          ? "Custom"
+          : "Default"}, Streak: ${stats.streakDays} days');
+      print('📊 Progress stats: ${stats.topicProgress
+          .length} subjects, ${_calculateTotalTopics(stats)} topics completed');
     } catch (e) {
       print('❌ Error loading user data: $e');
     }
@@ -150,8 +159,10 @@ class _MainScreenState extends State<MainScreen> {
     if (_searchQuery.isNotEmpty) {
       return allTopics.where((topic) {
         final topicData = topic is _TopicWithGrade ? topic.topic : topic;
-        return topicData.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            topicData.description.toLowerCase().contains(_searchQuery.toLowerCase());
+        return topicData.name.toLowerCase().contains(
+            _searchQuery.toLowerCase()) ||
+            topicData.description.toLowerCase().contains(
+                _searchQuery.toLowerCase());
       }).toList();
     } else {
       return allTopics;
@@ -196,11 +207,14 @@ class _MainScreenState extends State<MainScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => TopicPopup(
-        topic: topic is _TopicWithGrade ? topic.topic : topic,
-        currentGrade: topic is _TopicWithGrade ? topic.grade : _selectedGrade,
-        currentSubject: _selectedSubject,
-      ),
+      builder: (context) =>
+          TopicPopup(
+            topic: topic is _TopicWithGrade ? topic.topic : topic,
+            currentGrade: topic is _TopicWithGrade
+                ? topic.grade
+                : _selectedGrade,
+            currentSubject: _selectedSubject,
+          ),
     );
   }
 
@@ -243,7 +257,53 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  void _openProfile() {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ProfileScreen(
+              currentAvatar: _avatar,
+              onAvatarUpdate: (newAvatar) {
+                setState(() {
+                  _avatar = newAvatar;
+                });
+                UserDataStorage.saveAvatar(newAvatar);
+              },
+              onUsernameUpdate: (newUsername) {
+                setState(() {
+                  _username = newUsername;
+                });
+                UserDataStorage.saveUsername(newUsername);
+              },
+            ),
+      ),
+    ).then((_) => _refreshData());
+  }
+
+  void _openStatistics() {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StatisticsScreen(userStats: _userStats),
+      ),
+    );
+  }
+
+  void _openSubscription() {
+    Navigator.pop(context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const SubscriptionScreen(),
+      ),
+    );
+  }
+
   void _openSettings() {
+    Navigator.pop(context);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -251,56 +311,49 @@ class _MainScreenState extends State<MainScreen> {
           onLogout: () {
             widget.onLogout();
           },
-          currentAvatar: _avatar,
-          onAvatarUpdate: (newAvatar) {
-            setState(() {
-              _avatar = newAvatar;
-            });
-            UserDataStorage.saveAvatar(newAvatar);
-          },
-          onUsernameUpdate: (newUsername) {
-            setState(() {
-              _username = newUsername;
-            });
-            UserDataStorage.saveUsername(newUsername);
-          },
         ),
       ),
     ).then((_) => _refreshData());
   }
 
+  void _openDrawer() {
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      key: _scaffoldKey,
+      backgroundColor: Theme
+          .of(context)
+          .scaffoldBackgroundColor,
+      drawer: _buildDrawer(appLocalizations),
       body: SafeArea(
         child: Column(
           children: [
-            // Верхняя панель с профилем
             _ProfileHeader(
               avatar: _avatar,
               isPhotoAvatar: _isPhotoAvatar(),
               username: _username,
               dailyCompleted: _dailyCompleted,
               streakDays: _userStats.streakDays,
-              onSettingsPressed: _openSettings,
+              onAvatarPressed: _openDrawer,
+              appLocalizations: appLocalizations,
             ),
-
-            // Выбор класса и предмета
             _GradeSubjectSelector(
               selectedGrade: _selectedGrade,
               selectedSubject: _selectedSubject,
               availableSubjects: _availableSubjects,
               onGradeChanged: _onGradeChanged,
               onSubjectChanged: _onSubjectChanged,
+              appLocalizations: appLocalizations,
             ),
-
-            // Поиск
             _SearchField(
               onChanged: _onSearchChanged,
+              appLocalizations: appLocalizations,
             ),
-
-            // Список тем
             Expanded(
               child: _OptimizedTopicsList(
                 filteredTopics: _filteredTopics,
@@ -308,9 +361,458 @@ class _MainScreenState extends State<MainScreen> {
                 onTopicTap: (topic) => _showTopicPopup(context, topic),
                 onRefresh: _refreshData,
                 listKey: _topicsListKey,
+                appLocalizations: appLocalizations,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawer(AppLocalizations appLocalizations) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final profileColor = isDark
+        ? const Color(0xFF2D4A2D)
+        : const Color(0xFFE8F5E8);
+
+    return Drawer(
+      backgroundColor: Theme.of(context).cardColor,
+      child: Column(
+        children: [
+          Container(
+            height: MediaQuery.of(context).padding.top,
+            color: profileColor,
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: profileColor,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(12),
+                bottomRight: Radius.circular(12),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: _openProfile,
+                  child: CircleAvatar(
+                    radius: 30,
+                    backgroundColor: isDark
+                        ? Colors.white.withOpacity(0.2)
+                        : Theme.of(context).primaryColor.withOpacity(0.2),
+                    backgroundImage: _isPhotoAvatar()
+                        ? FileImage(File(_avatar)) as ImageProvider
+                        : null,
+                    child: _isPhotoAvatar()
+                        ? null
+                        : Icon(
+                      Icons.person,
+                      size: 30,
+                      color: isDark ? Colors.white : Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _username.isNotEmpty ? '${appLocalizations.hello}, $_username!' : '${appLocalizations.hello}!',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  appLocalizations.clickToEdit,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _DrawerItem(
+            icon: Icons.star,
+            title: 'EduPeak+',
+            subtitle: appLocalizations.premiumFeatures,
+            color: Colors.amber,
+            onTap: _openSubscription,
+          ),
+          _DrawerItem(
+            icon: Icons.analytics,
+            title: appLocalizations.statistics,
+            subtitle: appLocalizations.learningProgress,
+            color: Colors.green,
+            onTap: _openStatistics,
+          ),
+          const Divider(),
+          _DrawerItem(
+            icon: Icons.settings,
+            title: appLocalizations.settings,
+            subtitle: appLocalizations.appSettings,
+            color: Colors.blue,
+            onTap: _openSettings,
+          ),
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                widget.onLogout();
+              },
+              icon: const Icon(Icons.logout),
+              label: Text(appLocalizations.logout),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: const BorderSide(color: Colors.red),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _DrawerItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: color),
+      ),
+      title: Text(
+        title,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class _ProfileHeader extends StatelessWidget {
+  final String avatar;
+  final bool isPhotoAvatar;
+  final String username;
+  final bool dailyCompleted;
+  final int streakDays;
+  final VoidCallback onAvatarPressed;
+  final AppLocalizations appLocalizations;
+
+  const _ProfileHeader({
+    required this.avatar,
+    required this.isPhotoAvatar,
+    required this.username,
+    required this.dailyCompleted,
+    required this.streakDays,
+    required this.onAvatarPressed,
+    required this.appLocalizations,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onAvatarPressed,
+            child: Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Theme.of(context).primaryColor,
+                  width: 2,
+                ),
+                image: isPhotoAvatar
+                    ? DecorationImage(
+                  image: FileImage(File(avatar)),
+                  fit: BoxFit.cover,
+                )
+                    : null,
+              ),
+              child: isPhotoAvatar
+                  ? null
+                  : Center(
+                child: Icon(
+                  Icons.person,
+                  color: Theme.of(context).primaryColor,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  username.isNotEmpty ? '${appLocalizations.hello}, $username!' : '${appLocalizations.hello}!',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  dailyCompleted ? appLocalizations.todayCompleted : appLocalizations.startLessonText,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.local_fire_department, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  '$streakDays',
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GradeSubjectSelector extends StatelessWidget {
+  final int? selectedGrade;
+  final String selectedSubject;
+  final List<String> availableSubjects;
+  final ValueChanged<int?> onGradeChanged;
+  final ValueChanged<String?> onSubjectChanged;
+  final AppLocalizations appLocalizations;
+
+  const _GradeSubjectSelector({
+    required this.selectedGrade,
+    required this.selectedSubject,
+    required this.availableSubjects,
+    required this.onGradeChanged,
+    required this.onSubjectChanged,
+    required this.appLocalizations,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Theme.of(context).cardColor,
+      child: Row(
+        children: [
+          Expanded(
+            child: _GradeDropdown(
+              selectedGrade: selectedGrade,
+              onChanged: onGradeChanged,
+              appLocalizations: appLocalizations,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _SubjectDropdown(
+              selectedSubject: selectedSubject,
+              availableSubjects: availableSubjects,
+              onChanged: onSubjectChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GradeDropdown extends StatelessWidget {
+  final int? selectedGrade;
+  final ValueChanged<int?> onChanged;
+  final AppLocalizations appLocalizations;
+
+  const _GradeDropdown({
+    required this.selectedGrade,
+    required this.onChanged,
+    required this.appLocalizations,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.3),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: DropdownButton<int?>(
+          value: selectedGrade,
+          isExpanded: true,
+          underline: const SizedBox(),
+          items: [
+            DropdownMenuItem(
+              value: null,
+              child: Text(
+                appLocalizations.allGrades,
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            ),
+            ...availableGrades.map((grade) {
+              return DropdownMenuItem(
+                value: grade,
+                child: Text(
+                  '$grade класс',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                  ),
+                ),
+              );
+            }),
+          ],
+          onChanged: onChanged,
+          dropdownColor: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          icon: Icon(
+            Icons.arrow_drop_down,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubjectDropdown extends StatelessWidget {
+  final String selectedSubject;
+  final List<String> availableSubjects;
+  final ValueChanged<String?> onChanged;
+
+  const _SubjectDropdown({
+    required this.selectedSubject,
+    required this.availableSubjects,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.3),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: DropdownButton<String>(
+          value: selectedSubject,
+          isExpanded: true,
+          underline: const SizedBox(),
+          items: availableSubjects.map((subject) {
+            final emoji = subjectEmojis[subject] ?? '📚';
+            return DropdownMenuItem(
+              value: subject,
+              child: Text(
+                '$emoji $subject',
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: onChanged,
+          dropdownColor: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          icon: Icon(
+            Icons.arrow_drop_down,
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchField extends StatelessWidget {
+  final ValueChanged<String> onChanged;
+  final AppLocalizations appLocalizations;
+
+  const _SearchField({
+    required this.onChanged,
+    required this.appLocalizations,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: TextField(
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          hintText: appLocalizations.searchTopics,
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
     );
@@ -323,6 +825,7 @@ class _OptimizedTopicsList extends StatelessWidget {
   final Function(dynamic) onTopicTap;
   final Future<void> Function() onRefresh;
   final GlobalKey<_OptimizedTopicsListViewState> listKey;
+  final AppLocalizations appLocalizations;
 
   const _OptimizedTopicsList({
     required this.filteredTopics,
@@ -330,6 +833,7 @@ class _OptimizedTopicsList extends StatelessWidget {
     required this.onTopicTap,
     required this.onRefresh,
     required this.listKey,
+    required this.appLocalizations,
   });
 
   @override
@@ -337,7 +841,7 @@ class _OptimizedTopicsList extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: filteredTopics.isEmpty
-          ? _EmptyState()
+          ? _EmptyState(appLocalizations: appLocalizations)
           : _OptimizedTopicsListView(
         key: listKey,
         filteredTopics: filteredTopics,
@@ -460,325 +964,6 @@ class _LazyTopicCardState extends State<_LazyTopicCard> with AutomaticKeepAliveC
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  final String avatar;
-  final bool isPhotoAvatar;
-  final String username;
-  final bool dailyCompleted;
-  final int streakDays;
-  final VoidCallback onSettingsPressed;
-
-  const _ProfileHeader({
-    required this.avatar,
-    required this.isPhotoAvatar,
-    required this.username,
-    required this.dailyCompleted,
-    required this.streakDays,
-    required this.onSettingsPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Аватар
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Theme.of(context).primaryColor,
-                width: 2,
-              ),
-              image: isPhotoAvatar
-                  ? DecorationImage(
-                image: FileImage(File(avatar)),
-                fit: BoxFit.cover,
-              )
-                  : null,
-            ),
-            child: isPhotoAvatar
-                ? null
-                : Center(
-              child: Icon(
-                Icons.person,
-                color: Theme.of(context).primaryColor,
-                size: 24,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  username.isNotEmpty ? 'Привет, $username!' : 'Привет!',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  dailyCompleted ? 'Сегодня все сделал' : 'Начни урок',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.local_fire_department, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  '$streakDays',
-                  style: TextStyle(
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: onSettingsPressed,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GradeSubjectSelector extends StatelessWidget {
-  final int? selectedGrade;
-  final String selectedSubject;
-  final List<String> availableSubjects;
-  final ValueChanged<int?> onGradeChanged;
-  final ValueChanged<String?> onSubjectChanged;
-
-  const _GradeSubjectSelector({
-    required this.selectedGrade,
-    required this.selectedSubject,
-    required this.availableSubjects,
-    required this.onGradeChanged,
-    required this.onSubjectChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Theme.of(context).cardColor,
-      child: Row(
-        children: [
-          Expanded(
-            child: _GradeDropdown(
-              selectedGrade: selectedGrade,
-              onChanged: onGradeChanged,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _SubjectDropdown(
-              selectedSubject: selectedSubject,
-              availableSubjects: availableSubjects,
-              onChanged: onSubjectChanged,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GradeDropdown extends StatelessWidget {
-  final int? selectedGrade;
-  final ValueChanged<int?> onChanged;
-
-  const _GradeDropdown({
-    required this.selectedGrade,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.3),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: DropdownButton<int?>(
-          value: selectedGrade,
-          isExpanded: true,
-          underline: const SizedBox(),
-          items: [
-            DropdownMenuItem(
-              value: null,
-              child: Text(
-                'Все классы',
-                style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            ),
-            ...availableGrades.map((grade) {
-              return DropdownMenuItem(
-                value: grade,
-                child: Text(
-                  '$grade класс',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                ),
-              );
-            }),
-          ],
-          onChanged: onChanged,
-          dropdownColor: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SubjectDropdown extends StatelessWidget {
-  final String selectedSubject;
-  final List<String> availableSubjects;
-  final ValueChanged<String?> onChanged;
-
-  const _SubjectDropdown({
-    required this.selectedSubject,
-    required this.availableSubjects,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.3),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: DropdownButton<String>(
-          value: selectedSubject,
-          isExpanded: true,
-          underline: const SizedBox(),
-          items: availableSubjects.map((subject) {
-            final emoji = subjectEmojis[subject] ?? '📚';
-            return DropdownMenuItem(
-              value: subject,
-              child: Text(
-                '$emoji $subject',
-                style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                ),
-              ),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          dropdownColor: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SearchField extends StatelessWidget {
-  final ValueChanged<String> onChanged;
-
-  const _SearchField({
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: TextField(
-        onChanged: onChanged,
-        decoration: InputDecoration(
-          hintText: 'Поиск по темам...',
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 64,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Темы не найдены',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Попробуйте изменить поисковый запрос',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TopicCard extends StatelessWidget {
   final dynamic topic;
   final bool isCompleted;
@@ -895,6 +1080,40 @@ class _TopicCard extends StatelessWidget {
           ),
         ),
         onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final AppLocalizations appLocalizations;
+
+  const _EmptyState({
+    required this.appLocalizations,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 64,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            appLocalizations.noTopicsFound,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            appLocalizations.tryChangingSearch,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
       ),
     );
   }

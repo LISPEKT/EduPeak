@@ -1,5 +1,4 @@
 // lib/services/api_service.dart
-import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -303,25 +302,32 @@ class ApiService {
       if (!_isInitialized) await initialize();
       await _loadCookies();
 
-      final response = await _dio.get('/profile');
+      print('🔍 Checking authentication status...');
 
-      if (response.statusCode == 200) {
-        final html = response.data.toString();
-        final userData = _parseUserDataFromHtml(html);
+      // Пытаемся получить профиль с обработкой редиректов
+      final response = await _dio.get(
+        '/profile',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
 
-        // Дополнительная проверка - если редирект на логин, значит не авторизован
-        if (html.contains('/login') || html.contains('Вход в систему')) {
-          print('❌ Not authenticated - redirect to login detected');
-          return null;
-        }
+      print('📡 Profile response status: ${response.statusCode}');
 
-        return userData;
-      } else if (response.statusCode == 302) {
+      // Если редирект на логин - не авторизованы
+      if (response.statusCode == 302) {
         final location = response.headers['location']?.first;
         if (location != null && location.contains('/login')) {
           print('❌ Not authenticated - redirect to login');
           return null;
         }
+      }
+
+      // Если успешный ответ - парсим профиль
+      if (response.statusCode == 200) {
+        final html = response.data.toString();
+        return _parseUserDataFromHtml(html);
       }
 
       return null;
@@ -692,92 +698,102 @@ class ApiService {
     try {
       print('🔍 Parsing profile HTML...');
 
-      // Проверяем, что это действительно страница профиля, а не логин
-      if (html.contains('Вход в систему') ||
-          html.contains('login') ||
-          !html.contains('profile') && !html.contains('Профиль')) {
-        print('❌ This is not a profile page');
-        return {
-          'name': '',
-          'email': '',
-          'avatar_url': '',
-          'streak': 0,
-        };
+      // Логируем первые 500 символов HTML для отладки
+      if (html.length > 500) {
+        print('📄 HTML preview: ${html.substring(0, 500)}...');
+      } else {
+        print('📄 HTML: $html');
       }
 
-      // Парсим имя пользователя - улучшенные паттерны
-      String name = '';
-
-      // Паттерн 1: Ищем в заголовках
-      final namePattern1 = RegExp(r'<h[1-6][^>]*>([^<]+)</h[1-6]>');
-      final namePattern2 = RegExp(r'<div[^>]*class="[^"]*name[^"]*"[^>]*>([^<]+)</div>');
-      final namePattern3 = RegExp(r'<p[^>]*class="[^"]*text[^"]*"[^>]*>([^<]+)</p>');
-      final namePattern4 = RegExp(r'<strong>([^<]+)</strong>');
-      final namePattern5 = RegExp(r'Имя[^>]*>([^<]+)<');
-
-      final matches = [
-        ...namePattern1.allMatches(html),
-        ...namePattern2.allMatches(html),
-        ...namePattern3.allMatches(html),
-        ...namePattern4.allMatches(html),
-        ...namePattern5.allMatches(html),
-      ];
-
-      for (final match in matches) {
-        final candidate = match.group(1)!.trim();
-        if (candidate.isNotEmpty &&
-            candidate != 'Профиль' &&
-            candidate != 'Вход в систему' &&
-            !candidate.contains('@') &&
-            candidate.length > 2) {
-          name = candidate;
-          break;
-        }
-      }
-
-      // Если имя не найдено, используем часть email
-      if (name.isEmpty) {
-        final emailMatch = RegExp(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}').firstMatch(html);
-        if (emailMatch != null) {
-          final email = emailMatch.group(0)!;
-          name = email.split('@').first;
-        } else {
-          name = 'Пользователь';
-        }
-      }
-
-      // Парсим аватар - улучшенные паттерны
+      String name = 'Пользователь';
       String avatarUrl = '';
 
-      final avatarPattern1 = RegExp(r'<img[^>]*src="([^"]*avatar[^"]*)"', caseSensitive: false);
-      final avatarPattern2 = RegExp(r'<img[^>]*src="([^"]*uploads[^"]*)"', caseSensitive: false);
-      final avatarPattern3 = RegExp(r'<img[^>]*src="(/storage/[^"]*)"', caseSensitive: false);
-      final avatarPattern4 = RegExp(r'<img[^>]*src="(.*\.(jpg|jpeg|png|gif))"', caseSensitive: false);
+      // Пытаемся найти имя пользователя разными способами
+      try {
+        // Паттерн 1: Ищем в заголовках h1-h6
+        final namePattern1 = RegExp(r'<h[1-6][^>]*>([^<]+)</h[1-6]>');
+        // Паттерн 2: Ищем в div с классами содержащими name, user, profile
+        final namePattern2 = RegExp(r'<div[^>]*class="[^"]*(name|user|profile)[^"]*"[^>]*>([^<]+)</div>');
+        // Паттерн 3: Ищем в span с классами
+        final namePattern3 = RegExp(r'<span[^>]*class="[^"]*(name|user)[^"]*"[^>]*>([^<]+)</span>');
+        // Паттерн 4: Ищем после слова "Имя" или "Name"
+        final namePattern4 = RegExp(r'[Ии]мя[^>]*>([^<]+)<');
+        // Паттерн 5: Ищем текст который выглядит как имя (только буквы, пробелы, кириллица)
+        final namePattern5 = RegExp(r'>([А-Яа-яA-Za-z\s]{2,30})<');
 
-      final avatarMatches = [
-        ...avatarPattern1.allMatches(html),
-        ...avatarPattern2.allMatches(html),
-        ...avatarPattern3.allMatches(html),
-        ...avatarPattern4.allMatches(html),
-      ];
+        // Собираем все возможные кандидаты
+        final candidates = <String>[];
 
-      for (final match in avatarMatches) {
-        final candidate = match.group(1)!;
-        if (candidate.isNotEmpty &&
-            !candidate.contains('logo') &&
-            !candidate.contains('icon') &&
-            (candidate.contains('avatar') || candidate.contains('user') || candidate.contains('profile'))) {
-          avatarUrl = candidate;
-          break;
+        for (final match in namePattern1.allMatches(html)) {
+          candidates.add(match.group(1)!.trim());
         }
+        for (final match in namePattern2.allMatches(html)) {
+          if (match.groupCount >= 2) candidates.add(match.group(2)!.trim());
+        }
+        for (final match in namePattern3.allMatches(html)) {
+          if (match.groupCount >= 2) candidates.add(match.group(2)!.trim());
+        }
+        for (final match in namePattern4.allMatches(html)) {
+          candidates.add(match.group(1)!.trim());
+        }
+        for (final match in namePattern5.allMatches(html)) {
+          candidates.add(match.group(1)!.trim());
+        }
+
+        // Фильтруем кандидатов
+        for (final candidate in candidates) {
+          if (candidate.isNotEmpty &&
+              candidate.length > 1 &&
+              candidate.length < 50 &&
+              !candidate.contains('@') &&
+              !candidate.contains('http') &&
+              !candidate.contains('<') &&
+              !candidate.contains('>') &&
+              !['Профиль', 'Profile', 'Вход', 'Login', 'Выйти', 'Logout', 'Главная', 'Home']
+                  .contains(candidate)) {
+            name = candidate;
+            print('✅ Found name: "$name"');
+            break;
+          }
+        }
+      } catch (e) {
+        print('⚠️ Error parsing name: $e');
       }
 
-      // Если URL относительный, делаем его абсолютным
-      if (avatarUrl.isNotEmpty && avatarUrl.startsWith('/')) {
-        avatarUrl = '$_baseUrl$avatarUrl';
+      // Парсим аватар
+      try {
+        final avatarPatterns = [
+          RegExp(r'<img[^>]*src="([^"]*avatar[^"]*)"', caseSensitive: false),
+          RegExp(r'<img[^>]*src="([^"]*uploads[^"]*)"', caseSensitive: false),
+          RegExp(r'<img[^>]*src="(/storage/[^"]*)"', caseSensitive: false),
+          RegExp(r'<img[^>]*src="(.*\.(jpg|jpeg|png|gif|webp))"', caseSensitive: false),
+        ];
+
+        for (final pattern in avatarPatterns) {
+          for (final match in pattern.allMatches(html)) {
+            final candidate = match.group(1)!;
+            if (candidate.isNotEmpty &&
+                !candidate.contains('logo') &&
+                !candidate.contains('icon') &&
+                candidate.length > 10) {
+              avatarUrl = candidate;
+              print('✅ Found avatar URL: "$avatarUrl"');
+              break;
+            }
+          }
+          if (avatarUrl.isNotEmpty) break;
+        }
+
+        // Если URL относительный, делаем его абсолютным
+        if (avatarUrl.isNotEmpty && avatarUrl.startsWith('/')) {
+          avatarUrl = '$_baseUrl$avatarUrl';
+          print('🔗 Converted to absolute URL: $avatarUrl');
+        }
+      } catch (e) {
+        print('⚠️ Error parsing avatar: $e');
       }
 
-      print('👤 Parsed user data - Name: "$name", Avatar: "$avatarUrl"');
+      print('👤 Final parsed data - Name: "$name", Avatar: "$avatarUrl"');
 
       return {
         'name': name,

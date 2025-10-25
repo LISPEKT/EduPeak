@@ -5,14 +5,16 @@ import 'register_screen.dart';
 import 'username_screen.dart';
 import 'main_screen.dart';
 import '../theme/app_theme.dart';
+import '../localization.dart';
 
 class AuthSelectionScreen extends StatelessWidget {
-  const AuthSelectionScreen({Key? key}) : super(key: key);
+  const AuthSelectionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
+    final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -102,7 +104,7 @@ class AuthSelectionScreen extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.school,
                         size: 50,
                         color: Colors.white,
@@ -110,7 +112,7 @@ class AuthSelectionScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      'EduPeak',
+                      appLocalizations.appTitle,
                       style: TextStyle(
                         fontSize: 42,
                         fontWeight: FontWeight.bold,
@@ -126,7 +128,7 @@ class AuthSelectionScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
+                    const Text(
                       'Выберите способ входа',
                       style: TextStyle(
                         fontSize: 16,
@@ -160,7 +162,7 @@ class AuthSelectionScreen extends StatelessWidget {
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF2E7D32),
+                          foregroundColor: const Color(0xFF4CAF50),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(25),
@@ -168,9 +170,9 @@ class AuthSelectionScreen extends StatelessWidget {
                           elevation: 4,
                           shadowColor: Colors.black.withOpacity(0.3),
                         ),
-                        child: const Text(
-                          'Войти в аккаунт',
-                          style: TextStyle(
+                        child: Text(
+                          appLocalizations.login,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -210,9 +212,9 @@ class AuthSelectionScreen extends StatelessWidget {
                           ),
                           backgroundColor: Colors.transparent,
                         ),
-                        child: const Text(
-                          'Создать аккаунт',
-                          style: TextStyle(
+                        child: Text(
+                          appLocalizations.register,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),

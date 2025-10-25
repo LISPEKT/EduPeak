@@ -4,9 +4,10 @@ import 'main_screen.dart';
 import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../localization.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -36,13 +37,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    final appLocalizations = AppLocalizations.of(context);
+    
     if (_emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
         _confirmPasswordController.text.isEmpty ||
         _usernameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заполните все поля'),
+        SnackBar(
+          content: Text(appLocalizations.pleaseFillAllFields),
           backgroundColor: Colors.orange,
         ),
       );
@@ -52,8 +55,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Проверка формата email
     if (!_emailController.text.contains('@') || !_emailController.text.contains('.')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Введите корректный email'),
+        SnackBar(
+          content: Text(appLocalizations.enterValidEmail),
           backgroundColor: Colors.orange,
         ),
       );
@@ -62,8 +65,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Пароли не совпадают'),
+        SnackBar(
+          content: Text(appLocalizations.passwordsDoNotMatch),
           backgroundColor: Colors.orange,
         ),
       );
@@ -72,8 +75,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (_passwordController.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Пароль должен быть не менее 6 символов'),
+        SnackBar(
+          content: Text(appLocalizations.passwordMinLength),
           backgroundColor: Colors.orange,
         ),
       );
@@ -103,7 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response['message'] ?? 'Ошибка регистрации'),
+            content: Text(response['message'] ?? appLocalizations.registrationError),
             backgroundColor: Colors.red,
           ),
         );
@@ -111,7 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ошибка: $e'),
+          content: Text('${appLocalizations.error}: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -124,10 +127,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Создание аккаунта'),
+        title: Text(appLocalizations.createAccount),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -157,8 +162,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Сервер недоступен. Проверьте подключение.',
-                        style: TextStyle(color: Colors.orange),
+                        appLocalizations.serverUnavailableCheckConnection,
+                        style: const TextStyle(color: Colors.orange),
                       ),
                     ),
                   ],
@@ -168,7 +173,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             const SizedBox(height: 20),
             Text(
-              'Создайте аккаунт',
+              appLocalizations.createAccount,
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -183,7 +188,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             TextField(
               controller: _usernameController,
               decoration: InputDecoration(
-                labelText: 'Имя пользователя',
+                labelText: appLocalizations.username,
                 labelStyle: TextStyle(
                   color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
@@ -257,7 +262,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _passwordController,
               obscureText: _obscurePassword,
               decoration: InputDecoration(
-                labelText: 'Пароль',
+                labelText: appLocalizations.password,
                 labelStyle: TextStyle(
                   color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
@@ -305,7 +310,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _confirmPasswordController,
               obscureText: _obscureConfirmPassword,
               decoration: InputDecoration(
-                labelText: 'Подтвердите пароль',
+                labelText: appLocalizations.confirmPassword,
                 labelStyle: TextStyle(
                   color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
@@ -350,7 +355,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
             const SizedBox(height: 8),
             Text(
-              'Пароль должен содержать не менее 6 символов',
+              appLocalizations.passwordMinLength,
               style: TextStyle(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 fontSize: 12,
@@ -382,9 +387,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     valueColor: AlwaysStoppedAnimation(Colors.white),
                   ),
                 )
-                    : const Text(
-                  'Создать аккаунт',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                    : Text(
+                  appLocalizations.createAccount,
+                  style: const TextStyle(fontSize: 16, color: Colors.white),
                 ),
               ),
             ),

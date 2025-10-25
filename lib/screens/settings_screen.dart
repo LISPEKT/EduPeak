@@ -1,28 +1,21 @@
-// lib/screens/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
 import '../data/user_data_storage.dart';
 import '../models/user_stats.dart';
 import '../theme/theme_manager.dart';
 import 'auth_screen.dart';
-import 'avatar_crop_screen.dart';
 import '../services/api_service.dart';
+import '../localization.dart';
+import '../language_manager.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onLogout;
-  final String currentAvatar;
-  final Function(String) onAvatarUpdate;
-  final Function(String) onUsernameUpdate;
 
   const SettingsScreen({
     required this.onLogout,
-    required this.currentAvatar,
-    required this.onAvatarUpdate,
-    required this.onUsernameUpdate,
     Key? key,
   }) : super(key: key);
 
@@ -32,28 +25,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _feedbackController = TextEditingController();
-  final TextEditingController _usernameController = TextEditingController();
-  final ImagePicker _imagePicker = ImagePicker();
+  final TextEditingController _passwordController = TextEditingController();
   bool _isSendingFeedback = false;
-  bool _isLoading = false;
-  String _currentUsername = '';
+  bool _isResettingProgress = false;
 
   static const String _botToken = '8326804174:AAE0KfB3X1MIuW4YE9mT2zbl7eAnw4OHDJ4';
   static const String _chatId = '1236849662';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUsername();
-  }
-
-  Future<void> _loadUsername() async {
-    final username = await UserDataStorage.getUsername();
-    setState(() {
-      _currentUsername = username;
-      _usernameController.text = username;
-    });
-  }
 
   Future<void> _sendFeedback() async {
     final feedback = _feedbackController.text.trim();
@@ -152,134 +129,147 @@ $feedback
     return completed;
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _resetProgress() async {
+    final password = await _showPasswordDialog();
+    if (password == null) return;
+
+    setState(() {
+      _isResettingProgress = true;
+    });
+
     try {
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final userEmail = prefs.getString('userEmail');
 
-      if (image != null) {
-        // Открываем редактор фото перед сохранением
-        final editedImagePath = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AvatarCropScreen(imagePath: image.path),
-          ),
-        );
+      if (userEmail == null) {
+        throw Exception('Не удалось найти данные пользователя');
+      }
 
-        if (editedImagePath != null && editedImagePath is String) {
-          setState(() => _isLoading = true);
+      final loginResult = await ApiService.login(userEmail, password);
 
-          try {
-            print('🖼️ Starting avatar upload process...');
+      if (loginResult['success'] == true) {
+        final confirmed = await _showFinalConfirmationDialog();
+        if (confirmed != true) return;
 
-            // Сохраняем локально
-            await UserDataStorage.saveAvatar(editedImagePath);
-            widget.onAvatarUpdate(editedImagePath);
+        final stats = await UserDataStorage.getUserStats();
+        stats.resetProgress();
+        await UserDataStorage.saveUserStats(stats);
 
-            // Пытаемся загрузить на сервер
-            final response = await ApiService.updateAvatar(editedImagePath);
-
-            if (response['success'] == true) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(response['message'] ?? 'Фото профиля успешно обновлено'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
-              print('✅ Avatar updated successfully');
-            } else {
-              // Если загрузка на сервер не удалась, но локальное сохранение прошло успешно
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(response['message'] ?? 'Фото сохранено локально, но не загружено на сервер'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-              }
-              print('⚠️ Avatar saved locally but server upload failed');
-            }
-          } catch (e) {
-            print('❌ Error during avatar update: $e');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Ошибка обновления аватара: $e'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          } finally {
-            if (mounted) {
-              setState(() => _isLoading = false);
-            }
-          }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Прогресс успешно сброшен'),
+              backgroundColor: Colors.green,
+            ),
+          );
         }
+      } else {
+        throw Exception('Неверный пароль');
       }
     } catch (e) {
-      print('❌ Error picking image: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ошибка при выборе изображения'),
+          SnackBar(
+            content: Text('Ошибка: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } finally {
+      _passwordController.clear();
+      if (mounted) {
+        setState(() {
+          _isResettingProgress = false;
+        });
+      }
     }
   }
 
-  Future<void> _updateUsername() async {
-    final newUsername = _usernameController.text.trim();
-    if (newUsername.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите имя пользователя')),
-      );
-      return;
-    }
+  Future<String?> _showPasswordDialog() async {
+    final appLocalizations = AppLocalizations.of(context);
 
-    // Сохраняем локально
-    await UserDataStorage.saveUsername(newUsername);
-
-    // Обновляем на сервере
-    await UserDataStorage.updateUsernameOnServer(newUsername);
-
-    widget.onUsernameUpdate(newUsername);
-
-    setState(() {
-      _currentUsername = newUsername;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Имя пользователя обновлено!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      FocusScope.of(context).unfocus();
-    }
-  }
-
-  Future<void> _resetProgress() async {
-    final confirmed = await showDialog<bool>(
+    return await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
         title: Text(
-          'Сбросить прогресс',
+          'Подтверждение сброса прогресса',
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Для сброса прогресса введите пароль от вашей учетной записи:',
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'Пароль',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Отмена',
+              style: TextStyle(
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              if (_passwordController.text.isNotEmpty) {
+                Navigator.pop(context, _passwordController.text);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Введите пароль'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              'Продолжить',
+              style: TextStyle(
+                color: Colors.red,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _showFinalConfirmationDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        title: Text(
+          'Окончательное подтверждение',
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         content: Text(
-          'Вы уверены? Это действие нельзя отменить. Весь ваш прогресс будет удален.',
+          'ВСЕ ваши данные прогресса будут безвозвратно удалены. Это действие нельзя отменить.\n\nВы уверены, что хотите продолжить?',
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyMedium?.color,
           ),
@@ -297,45 +287,33 @@ $feedback
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text(
-              'Сбросить',
+              'Сбросить прогресс',
               style: TextStyle(
                 color: Colors.red,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
         ],
       ),
     );
-
-    if (confirmed == true) {
-      final stats = await UserDataStorage.getUserStats();
-      stats.resetProgress();
-      await UserDataStorage.saveUserStats(stats);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Прогресс успешно сброшен'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
   }
 
   void _showLogoutDialog() {
+    final appLocalizations = AppLocalizations.of(context);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
         title: Text(
-          'Выйти из аккаунта',
+          appLocalizations.accountLogout,
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
         content: Text(
-          'Вы уверены, что хотите выйти? Все ваши данные будут удалены.',
+          'Вы уверены, что хотите выйти?',
           style: TextStyle(
             color: Theme.of(context).textTheme.bodyMedium?.color,
           ),
@@ -352,9 +330,8 @@ $feedback
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context); // Закрываем диалог
+              Navigator.pop(context);
 
-              // Показываем индикатор загрузки
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -364,10 +341,8 @@ $feedback
                 );
               }
 
-              // Сразу очищаем локальные данные
               await UserDataStorage.clearUserData();
 
-              // Уведомляем сервер о выходе в фоне (fire-and-forget)
               try {
                 await ApiService.logout();
                 print('✅ Logout successful from server');
@@ -375,10 +350,8 @@ $feedback
                 print('⚠️ Server logout failed: $e');
               }
 
-              // Вызываем колбэк выхода
               widget.onLogout();
 
-              // Переходим на экран авторизации
               if (mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
@@ -394,9 +367,9 @@ $feedback
                 );
               }
             },
-            child: const Text(
-              'Выйти',
-              style: TextStyle(color: Colors.red),
+            child: Text(
+              appLocalizations.logout,
+              style: const TextStyle(color: Colors.red),
             ),
           ),
         ],
@@ -404,18 +377,16 @@ $feedback
     );
   }
 
-  bool _isPhotoAvatar() {
-    return widget.currentAvatar.startsWith('/');
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
+    final languageManager = Provider.of<LanguageManager>(context);
+    final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Настройки'),
+        title: Text(appLocalizations.settings),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -423,166 +394,33 @@ $feedback
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Профиль пользователя
-          _buildProfileSection(),
+          _buildThemeSection(themeManager, appLocalizations),
 
           const SizedBox(height: 20),
 
-          // Настройки темы
-          _buildThemeSection(themeManager),
+          _buildLanguageSection(languageManager, appLocalizations),
 
           const SizedBox(height: 20),
 
-          // Сброс прогресса
-          _buildResetProgressSection(),
+          _buildResetProgressSection(appLocalizations),
 
           const SizedBox(height: 20),
 
-          // Обратная связь через Telegram
-          _buildFeedbackSection(),
+          _buildFeedbackSection(appLocalizations),
 
           const SizedBox(height: 20),
 
-          // Информация о приложении
-          _buildAppInfoSection(),
+          _buildAppInfoSection(appLocalizations),
+
+          const SizedBox(height: 20),
+
+          _buildLogoutSection(appLocalizations),
         ],
       ),
     );
   }
 
-  Widget _buildProfileSection() {
-    return Card(
-      color: Theme.of(context).cardColor,
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: _isLoading ? null : _pickImage,
-              child: Stack(
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context).primaryColor,
-                        width: 3,
-                      ),
-                      image: _isPhotoAvatar()
-                          ? DecorationImage(
-                        image: FileImage(File(widget.currentAvatar)),
-                        fit: BoxFit.cover,
-                      )
-                          : null,
-                    ),
-                    child: _isPhotoAvatar()
-                        ? null
-                        : Center(
-                      child: Icon(
-                        Icons.camera_alt,
-                        color: Theme.of(context).primaryColor,
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                  if (_isLoading)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Нажмите для смены аватара',
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Изменение имени пользователя
-            TextField(
-              controller: _usernameController,
-              decoration: InputDecoration(
-                labelText: 'Имя пользователя',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.check),
-                  onPressed: _updateUsername,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _updateUsername,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text('Обновить имя'),
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _showLogoutDialog,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.logout, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Выйти из аккаунта',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThemeSection(ThemeManager themeManager) {
+  Widget _buildThemeSection(ThemeManager themeManager, AppLocalizations appLocalizations) {
     final isLightTheme = !themeManager.useSystemTheme && !themeManager.useDarkTheme;
 
     return Card(
@@ -605,7 +443,7 @@ $feedback
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Внешний вид',
+                  appLocalizations.appearance,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontSize: 18,
                   ),
@@ -614,7 +452,7 @@ $feedback
             ),
             const SizedBox(height: 8),
             Text(
-              'Тема применится мгновенно',
+              appLocalizations.themeAppliedInstantly,
               style: TextStyle(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 fontSize: 12,
@@ -623,8 +461,8 @@ $feedback
             const SizedBox(height: 20),
             _buildThemeOption(
               context: context,
-              title: 'Системная тема',
-              subtitle: 'Следовать настройкам системы',
+              title: appLocalizations.systemTheme,
+              subtitle: appLocalizations.followSystemSettings,
               value: themeManager.useSystemTheme,
               onChanged: (value) async {
                 if (value) {
@@ -636,8 +474,8 @@ $feedback
             const Divider(height: 24),
             _buildThemeOption(
               context: context,
-              title: 'Тёмная тема',
-              subtitle: 'Всегда использовать тёмную тему',
+              title: appLocalizations.darkTheme,
+              subtitle: appLocalizations.alwaysUseDarkTheme,
               value: themeManager.useDarkTheme,
               onChanged: (value) async {
                 if (value) {
@@ -651,8 +489,8 @@ $feedback
             const Divider(height: 24),
             _buildThemeOption(
               context: context,
-              title: 'Светлая тема',
-              subtitle: 'Всегда использовать светлую тему',
+              title: appLocalizations.lightTheme,
+              subtitle: appLocalizations.alwaysUseLightTheme,
               value: isLightTheme,
               onChanged: (value) async {
                 if (value) {
@@ -662,6 +500,123 @@ $feedback
                 }
               },
               isLoading: themeManager.isLoading,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageSection(LanguageManager languageManager, AppLocalizations appLocalizations) {
+    return Card(
+      color: Theme.of(context).cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.language,
+                  color: Theme.of(context).primaryColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  appLocalizations.languageSettings,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              appLocalizations.selectAppLanguage,
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildLanguageOption(
+              title: appLocalizations.russian,
+              value: languageManager.currentLocale.languageCode == 'ru',
+              onChanged: () => languageManager.setRussian(),
+              isLoading: languageManager.isLoading,
+            ),
+            const Divider(height: 24),
+            _buildLanguageOption(
+              title: appLocalizations.english,
+              value: languageManager.currentLocale.languageCode == 'en',
+              onChanged: () => languageManager.setEnglish(),
+              isLoading: languageManager.isLoading,
+            ),
+            const Divider(height: 24),
+            _buildLanguageOption(
+              title: appLocalizations.german,
+              value: languageManager.currentLocale.languageCode == 'de',
+              onChanged: () => languageManager.setGerman(),
+              isLoading: languageManager.isLoading,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption({
+    required String title,
+    required bool value,
+    required VoidCallback onChanged,
+    required bool isLoading,
+  }) {
+    return IgnorePointer(
+      ignoring: isLoading,
+      child: Opacity(
+        opacity: isLoading ? 0.6 : 1.0,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (isLoading && value) ...[
+                    const SizedBox(height: 4),
+                    SizedBox(
+                      height: 2,
+                      child: LinearProgressIndicator(
+                        backgroundColor: Colors.transparent,
+                        valueColor: AlwaysStoppedAnimation(
+                          Theme.of(context).primaryColor.withOpacity(0.3),
+                        ),
+                      ),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+            Radio(
+              value: true,
+              groupValue: value,
+              onChanged: isLoading ? null : (bool? newValue) {
+                if (newValue == true) {
+                  onChanged();
+                }
+              },
+              activeColor: Theme.of(context).primaryColor,
             ),
           ],
         ),
@@ -728,7 +683,7 @@ $feedback
     );
   }
 
-  Widget _buildResetProgressSection() {
+  Widget _buildResetProgressSection(AppLocalizations appLocalizations) {
     return Card(
       color: Theme.of(context).cardColor,
       elevation: 2,
@@ -749,7 +704,7 @@ $feedback
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Управление прогрессом',
+                  appLocalizations.progressManagement,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontSize: 18,
                   ),
@@ -758,7 +713,7 @@ $feedback
             ),
             const SizedBox(height: 8),
             Text(
-              'Сбросить весь прогресс обучения',
+              appLocalizations.resetProgressDescription,
               style: TextStyle(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 fontSize: 14,
@@ -767,23 +722,32 @@ $feedback
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton(
-                onPressed: _resetProgress,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.orange,
+              child: ElevatedButton(
+                onPressed: _isResettingProgress ? null : _resetProgress,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  side: const BorderSide(color: Colors.orange),
                 ),
-                child: const Row(
+                child: _isResettingProgress
+                    ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                  ),
+                )
+                    : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.restart_alt, size: 20),
                     SizedBox(width: 8),
                     Text(
-                      'Сбросить прогресс обучения',
+                      appLocalizations.resetProgressButton,
                       style: TextStyle(fontSize: 16),
                     ),
                   ],
@@ -796,7 +760,7 @@ $feedback
     );
   }
 
-  Widget _buildFeedbackSection() {
+  Widget _buildFeedbackSection(AppLocalizations appLocalizations) {
     return Card(
       color: Theme.of(context).cardColor,
       elevation: 2,
@@ -817,7 +781,7 @@ $feedback
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Обратная связь',
+                  appLocalizations.feedback,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontSize: 18,
                   ),
@@ -826,7 +790,7 @@ $feedback
             ),
             const SizedBox(height: 8),
             Text(
-              'Отправьте ваш отзыв или предложение. Мы получим его мгновенно!',
+              appLocalizations.feedbackDescription,
               style: TextStyle(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 fontSize: 14,
@@ -837,7 +801,7 @@ $feedback
               controller: _feedbackController,
               maxLines: 5,
               decoration: InputDecoration(
-                hintText: 'Напишите ваш отзыв, идею или сообщите об ошибке...',
+                hintText: appLocalizations.feedbackHint,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
@@ -875,13 +839,13 @@ $feedback
                     valueColor: AlwaysStoppedAnimation(Colors.white),
                   ),
                 )
-                    : const Row(
+                    : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.send, size: 20),
                     SizedBox(width: 8),
                     Text(
-                      'Отправить через Telegram',
+                      appLocalizations.sendTelegramButton,
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -894,7 +858,7 @@ $feedback
     );
   }
 
-  Widget _buildAppInfoSection() {
+  Widget _buildAppInfoSection(AppLocalizations appLocalizations) {
     return Card(
       color: Theme.of(context).cardColor,
       elevation: 2,
@@ -915,7 +879,7 @@ $feedback
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'О приложении',
+                  appLocalizations.aboutApp,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontSize: 18,
                   ),
@@ -924,20 +888,89 @@ $feedback
             ),
             const SizedBox(height: 16),
             _buildInfoRow(
-              title: 'Версия',
-              value: 'alpha 0.27.1',
+              title: appLocalizations.version,
+              value: 'alpha 0.28',
             ),
             _buildInfoRow(
-              title: 'Разработчик',
+              title: appLocalizations.developer,
               value: 'Murlit Studio',
             ),
             _buildInfoRow(
-              title: 'Поддержка',
+              title: appLocalizations.support,
               value: 'Telegram: @lispekt',
             ),
             _buildInfoRow(
-              title: 'Дата сборки',
+              title: appLocalizations.buildDate,
               value: '${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year}',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutSection(AppLocalizations appLocalizations) {
+    return Card(
+      color: Theme.of(context).cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.logout,
+                  color: Colors.red,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  appLocalizations.accountLogout,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              appLocalizations.logoutDescription,
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _showLogoutDialog,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.logout, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      appLocalizations.logout,
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

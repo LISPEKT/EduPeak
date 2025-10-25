@@ -1,12 +1,15 @@
 // lib/screens/auth_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_selection_screen.dart';
 import 'main_screen.dart'; // Добавляем импорт MainScreen
 import '../theme/app_theme.dart';
+import '../localization.dart';
+import '../language_manager.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({Key? key}) : super(key: key);
+  const AuthScreen({super.key});
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -18,6 +21,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _slideAnimation;
   bool _isLoading = false;
+  bool _showLanguageMenu = false;
 
   @override
   void initState() {
@@ -118,10 +122,41 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     }
   }
 
+  void _toggleLanguageMenu() {
+    setState(() {
+      _showLanguageMenu = !_showLanguageMenu;
+    });
+  }
+
+  Future<void> _changeLanguage(String languageCode) async {
+    final languageManager = Provider.of<LanguageManager>(context, listen: false);
+    await languageManager.setLanguage(languageCode);
+    setState(() {
+      _showLanguageMenu = false;
+    });
+  }
+
+  String _getCurrentLanguageName(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    final appLocalizations = AppLocalizations.of(context);
+    
+    switch (locale.languageCode) {
+      case 'ru':
+        return appLocalizations.russian;
+      case 'en':
+        return appLocalizations.english;
+      case 'de':
+        return appLocalizations.german;
+      default:
+        return appLocalizations.russian;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final size = MediaQuery.of(context).size;
+    final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -228,7 +263,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                 ),
                               ],
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.school,
                               size: 60,
                               color: Colors.white,
@@ -236,7 +271,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                           ),
                           const SizedBox(height: 40),
                           Text(
-                            'EduPeak',
+                            appLocalizations.appTitle,
                             style: TextStyle(
                               fontSize: 52,
                               fontWeight: FontWeight.bold,
@@ -253,7 +288,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Покоряй вершины знаний',
+                            appLocalizations.conquerKnowledge,
                             style: TextStyle(
                               fontSize: 18,
                               color: Colors.white.withOpacity(0.9),
@@ -288,26 +323,26 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                 children: [
                                   _StatItem(
                                     value: '1+',
-                                    label: 'Учеников',
+                                    label: appLocalizations.students,
                                   ),
                                   _StatItem(
                                     value: '50+',
-                                    label: 'Тем',
+                                    label: appLocalizations.topics,
                                   ),
                                   _StatItem(
                                     value: '95%',
-                                    label: 'Успех',
+                                    label: appLocalizations.success,
                                   ),
                                   _StatItem(
                                     value: '14+',
-                                    label: 'Предметов',
+                                    label: appLocalizations.subjects,
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 24),
                             Text(
-                              'Присоединяйтесь и прокачивайте свои мозги',
+                              appLocalizations.joinAndImprove,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.white.withOpacity(0.8),
@@ -318,7 +353,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Подготовка к ОГЭ/ЕГЭ • Олимпиадные задачи',
+                              appLocalizations.examPreparation,
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withOpacity(0.6),
@@ -355,24 +390,24 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                                   shadowColor: Colors.black.withOpacity(0.3),
                                 ),
                                 child: _isLoading
-                                    ? SizedBox(
+                                    ? const SizedBox(
                                   height: 20,
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
                                     valueColor: AlwaysStoppedAnimation(
-                                      const Color(0xFF2E7D32),
+                                      Color(0xFF2E7D32),
                                     ),
                                   ),
                                 )
                                     : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.rocket_launch, size: 20),
+                                    const Icon(Icons.rocket_launch, size: 20),
                                     const SizedBox(width: 12),
-                                    const Text(
-                                      'Начать обучение',
-                                      style: TextStyle(
+                                    Text(
+                                      appLocalizations.startLearning,
+                                      style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -397,6 +432,78 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     const SizedBox(height: 40),
                   ],
                 ),
+              ),
+            ),
+
+            // Кнопка выбора языка в правом нижнем углу
+            Positioned(
+              bottom: 20,
+              right: 20,
+              child: Stack(
+                children: [
+                  // Выпадающее меню языков
+                  if (_showLanguageMenu)
+                    Positioned(
+                      bottom: 60,
+                      right: 0,
+                      child: Container(
+                        width: 150,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _LanguageMenuItem(
+                              language: appLocalizations.russian,
+                              onTap: () => _changeLanguage('ru'),
+                              isSelected: _getCurrentLanguageName(context) == appLocalizations.russian,
+                            ),
+                            _LanguageMenuItem(
+                              language: appLocalizations.english,
+                              onTap: () => _changeLanguage('en'),
+                              isSelected: _getCurrentLanguageName(context) == appLocalizations.english,
+                            ),
+                            _LanguageMenuItem(
+                              language: appLocalizations.german,
+                              onTap: () => _changeLanguage('de'),
+                              isSelected: _getCurrentLanguageName(context) == appLocalizations.german,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // Кнопка переключения языка
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.language,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      onPressed: _toggleLanguageMenu,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -438,6 +545,57 @@ class _StatItem extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LanguageMenuItem extends StatelessWidget {
+  final String language;
+  final VoidCallback onTap;
+  final bool isSelected;
+
+  const _LanguageMenuItem({
+    required this.language,
+    required this.onTap,
+    required this.isSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF2E7D32).withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              if (isSelected)
+                const Icon(
+                  Icons.check,
+                  size: 16,
+                  color: Color(0xFF2E7D32),
+                )
+              else
+                const SizedBox(width: 16),
+              const SizedBox(width: 8),
+              Text(
+                language,
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

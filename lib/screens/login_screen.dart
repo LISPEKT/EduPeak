@@ -6,9 +6,10 @@ import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import 'register_screen.dart';
+import '../localization.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -74,12 +75,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    final appLocalizations = AppLocalizations.of(context);
+    
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Заполните все поля'),
+        SnackBar(
+          content: Text(appLocalizations.pleaseFillAllFields),
           backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -88,10 +91,10 @@ class _LoginScreenState extends State<LoginScreen> {
     // Проверка формата email
     if (!_emailController.text.contains('@') || !_emailController.text.contains('.')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Введите корректный email'),
+        SnackBar(
+          content: Text(appLocalizations.enterValidEmail),
           backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -99,8 +102,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!_serverAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Сервер недоступен. Проверьте подключение к интернету.'),
+        SnackBar(
+          content: Text(appLocalizations.serverUnavailableCheckConnection),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -120,34 +123,32 @@ class _LoginScreenState extends State<LoginScreen> {
       print('📡 Login result: $response');
 
       if (response['success'] == true) {
-        // Сохраняем имя пользователя локально
+        // Сохраняем имя пользователя локально (временно)
         final username = _emailController.text.split('@').first;
         await UserDataStorage.saveUsername(username);
 
         // Устанавливаем статус входа
         await UserDataStorage.setLoggedIn(true);
 
-        // Синхронизируем данные с сервером
+        // ПОЛНАЯ синхронизация с сервером с отладкой
+        print('🔄 Starting full synchronization after login...');
         await UserDataStorage.syncFromServer();
+
+        // Проверяем результат синхронизации
+        final syncedUsername = await UserDataStorage.getUsername();
+        final syncedAvatar = await UserDataStorage.getAvatar();
+        print('🔄 Sync result - Username: $syncedUsername, Avatar: ${syncedAvatar != '👤' ? "Custom" : "Default"}');
 
         if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
           );
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response['message'] ?? 'Вход выполнен успешно'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
-          );
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response['message'] ?? 'Ошибка входа'),
+            content: Text(response['message'] ?? appLocalizations.loginError),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
           ),
@@ -157,7 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
       print('❌ Login exception: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Ошибка соединения: $e'),
+          content: Text('${appLocalizations.connectionError}: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -178,13 +179,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final colorScheme = Theme.of(context).colorScheme;
+    final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Используем тему приложения
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Вход в аккаунт'),
+        title: Text(appLocalizations.login),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -362,7 +362,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: Theme.of(context).textTheme.bodyMedium,
                           children: [
                             TextSpan(
-                              text: 'Зарегистрируйтесь',
+                              text: appLocalizations.register,
                               style: TextStyle(
                                 color: Theme.of(context).primaryColor,
                                 fontWeight: FontWeight.bold,
@@ -436,9 +436,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       valueColor: AlwaysStoppedAnimation(Colors.white),
                     ),
                   )
-                      : const Text(
-                    'Войти',
-                    style: TextStyle(
+                      : Text(
+                    appLocalizations.login,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),

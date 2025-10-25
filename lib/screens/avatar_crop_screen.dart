@@ -5,7 +5,7 @@ import 'package:image_cropper/image_cropper.dart';
 class AvatarCropScreen extends StatefulWidget {
   final String imagePath;
 
-  const AvatarCropScreen({Key? key, required this.imagePath}) : super(key: key);
+  const AvatarCropScreen({super.key, required this.imagePath});
 
   @override
   State<AvatarCropScreen> createState() => _AvatarCropScreenState();
@@ -13,7 +13,7 @@ class AvatarCropScreen extends StatefulWidget {
 
 class _AvatarCropScreenState extends State<AvatarCropScreen> {
   File? _croppedImage;
-  bool _isLoading = false;
+  final bool _isLoading = false;
   bool _hasError = false;
 
   // Зеленый цвет для кнопок
@@ -308,7 +308,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
 class CustomCropScreen extends StatefulWidget {
   final String imagePath;
 
-  const CustomCropScreen({Key? key, required this.imagePath}) : super(key: key);
+  const CustomCropScreen({super.key, required this.imagePath});
 
   @override
   State<CustomCropScreen> createState() => _CustomCropScreenState();

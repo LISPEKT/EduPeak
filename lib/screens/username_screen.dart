@@ -4,7 +4,7 @@ import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
 
 class UsernameScreen extends StatefulWidget {
-  const UsernameScreen({Key? key}) : super(key: key);
+  const UsernameScreen({super.key});
 
   @override
   State<UsernameScreen> createState() => _UsernameScreenState();

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'test_screen.dart';
-import '../theme/app_theme.dart';
 
 class LessonScreen extends StatelessWidget {
   final dynamic topic;
@@ -11,8 +10,8 @@ class LessonScreen extends StatelessWidget {
     required this.topic,
     this.currentGrade,
     this.currentSubject,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {

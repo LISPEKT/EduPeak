@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'main_screen.dart';
 import 'lesson_screen.dart';
-import '../data/user_data_storage.dart';
-import '../theme/app_theme.dart';
 
 class ResultScreen extends StatelessWidget {
   final dynamic topic;
@@ -19,8 +16,8 @@ class ResultScreen extends StatelessWidget {
     this.correctAnswersCount,
     this.currentGrade,
     this.currentSubject,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   int get correctAnswers {
     if (correctAnswersCount != null) {

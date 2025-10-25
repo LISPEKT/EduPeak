@@ -4,8 +4,6 @@ import '../widgets/answer_popup.dart';
 import '../data/user_data_storage.dart';
 import '../data/subjects_data.dart';
 import '../models/question.dart';
-import '../theme/app_theme.dart';
-import '../data/subjects_data.dart';
 
 class TestScreen extends StatefulWidget {
   final dynamic topic;
@@ -16,8 +14,8 @@ class TestScreen extends StatefulWidget {
     required this.topic,
     this.currentGrade,
     this.currentSubject,
-    Key? key,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<TestScreen> createState() => _TestScreenState();
@@ -30,8 +28,8 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   bool _showResult = false;
   bool _isAnswerCorrect = false;
   bool _isSubmitting = false;
-  List<int> _userAnswers = [];
-  List<String> _textAnswers = [];
+  final List<int> _userAnswers = [];
+  final List<String> _textAnswers = [];
   int _correctAnswersCount = 0;
   List<Question> _shuffledQuestions = []; // Изменен тип на List<Question>
   late AnimationController _animationController;
@@ -343,7 +341,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       appBar: AppBar(
         title: Text(
           widget.topic.name,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -529,7 +527,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                         elevation: 2,
                       ),
                       child: _isSubmitting
-                          ? SizedBox(
+                          ? const SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
