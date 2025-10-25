@@ -35,7 +35,6 @@ final Map<int, List<Subject>> subjectsByGrade = {
   5: [
     ...russianSubjects5,
     ...algebraSubjects5,
-    ...mathematicsSubjects5,
     // ...geometrySubjects5,
     // ...englishSubjects5,
     // ...literatureSubjects5,
@@ -46,7 +45,6 @@ final Map<int, List<Subject>> subjectsByGrade = {
   6: [
     ...russianSubjects6,
     ...algebraSubjects6,
-    ...mathematicsSubjects6,
     // ...geometrySubjects6,
     // ...englishSubjects6,
     // ...literatureSubjects6,
@@ -58,7 +56,6 @@ final Map<int, List<Subject>> subjectsByGrade = {
   7: [
     ...russianSubjects7,
     ...algebraSubjects7,
-    ...mathematicsSubjects7,
     ...physicsSubjects7,
     // ...geometrySubjects7,
     // ...englishSubjects7,
@@ -71,7 +68,6 @@ final Map<int, List<Subject>> subjectsByGrade = {
   8: [
     ...russianSubjects8,
     ...algebraSubjects8,
-    ...mathematicsSubjects8,
     ...physicsSubjects8,
     // ...geometrySubjects8,
     // ...englishSubjects8,
@@ -85,7 +81,6 @@ final Map<int, List<Subject>> subjectsByGrade = {
   9: [
     ...russianSubjects9,
     ...algebraSubjects9,
-    ...mathematicsSubjects9,
     ...physicsSubjects9,
     // ...geometrySubjects9,
     // ...englishSubjects9,
@@ -99,7 +94,6 @@ final Map<int, List<Subject>> subjectsByGrade = {
   10: [
     ...russianSubjects10,
     ...algebraSubjects10,
-    ...mathematicsSubjects10,
     ...physicsSubjects10,
     // ...geometrySubjects10,
     // ...englishSubjects10,
@@ -115,7 +109,6 @@ final Map<int, List<Subject>> subjectsByGrade = {
   11: [
     ...russianSubjects11,
     ...algebraSubjects11,
-    ...mathematicsSubjects11,
     ...physicsSubjects11,
     // ...geometrySubjects11,
     // ...englishSubjects11,

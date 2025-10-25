@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import '../localization.dart';
 
 class SubscriptionScreen extends StatelessWidget {
   const SubscriptionScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('EduPeak+'),
+        title: Text('EduPeak+'),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -47,7 +50,7 @@ class SubscriptionScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Премиум подписка',
+                    appLocalizations.premiumSubscription,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.white,
                     ),
@@ -56,35 +59,34 @@ class SubscriptionScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            const _FeatureItem(
+            _FeatureItem(
               icon: Icons.offline_bolt,
-              title: 'Оффлайн режим',
-              subtitle: 'Изучайте темы без интернета',
+              title: appLocalizations.offlineMode,
+              subtitle: appLocalizations.studyWithoutInternet,
             ),
-            const _FeatureItem(
+            _FeatureItem(
               icon: Icons.analytics,
-              title: 'Расширенная статистика',
-              subtitle: 'Подробная аналитика прогресса',
+              title: appLocalizations.advancedStatistics,
+              subtitle: appLocalizations.detailedProgressAnalytics,
             ),
-            const _FeatureItem(
+            _FeatureItem(
               icon: Icons.style,
-              title: 'Эксклюзивные темы',
-              subtitle: 'Уникальный дизайн приложения',
+              title: appLocalizations.exclusiveThemes,
+              subtitle: appLocalizations.uniqueAppDesign,
             ),
-            const _FeatureItem(
+            _FeatureItem(
               icon: Icons.support_agent,
-              title: 'Приоритетная поддержка',
-              subtitle: 'Быстрые ответы на вопросы',
+              title: appLocalizations.prioritySupport,
+              subtitle: appLocalizations.fastAnswers,
             ),
             const Spacer(),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: Implement subscription purchase
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Функция подписки в разработке'),
+                    SnackBar(
+                      content: Text(appLocalizations.subscriptionDevelopment),
                       backgroundColor: Colors.orange,
                     ),
                   );
@@ -97,9 +99,9 @@ class SubscriptionScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Оформить подписку - 299₽/мес',
-                  style: TextStyle(
+                child: Text(
+                  appLocalizations.subscribeButton,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),

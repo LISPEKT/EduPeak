@@ -76,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     final appLocalizations = AppLocalizations.of(context);
-    
+
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -216,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Заголовок
               Text(
-                'Войдите в свой аккаунт',
+                appLocalizations.enterYourAccount,
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -227,8 +227,8 @@ class _LoginScreenState extends State<LoginScreen> {
               // Описание
               Text(
                 _serverAvailable
-                    ? 'Введите ваши учетные данные для входа'
-                    : '⚠️ Сервер недоступен. Проверьте подключение.',
+                    ? appLocalizations.enterCredentials
+                    : appLocalizations.serverUnavailableCheckConnection,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: _serverAvailable
                       ? Theme.of(context).textTheme.bodyMedium?.color
@@ -242,11 +242,11 @@ class _LoginScreenState extends State<LoginScreen> {
               TextField(
                 controller: _emailController,
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: appLocalizations.email,
                   labelStyle: TextStyle(
                     color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
-                  hintText: 'example@email.com',
+                  hintText: appLocalizations.enterEmail,
                   hintStyle: TextStyle(
                     color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                   ),
@@ -292,11 +292,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _passwordController,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
-                  labelText: 'Пароль',
+                  labelText: appLocalizations.password,
                   labelStyle: TextStyle(
                     color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
-                  hintText: 'Введите ваш пароль',
+                  hintText: appLocalizations.enterPassword,
                   hintStyle: TextStyle(
                     color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
                   ),
@@ -349,32 +349,21 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 24),
 
               // Ссылка на регистрацию
-              Center(
-                child: GestureDetector(
-                  onTap: _navigateToRegister,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: RichText(
-                        text: TextSpan(
-                          text: 'Нет аккаунта? ',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          children: [
-                            TextSpan(
-                              text: appLocalizations.register,
-                              style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                decoration: TextDecoration.underline,
-                              ),
-                            ),
-                          ],
-                        ),
+              RichText(
+                text: TextSpan(
+                  text: '${appLocalizations.noAccount} ',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  children: [
+                    TextSpan(
+                      text: appLocalizations.register,
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        decoration: TextDecoration.underline,
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
 

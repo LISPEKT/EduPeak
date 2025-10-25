@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'lesson_screen.dart';
+import '../localization.dart';
 
 class ResultScreen extends StatelessWidget {
   final dynamic topic;
@@ -44,18 +45,18 @@ class ResultScreen extends StatelessWidget {
     return correct;
   }
 
-  String _getResultMessage(int correct, int total) {
+  String _getResultMessage(int correct, int total, AppLocalizations appLocalizations) {
     final percentage = correct / total;
     if (percentage == 1) {
-      return 'Идеально! Ты настоящий эксперт!';
+      return appLocalizations.perfectExpert;
     } else if (percentage >= 0.8) {
-      return 'Отлично! Ты почти все знаешь!';
+      return appLocalizations.excellentAlmostAll;
     } else if (percentage >= 0.6) {
-      return 'Хорошая работа! Продолжай в том же духе!';
+      return appLocalizations.goodWorkContinue;
     } else if (percentage >= 0.4) {
-      return 'Неплохо, но есть куда расти!';
+      return appLocalizations.notBadRoomToGrow;
     } else {
-      return 'Не расстраивайся! Попробуй еще раз!';
+      return appLocalizations.dontWorryTryAgain;
     }
   }
 
@@ -72,20 +73,20 @@ class ResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
     final totalQuestions = topic.questions.length;
     final correctCount = correctAnswers;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Результаты теста'),
+        title: Text(appLocalizations.testResults),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
-            // ИСПРАВЛЕНО: Просто закрываем текущий экран (возвращаемся назад)
             Navigator.pop(context);
           },
         ),
@@ -150,7 +151,7 @@ class ResultScreen extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'правильно',
+                              appLocalizations.correctAnswers,
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],
@@ -160,7 +161,7 @@ class ResultScreen extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     Text(
-                      _getResultMessage(correctCount, totalQuestions),
+                      _getResultMessage(correctCount, totalQuestions, appLocalizations),
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontSize: 20,
                       ),
@@ -175,7 +176,7 @@ class ResultScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        '${((correctCount / totalQuestions) * 100).round()}% правильных ответов',
+                        '${((correctCount / totalQuestions) * 100).round()}${appLocalizations.percentageCorrect}',
                         style: TextStyle(
                           color: _getResultColor(correctCount, totalQuestions, context),
                           fontWeight: FontWeight.w600,
@@ -193,7 +194,6 @@ class ResultScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        // ИСПРАВЛЕНО: Просто закрываем текущий экран (возвращаемся назад)
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
@@ -204,9 +204,9 @@ class ResultScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Вернуться к темам',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      child: Text(
+                        appLocalizations.returnToTopics,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -215,7 +215,6 @@ class ResultScreen extends StatelessWidget {
                     width: double.infinity,
                     child: OutlinedButton(
                       onPressed: () {
-                        // ИСПРАВЛЕНО: Закрываем все экраны до главного и открываем урок заново
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(
@@ -236,9 +235,9 @@ class ResultScreen extends StatelessWidget {
                         ),
                         side: BorderSide(color: Theme.of(context).primaryColor),
                       ),
-                      child: const Text(
-                        'Пройти тест еще раз',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      child: Text(
+                        appLocalizations.retakeTest,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),

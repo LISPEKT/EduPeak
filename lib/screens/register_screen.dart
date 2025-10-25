@@ -38,7 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _register() async {
     final appLocalizations = AppLocalizations.of(context);
-    
+
     if (_emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
         _confirmPasswordController.text.isEmpty ||
@@ -179,8 +179,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             const SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
-              'Введите вашу почту и придумайте пароль',
+              appLocalizations.enterEmailAndPassword,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 32),

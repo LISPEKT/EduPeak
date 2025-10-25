@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'lesson_screen.dart';
+import '../localization.dart';
 
 class TopicPopup extends StatelessWidget {
   final dynamic topic;
@@ -15,6 +16,8 @@ class TopicPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
+
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -54,7 +57,7 @@ class TopicPopup extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Описание',
+              appLocalizations.topicDescription,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 8),
@@ -86,9 +89,9 @@ class TopicPopup extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Начать занятие',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                child: Text(
+                  appLocalizations.startLessonButton,
+                  style: const TextStyle(fontSize: 16, color: Colors.white),
                 ),
               ),
             ),

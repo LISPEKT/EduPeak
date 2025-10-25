@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'test_screen.dart';
+import '../localization.dart';
 
 class LessonScreen extends StatelessWidget {
   final dynamic topic;
@@ -15,6 +16,8 @@ class LessonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(topic.name),
@@ -43,7 +46,7 @@ class LessonScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Объяснение темы',
+              appLocalizations.lessonExplanation,
               style: Theme.of(context).textTheme.headlineLarge,
             ),
             const SizedBox(height: 16),
@@ -80,9 +83,9 @@ class LessonScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Начать тест',
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                child: Text(
+                  appLocalizations.startTestButton,
+                  style: const TextStyle(fontSize: 16, color: Colors.white),
                 ),
               ),
             ),

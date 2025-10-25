@@ -22,9 +22,9 @@ class AppLocalizations {
       'join_and_improve': 'Присоединяйтесь и прокачивайте свои мозги',
       'exam_preparation': 'Подготовка к ОГЭ/ЕГЭ • Олимпиадные задачи',
       'choose_language': 'Выберите язык',
-      'russian': 'Русский 🇷🇺',
-      'english': 'English 🇬🇧 ',
-      'german': 'Deutsch 🇩🇪',
+      'russian': 'Русский (Русский) 🇷🇺',
+      'english': 'Английский (English) 🇬🇧 ',
+      'german': 'Немецкий (Deutsch) 🇩🇪',
       'login': 'Войти',
       'register': 'Зарегистрироваться',
       'settings': 'Настройки',
@@ -60,7 +60,6 @@ class AppLocalizations {
       'language_settings': 'Настройки языка',
       'select_app_language': 'Выберите язык приложения',
       'change_language_restart': 'Изменение языка потребует перезапуска приложения',
-
       'please_fill_all_fields': 'Заполните все поля',
       'enter_valid_email': 'Введите корректный email',
       'server_unavailable_check_connection': 'Сервер недоступен. Проверьте подключение к интернету.',
@@ -140,6 +139,65 @@ class AppLocalizations {
       'crop': 'Обрезка',
       'done': 'Готово',
       'cancel': 'Отмена',
+      'back': 'Назад',
+      'choose_auth_method': 'Выберите способ входа',
+      'email': 'Email',
+      'enter_email': 'Введите email',
+      'enter_password': 'Введите пароль',
+      'forgot_password': 'Забыли пароль?',
+      'remember_me': 'Запомнить меня',
+      'guest_mode': 'Гостевой режим',
+      'continue_as_guest': 'Продолжить как гость',
+      'select_language': 'Выберите язык',
+      'language_changed': 'Язык изменен',
+      'restart_required': 'Требуется перезапуск приложения',
+      'enter_your_account': 'Войдите в свой аккаунт',
+      'enter_credentials': 'Введите ваши учетные данные для входа',
+      'no_account': 'Нет аккаунта?',
+      'enter_email_and_password': 'Введите вашу почту и придумайте пароль',
+      'premium_subscription': 'Премиум подписка',
+      'offline_mode': 'Оффлайн режим',
+      'study_without_internet': 'Изучайте темы без интернета',
+      'advanced_statistics': 'Расширенная статистика',
+      'detailed_progress_analytics': 'Подробная аналитика прогресса',
+      'exclusive_themes': 'Эксклюзивные темы',
+      'unique_app_design': 'Уникальный дизайн приложения',
+      'priority_support': 'Приоритетная поддержка',
+      'fast_answers': 'Быстрые ответы на вопросы',
+      'subscribe_button': 'Оформить подписку - 299₽/мес',
+      'subscription_development': 'Функция подписки в разработке',
+      'days_in_row': 'Дней подряд',
+      'completed_topics_count': 'Пройдено тем',
+      'progress_by_subjects': 'Прогресс по предметам',
+      'lesson_explanation': 'Объяснение темы',
+      'start_lesson_button': 'Начать занятие',
+      'start_test_button': 'Начать тест',
+      'correctly': 'правильно',
+      'excellent_knowledge': 'Отлично! Ты почти все знаешь!',
+      'not_bad_grow': 'Неплохо, но есть куда расти!',
+      'continue_next': 'Продолжить',
+      'completing_test': 'Завершение теста...',
+      'russian_language': 'Русский язык',
+      'math': 'Математика',
+      'algebra': 'Алгебра',
+      'geometry': 'Геометрия',
+      'english_language': 'Английский язык',
+      'literature': 'Литература',
+      'biology': 'Биология',
+      'physics': 'Физика',
+      'chemistry': 'Химия',
+      'geography': 'География',
+      'russian_history': 'История России',
+      'world_history': 'Всеобщая история',
+      'social_studies': 'Обществознание',
+      'computer_science': 'Информатика',
+      'statistics_probability': 'Статистика и вероятность',
+      'of_text': 'из',
+      'avatar_crop_title': 'Редактирование',
+      'avatar_crop_subtitle': 'Настройте обрезку для идеальной аватарки',
+      'edit_button': 'Редактировать',
+      'crop_title': 'Обрезка',
+      'saving': 'Сохранение...',
     },
     'en': {
       'app_title': 'EduPeak',
@@ -153,9 +211,9 @@ class AppLocalizations {
       'join_and_improve': 'Join and boost your brainpower',
       'exam_preparation': 'OGE/EGE Preparation • Olympiad Tasks',
       'choose_language': 'Choose Language',
-      'russian': 'Русский 🇷🇺',
-      'english': 'English 🇬🇧 ',
-      'german': 'Deutsch 🇩🇪',
+      'russian': 'Russian (Русский) 🇷🇺',
+      'english': 'English (English) 🇬🇧 ',
+      'german': 'German (Deutsch) 🇩🇪',
       'login': 'Login',
       'register': 'Register',
       'settings': 'Settings',
@@ -191,7 +249,6 @@ class AppLocalizations {
       'language_settings': 'Language Settings',
       'select_app_language': 'Select app language',
       'change_language_restart': 'Language change will require app restart',
-
       'please_fill_all_fields': 'Please fill all fields',
       'enter_valid_email': 'Please enter a valid email',
       'server_unavailable_check_connection': 'Server unavailable. Check your internet connection.',
@@ -271,6 +328,65 @@ class AppLocalizations {
       'crop': 'Crop',
       'done': 'Done',
       'cancel': 'Cancel',
+      'back': 'Back',
+      'choose_auth_method': 'Choose authentication method',
+      'email': 'Email',
+      'enter_email': 'Enter email',
+      'enter_password': 'Enter password',
+      'forgot_password': 'Forgot password?',
+      'remember_me': 'Remember me',
+      'guest_mode': 'Guest mode',
+      'continue_as_guest': 'Continue as guest',
+      'select_language': 'Select language',
+      'language_changed': 'Language changed',
+      'restart_required': 'App restart required',
+      'enter_your_account': 'Enter your account',
+      'enter_credentials': 'Enter your login credentials',
+      'no_account': 'No account?',
+      'enter_email_and_password': 'Enter your email and create a password',
+      'premium_subscription': 'Premium Subscription',
+      'offline_mode': 'Offline Mode',
+      'study_without_internet': 'Study topics without internet',
+      'advanced_statistics': 'Advanced Statistics',
+      'detailed_progress_analytics': 'Detailed progress analytics',
+      'exclusive_themes': 'Exclusive Themes',
+      'unique_app_design': 'Unique app design',
+      'priority_support': 'Priority Support',
+      'fast_answers': 'Fast answers to questions',
+      'subscribe_button': 'Subscribe - 299₽/month',
+      'subscription_development': 'Subscription feature in development',
+      'days_in_row': 'Days in row',
+      'completed_topics_count': 'Completed topics',
+      'progress_by_subjects': 'Progress by subjects',
+      'lesson_explanation': 'Topic Explanation',
+      'start_lesson_button': 'Start Lesson',
+      'start_test_button': 'Start Test',
+      'correctly': 'correct',
+      'excellent_knowledge': 'Excellent! You know almost everything!',
+      'not_bad_grow': 'Not bad, but there is room to grow!',
+      'continue_next': 'Continue',
+      'completing_test': 'Completing test...',
+      'russian_language': 'Russian Language',
+      'math': 'Mathematics',
+      'algebra': 'Algebra',
+      'geometry': 'Geometry',
+      'english_language': 'English Language',
+      'literature': 'Literature',
+      'biology': 'Biology',
+      'physics': 'Physics',
+      'chemistry': 'Chemistry',
+      'geography': 'Geography',
+      'russian_history': 'Russian History',
+      'world_history': 'World History',
+      'social_studies': 'Social Studies',
+      'computer_science': 'Computer Science',
+      'statistics_probability': 'Statistics and Probability',
+      'of_text': 'of',
+      'avatar_crop_title': 'Editing',
+      'avatar_crop_subtitle': 'Adjust crop for perfect avatar',
+      'edit_button': 'Edit',
+      'crop_title': 'Crop',
+      'saving': 'Saving...',
     },
     'de': {
       'app_title': 'EduPeak',
@@ -284,9 +400,9 @@ class AppLocalizations {
       'join_and_improve': 'Schließen Sie sich an und trainieren Sie Ihr Gehirn',
       'exam_preparation': 'OGE/EGE Vorbereitung • Olympiade-Aufgaben',
       'choose_language': 'Sprache auswählen',
-      'russian': 'Русский 🇷🇺',
-      'english': 'English 🇬🇧 ',
-      'german': 'Deutsch 🇩🇪',
+      'russian': 'Russisch (Русский) 🇷🇺',
+      'english': 'Englisch (English) 🇬🇧 ',
+      'german': 'Deutsch (Deutsch)  🇩🇪',
       'login': 'Anmelden',
       'register': 'Registrieren',
       'settings': 'Einstellungen',
@@ -322,7 +438,6 @@ class AppLocalizations {
       'language_settings': 'Spracheinstellungen',
       'select_app_language': 'App-Sprache auswählen',
       'change_language_restart': 'Sprachänderung erfordert Neustart der App',
-
       'please_fill_all_fields': 'Bitte füllen Sie alle Felder aus',
       'enter_valid_email': 'Bitte geben Sie eine gültige E-Mail-Adresse ein',
       'server_unavailable_check_connection': 'Server nicht verfügbar. Überprüfen Sie Ihre Internetverbindung.',
@@ -402,6 +517,65 @@ class AppLocalizations {
       'crop': 'Zuschneiden',
       'done': 'Fertig',
       'cancel': 'Abbrechen',
+      'back': 'Zurück',
+      'choose_auth_method': 'Authentifizierungsmethode wählen',
+      'email': 'E-Mail',
+      'enter_email': 'E-Mail eingeben',
+      'enter_password': 'Passwort eingeben',
+      'forgot_password': 'Passwort vergessen?',
+      'remember_me': 'Angemeldet bleiben',
+      'guest_mode': 'Gastmodus',
+      'continue_as_guest': 'Als Gast fortfahren',
+      'select_language': 'Sprache auswählen',
+      'language_changed': 'Sprache geändert',
+      'restart_required': 'App-Neustart erforderlich',
+      'enter_your_account': 'Melden Sie sich in Ihrem Konto an',
+      'enter_credentials': 'Geben Sie Ihre Anmeldedaten ein',
+      'no_account': 'Kein Konto?',
+      'enter_email_and_password': 'Geben Sie Ihre E-Mail ein und erstellen Sie ein Passwort',
+      'premium_subscription': 'Premium-Abonnement',
+      'offline_mode': 'Offline-Modus',
+      'study_without_internet': 'Themen ohne Internet studieren',
+      'advanced_statistics': 'Erweiterte Statistiken',
+      'detailed_progress_analytics': 'Detaillierte Fortschrittsanalytik',
+      'exclusive_themes': 'Exklusive Themen',
+      'unique_app_design': 'Einzigartiges App-Design',
+      'priority_support': 'Prioritätsunterstützung',
+      'fast_answers': 'Schnelle Antworten auf Fragen',
+      'subscribe_button': 'Abonnieren - 299₽/Monat',
+      'subscription_development': 'Abonnementfunktion in Entwicklung',
+      'days_in_row': 'Tage in Folge',
+      'completed_topics_count': 'Abgeschlossene Themen',
+      'progress_by_subjects': 'Fortschritt nach Fächern',
+      'lesson_explanation': 'Thema Erklärung',
+      'start_lesson_button': 'Lektion starten',
+      'start_test_button': 'Test starten',
+      'correctly': 'richtig',
+      'excellent_knowledge': 'Ausgezeichnet! Du weißt fast alles!',
+      'not_bad_grow': 'Nicht schlecht, aber es gibt Raum zum Wachsen!',
+      'continue_next': 'Weiter',
+      'completing_test': 'Test wird abgeschlossen...',
+      'russian_language': 'Russische Sprache',
+      'math': 'Mathematik',
+      'algebra': 'Algebra',
+      'geometry': 'Geometrie',
+      'english_language': 'Englische Sprache',
+      'literature': 'Literatur',
+      'biology': 'Biologie',
+      'physics': 'Physik',
+      'chemistry': 'Chemie',
+      'geography': 'Geographie',
+      'russian_history': 'Russische Geschichte',
+      'world_history': 'Weltgeschichte',
+      'social_studies': 'Sozialkunde',
+      'computer_science': 'Informatik',
+      'statistics_probability': 'Statistik und Wahrscheinlichkeit',
+      'of_text': 'von',
+      'avatar_crop_title': 'Bearbeiten',
+      'avatar_crop_subtitle': 'Passen Sie den Zuschnitt für den perfekten Avatar an',
+      'edit_button': 'Bearbeiten',
+      'crop_title': 'Zuschneiden',
+      'saving': 'Speichern...',
     },
   };
 
@@ -534,6 +708,65 @@ class AppLocalizations {
   String get crop => _localizedValues[locale.languageCode]?['crop'] ?? 'Crop';
   String get done => _localizedValues[locale.languageCode]?['done'] ?? 'Done';
   String get cancel => _localizedValues[locale.languageCode]?['cancel'] ?? 'Cancel';
+  String get back => _localizedValues[locale.languageCode]?['back'] ?? 'Back';
+  String get chooseAuthMethod => _localizedValues[locale.languageCode]?['choose_auth_method'] ?? 'Choose authentication method';
+  String get email => _localizedValues[locale.languageCode]?['email'] ?? 'Email';
+  String get enterEmail => _localizedValues[locale.languageCode]?['enter_email'] ?? 'Enter email';
+  String get enterPassword => _localizedValues[locale.languageCode]?['enter_password'] ?? 'Enter password';
+  String get forgotPassword => _localizedValues[locale.languageCode]?['forgot_password'] ?? 'Forgot password?';
+  String get rememberMe => _localizedValues[locale.languageCode]?['remember_me'] ?? 'Remember me';
+  String get guestMode => _localizedValues[locale.languageCode]?['guest_mode'] ?? 'Guest mode';
+  String get continueAsGuest => _localizedValues[locale.languageCode]?['continue_as_guest'] ?? 'Continue as guest';
+  String get selectLanguage => _localizedValues[locale.languageCode]?['select_language'] ?? 'Select language';
+  String get languageChanged => _localizedValues[locale.languageCode]?['language_changed'] ?? 'Language changed';
+  String get restartRequired => _localizedValues[locale.languageCode]?['restart_required'] ?? 'App restart required';
+  String get enterYourAccount => _localizedValues[locale.languageCode]?['enter_your_account'] ?? 'Enter your account';
+  String get enterCredentials => _localizedValues[locale.languageCode]?['enter_credentials'] ?? 'Enter your credentials';
+  String get noAccount => _localizedValues[locale.languageCode]?['no_account'] ?? 'No account?';
+  String get enterEmailAndPassword => _localizedValues[locale.languageCode]?['enter_email_and_password'] ?? 'Enter email and password';
+  String get premiumSubscription => _localizedValues[locale.languageCode]?['premium_subscription'] ?? 'Premium Subscription';
+  String get offlineMode => _localizedValues[locale.languageCode]?['offline_mode'] ?? 'Offline Mode';
+  String get studyWithoutInternet => _localizedValues[locale.languageCode]?['study_without_internet'] ?? 'Study without internet';
+  String get advancedStatistics => _localizedValues[locale.languageCode]?['advanced_statistics'] ?? 'Advanced Statistics';
+  String get detailedProgressAnalytics => _localizedValues[locale.languageCode]?['detailed_progress_analytics'] ?? 'Detailed progress analytics';
+  String get exclusiveThemes => _localizedValues[locale.languageCode]?['exclusive_themes'] ?? 'Exclusive Themes';
+  String get uniqueAppDesign => _localizedValues[locale.languageCode]?['unique_app_design'] ?? 'Unique app design';
+  String get prioritySupport => _localizedValues[locale.languageCode]?['priority_support'] ?? 'Priority Support';
+  String get fastAnswers => _localizedValues[locale.languageCode]?['fast_answers'] ?? 'Fast answers';
+  String get subscribeButton => _localizedValues[locale.languageCode]?['subscribe_button'] ?? 'Subscribe';
+  String get subscriptionDevelopment => _localizedValues[locale.languageCode]?['subscription_development'] ?? 'Subscription in development';
+  String get daysInRow => _localizedValues[locale.languageCode]?['days_in_row'] ?? 'Days in row';
+  String get completedTopicsCount => _localizedValues[locale.languageCode]?['completed_topics_count'] ?? 'Completed topics';
+  String get progressBySubjects => _localizedValues[locale.languageCode]?['progress_by_subjects'] ?? 'Progress by subjects';
+  String get lessonExplanation => _localizedValues[locale.languageCode]?['lesson_explanation'] ?? 'Lesson Explanation';
+  String get startLessonButton => _localizedValues[locale.languageCode]?['start_lesson_button'] ?? 'Start Lesson';
+  String get startTestButton => _localizedValues[locale.languageCode]?['start_test_button'] ?? 'Start Test';
+  String get correctly => _localizedValues[locale.languageCode]?['correctly'] ?? 'correct';
+  String get excellentKnowledge => _localizedValues[locale.languageCode]?['excellent_knowledge'] ?? 'Excellent knowledge';
+  String get notBadGrow => _localizedValues[locale.languageCode]?['not_bad_grow'] ?? 'Not bad grow';
+  String get continueNext => _localizedValues[locale.languageCode]?['continue_next'] ?? 'Continue';
+  String get completingTest => _localizedValues[locale.languageCode]?['completing_test'] ?? 'Completing test';
+  String get russianLanguage => _localizedValues[locale.languageCode]?['russian_language'] ?? 'Russian Language';
+  String get math => _localizedValues[locale.languageCode]?['math'] ?? 'Mathematics';
+  String get algebra => _localizedValues[locale.languageCode]?['algebra'] ?? 'Algebra';
+  String get geometry => _localizedValues[locale.languageCode]?['geometry'] ?? 'Geometry';
+  String get englishLanguage => _localizedValues[locale.languageCode]?['english_language'] ?? 'English Language';
+  String get literature => _localizedValues[locale.languageCode]?['literature'] ?? 'Literature';
+  String get biology => _localizedValues[locale.languageCode]?['biology'] ?? 'Biology';
+  String get physics => _localizedValues[locale.languageCode]?['physics'] ?? 'Physics';
+  String get chemistry => _localizedValues[locale.languageCode]?['chemistry'] ?? 'Chemistry';
+  String get geography => _localizedValues[locale.languageCode]?['geography'] ?? 'Geography';
+  String get russianHistory => _localizedValues[locale.languageCode]?['russian_history'] ?? 'Russian History';
+  String get worldHistory => _localizedValues[locale.languageCode]?['world_history'] ?? 'World History';
+  String get socialStudies => _localizedValues[locale.languageCode]?['social_studies'] ?? 'Social Studies';
+  String get computerScience => _localizedValues[locale.languageCode]?['computer_science'] ?? 'Computer Science';
+  String get statisticsProbability => _localizedValues[locale.languageCode]?['statistics_probability'] ?? 'Statistics and Probability';
+  String get ofText => _localizedValues[locale.languageCode]?['of_text'] ?? 'of';
+  String get avatarCropTitle => _localizedValues[locale.languageCode]?['avatar_crop_title'] ?? 'Editing';
+  String get avatarCropSubtitle => _localizedValues[locale.languageCode]?['avatar_crop_subtitle'] ?? 'Adjust crop for perfect avatar';
+  String get editButton => _localizedValues[locale.languageCode]?['edit_button'] ?? 'Edit';
+  String get cropTitle => _localizedValues[locale.languageCode]?['crop_title'] ?? 'Crop';
+  String get saving => _localizedValues[locale.languageCode]?['saving'] ?? 'Saving...';
 }
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user_stats.dart';
+import '../localization.dart';
 
 class StatisticsScreen extends StatelessWidget {
   final UserStats userStats;
@@ -26,10 +27,12 @@ class StatisticsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Статистика'),
+        title: Text(appLocalizations.statistics),
         backgroundColor: Theme.of(context).cardColor,
         foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
         elevation: 0,
@@ -41,27 +44,27 @@ class StatisticsScreen extends StatelessWidget {
           children: [
             _StatCard(
               icon: Icons.local_fire_department,
-              title: 'Дней подряд',
+              title: appLocalizations.daysInRow,
               value: '${userStats.streakDays}',
               color: Colors.orange,
             ),
             const SizedBox(height: 16),
             _StatCard(
               icon: Icons.check_circle,
-              title: 'Пройдено тем',
+              title: appLocalizations.completedTopicsCount,
               value: '$completedTopics',
               color: Colors.green,
             ),
             const SizedBox(height: 16),
             _StatCard(
               icon: Icons.psychology,
-              title: 'Правильных ответов',
+              title: appLocalizations.correctAnswersCount,
               value: '$totalCorrectAnswers',
               color: Colors.blue,
             ),
             const SizedBox(height: 24),
             Text(
-              'Прогресс по предметам:',
+              appLocalizations.progressBySubjects,
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 16),
@@ -69,7 +72,7 @@ class StatisticsScreen extends StatelessWidget {
               child: userStats.topicProgress.isEmpty
                   ? Center(
                 child: Text(
-                  'Пока нет пройденных тем',
+                  appLocalizations.noCompletedTopics,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               )

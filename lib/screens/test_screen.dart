@@ -4,6 +4,7 @@ import '../widgets/answer_popup.dart';
 import '../data/user_data_storage.dart';
 import '../data/subjects_data.dart';
 import '../models/question.dart';
+import '../localization.dart';
 
 class TestScreen extends StatefulWidget {
   final dynamic topic;
@@ -31,7 +32,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   final List<int> _userAnswers = [];
   final List<String> _textAnswers = [];
   int _correctAnswersCount = 0;
-  List<Question> _shuffledQuestions = []; // Изменен тип на List<Question>
+  List<Question> _shuffledQuestions = [];
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
 
@@ -57,19 +58,16 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   }
 
   void _shuffleQuestions() {
-    // Создаем глубокую копию вопросов с перемешанными вариантами
     final questions = <Question>[];
 
     for (final originalQuestion in widget.topic.questions) {
       if (originalQuestion.answerType == 'choice') {
-        // Для вопросов с выбором - перемешиваем варианты
         final shuffledQuestion = _shuffleQuestionOptions(originalQuestion);
         questions.add(shuffledQuestion);
       } else {
-        // Для текстовых вопросов - просто копируем
         questions.add(Question(
           text: originalQuestion.text,
-          options: List<String>.from(originalQuestion.options), // Явное указание типа
+          options: List<String>.from(originalQuestion.options),
           correctIndex: originalQuestion.correctIndex,
           explanation: originalQuestion.explanation,
           answerType: originalQuestion.answerType,
@@ -77,7 +75,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       }
     }
 
-    // Перемешиваем порядок вопросов
     questions.shuffle();
 
     setState(() {
@@ -87,16 +84,14 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
 
   Question _shuffleQuestionOptions(Question originalQuestion) {
     final correctAnswer = originalQuestion.options[originalQuestion.correctIndex];
-    final options = List<String>.from(originalQuestion.options); // Явное указание типа
+    final options = List<String>.from(originalQuestion.options);
     options.shuffle();
 
-    // Находим новый индекс правильного ответа после перемешивания
     final newCorrectIndex = options.indexOf(correctAnswer);
 
-    // Создаем новый вопрос с перемешанными вариантами
     return Question(
       text: originalQuestion.text,
-      options: options, // Теперь options имеет правильный тип List<String>
+      options: options,
       correctIndex: newCorrectIndex,
       explanation: originalQuestion.explanation,
       answerType: originalQuestion.answerType,
@@ -120,12 +115,11 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     final question = _currentQuestion;
     if (question == null) return;
 
-    // Валидация
     if (question.answerType == 'text' && _textAnswer.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Пожалуйста, введите ответ'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).pleaseEnterAnswer),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -133,9 +127,9 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
 
     if (question.answerType == 'choice' && _selectedAnswerIndex == -1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Пожалуйста, выберите ответ'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).pleaseSelectAnswer),
+          duration: const Duration(seconds: 2),
         ),
       );
       return;
@@ -143,7 +137,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
 
     setState(() => _isSubmitting = true);
 
-    // Проверка ответа
     bool isCorrect;
     if (question.answerType == 'text') {
       isCorrect = _textAnswer.trim().toLowerCase() ==
@@ -152,7 +145,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       isCorrect = _selectedAnswerIndex == question.correctIndex;
     }
 
-    // Анимация проверки
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         setState(() {
@@ -164,7 +156,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
             _correctAnswersCount++;
           }
 
-          // Сохраняем ответ
           if (question.answerType == 'text') {
             _textAnswers.add(_textAnswer);
             _userAnswers.add(-1);
@@ -175,9 +166,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
         });
       }
     });
-
-    print('🎯 Question ${_currentQuestionIndex + 1}: ${isCorrect ? 'CORRECT' : 'WRONG'}');
-    print('📊 Correct answers: $_correctAnswersCount/$totalQuestions');
   }
 
   void _nextQuestion() {
@@ -207,16 +195,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           widget.topic.name,
           _correctAnswersCount
       );
-
-      print('✅ PROGRESS SAVED SUCCESSFULLY');
-      print('📚 Subject: $subjectName');
-      print('📖 Topic: ${widget.topic.name}');
-      print('🎯 Correct answers: $_correctAnswersCount/$totalQuestions');
-
-      // Проверяем сохраненный прогресс
-      final stats = await UserDataStorage.getUserStats();
-      final savedProgress = stats.topicProgress[subjectName]?[widget.topic.name] ?? 0;
-      print('💾 Verified saved progress: $savedProgress');
 
     } catch (e) {
       print('❌ ERROR saving progress: $e');
@@ -311,7 +289,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final appLocalizations = AppLocalizations.of(context);
 
     if (!_hasMoreQuestions) {
       return Scaffold(
@@ -325,7 +303,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
               ),
               const SizedBox(height: 20),
               Text(
-                'Завершение теста...',
+                appLocalizations.completingTest,
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ],
@@ -408,7 +386,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
-                    'Вопрос ${_currentQuestionIndex + 1}/$totalQuestions',
+                    '${appLocalizations.question} ${_currentQuestionIndex + 1}/$totalQuestions',
                     style: TextStyle(
                       color: Theme.of(context).primaryColor,
                       fontWeight: FontWeight.w600,
@@ -438,7 +416,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                           TextField(
                             onChanged: (value) => setState(() => _textAnswer = value),
                             decoration: InputDecoration(
-                              hintText: 'Введите ваш ответ...',
+                              hintText: appLocalizations.enterAnswer,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
@@ -535,9 +513,9 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                           valueColor: AlwaysStoppedAnimation(Colors.white),
                         ),
                       )
-                          : const Text(
-                        'Проверить ответ',
-                        style: TextStyle(
+                          : Text(
+                        appLocalizations.checkAnswer,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),

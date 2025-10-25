@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_screen.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
-import 'username_screen.dart';
 import 'main_screen.dart';
 import '../theme/app_theme.dart';
 import '../localization.dart';
@@ -26,14 +26,14 @@ class AuthSelectionScreen extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: isDark
                 ? [
-              const Color(0xFF1B5E20), // Темно-зеленый
-              const Color(0xFF2E7D32), // Средне-зеленый
-              const Color(0xFF388E3C), // Светло-зеленый
+              Theme.of(context).primaryColorDark ?? const Color(0xFF1B5E20),
+              Theme.of(context).primaryColor ?? const Color(0xFF2E7D32),
+              Theme.of(context).primaryColorLight ?? const Color(0xFF388E3C),
             ]
                 : [
-              const Color(0xFF4CAF50), // Светло-зеленый
-              const Color(0xFF66BB6A), // Очень светлый зеленый
-              const Color(0xFF81C784), // Бледно-зеленый
+              Theme.of(context).primaryColorLight ?? const Color(0xFF4CAF50),
+              const Color(0xFF66BB6A),
+              const Color(0xFF81C784),
             ],
             stops: const [0.0, 0.6, 1.0],
           ),
@@ -79,153 +79,181 @@ class AuthSelectionScreen extends StatelessWidget {
             ),
 
             // Основной контент
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Логотип
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 3,
+            SafeArea(
+              child: Column(
+                children: [
+                  // Кнопка назад вверху слева
+                  Align(
+                    alignment: Alignment.topLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.arrow_back,
+                          color: Colors.white,
+                          size: 28,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.2),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.school,
-                        size: 50,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      appLocalizations.appTitle,
-                      style: TextStyle(
-                        fontSize: 42,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontFamily: 'Inter',
-                        letterSpacing: 1.2,
-                        shadows: [
-                          Shadow(
-                            blurRadius: 10,
-                            color: Colors.black.withOpacity(0.3),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Выберите способ входа',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(height: 60),
-
-                    // Кнопка входа
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
                         onPressed: () {
-                          Navigator.push(
+                          // Возвращаемся на auth_screen
+                          Navigator.pushReplacement(
                             context,
-                            PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
-                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                const begin = Offset(1.0, 0.0);
-                                const end = Offset.zero;
-                                const curve = Curves.easeInOut;
-                                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                                var offsetAnimation = animation.drive(tween);
-
-                                return SlideTransition(position: offsetAnimation, child: child);
-                              },
-                              transitionDuration: const Duration(milliseconds: 400),
-                            ),
+                            MaterialPageRoute(builder: (_) => AuthScreen()),
                           );
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF4CAF50),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          elevation: 4,
-                          shadowColor: Colors.black.withOpacity(0.3),
-                        ),
-                        child: Text(
-                          appLocalizations.login,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                  ),
 
-                    // Кнопка регистрации
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            PageRouteBuilder(
-                              pageBuilder: (context, animation, secondaryAnimation) => const RegisterScreen(),
-                              transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                const begin = Offset(1.0, 0.0);
-                                const end = Offset.zero;
-                                const curve = Curves.easeInOut;
-                                var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                                var offsetAnimation = animation.drive(tween);
-
-                                return SlideTransition(position: offsetAnimation, child: child);
-                              },
-                              transitionDuration: const Duration(milliseconds: 400),
+                  // Центрированный контент
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Логотип
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 3,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.white.withOpacity(0.2),
+                                  blurRadius: 20,
+                                  spreadRadius: 2,
+                                ),
+                              ],
                             ),
-                          );
-                        },
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Colors.white, width: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(25),
+                            child: const Icon(
+                              Icons.school,
+                              size: 50,
+                              color: Colors.white,
+                            ),
                           ),
-                          backgroundColor: Colors.transparent,
-                        ),
-                        child: Text(
-                          appLocalizations.register,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                          const SizedBox(height: 24),
+                          Text(
+                            appLocalizations.appTitle,
+                            style: TextStyle(
+                              fontSize: 42,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontFamily: 'Inter',
+                              letterSpacing: 1.2,
+                              shadows: [
+                                Shadow(
+                                  blurRadius: 10,
+                                  color: Colors.black.withOpacity(0.3),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Text(
+                            appLocalizations.chooseAuthMethod,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white70,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          const SizedBox(height: 60),
+
+                          // Кнопка входа
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                      const begin = Offset(1.0, 0.0);
+                                      const end = Offset.zero;
+                                      const curve = Curves.easeInOut;
+                                      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                                      var offsetAnimation = animation.drive(tween);
+
+                                      return SlideTransition(position: offsetAnimation, child: child);
+                                    },
+                                    transitionDuration: const Duration(milliseconds: 400),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF4CAF50),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                elevation: 4,
+                                shadowColor: Colors.black.withOpacity(0.3),
+                              ),
+                              child: Text(
+                                appLocalizations.login,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Кнопка регистрации
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    pageBuilder: (context, animation, secondaryAnimation) => const RegisterScreen(),
+                                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                      const begin = Offset(1.0, 0.0);
+                                      const end = Offset.zero;
+                                      const curve = Curves.easeInOut;
+                                      var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                                      var offsetAnimation = animation.drive(tween);
+
+                                      return SlideTransition(position: offsetAnimation, child: child);
+                                    },
+                                    transitionDuration: const Duration(milliseconds: 400),
+                                  ),
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: Colors.white, width: 2),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                                backgroundColor: Colors.transparent,
+                              ),
+                              child: Text(
+                                appLocalizations.register,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 40),
+                        ],
                       ),
                     ),
-
-                    const SizedBox(height: 40),
-
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],

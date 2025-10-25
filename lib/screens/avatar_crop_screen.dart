@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
+import '../localization.dart';
 
 class AvatarCropScreen extends StatefulWidget {
   final String imagePath;
@@ -16,13 +17,11 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
   final bool _isLoading = false;
   bool _hasError = false;
 
-  // Зеленый цвет для кнопок
   final Color _primaryColor = Colors.green;
 
   @override
   void initState() {
     super.initState();
-    // Убираем автоматическое кадрирование, сразу показываем экран предпросмотра
     _croppedImage = File(widget.imagePath);
   }
 
@@ -38,12 +37,10 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
     Navigator.pop(context);
   }
 
-  // Функция для открытия кадрирования вручную с кастомным интерфейсом
   Future<void> _openCropManually() async {
     final imageFile = File(widget.imagePath);
     if (!await imageFile.exists()) return;
 
-    // Открываем кастомный экран кадрирования
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -59,7 +56,6 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
     }
   }
 
-  // Функция для получения цветов в зависимости от темы
   Color _getBackgroundColor(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? _getDarkThemeBackgroundColor()
@@ -90,34 +86,35 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: _getBackgroundColor(context),
       appBar: null,
-      body: _buildBodyWithCustomHeader(),
+      body: _buildBodyWithCustomHeader(appLocalizations),
     );
   }
 
-  Widget _buildBodyWithCustomHeader() {
+  Widget _buildBodyWithCustomHeader(AppLocalizations appLocalizations) {
     return SafeArea(
       child: Column(
         children: [
-          _buildCustomHeader(),
+          _buildCustomHeader(appLocalizations),
           Expanded(
-            child: _buildPreviewWidget(),
+            child: _buildPreviewWidget(appLocalizations),
           ),
-          _buildBottomPanel(),
+          _buildBottomPanel(appLocalizations),
         ],
       ),
     );
   }
 
-  Widget _buildCustomHeader() {
+  Widget _buildCustomHeader(AppLocalizations appLocalizations) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Крестик
           Container(
             width: 40,
             height: 40,
@@ -137,16 +134,14 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
               padding: EdgeInsets.zero,
             ),
           ),
-          // Заголовок
           Text(
-            'Редактирование',
+            appLocalizations.avatarCropTitle,
             style: TextStyle(
               color: _getTextColor(context),
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
           ),
-          // Галочка
           Container(
             width: 40,
             height: 40,
@@ -169,7 +164,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
     );
   }
 
-  Widget _buildPreviewWidget() {
+  Widget _buildPreviewWidget(AppLocalizations appLocalizations) {
     return Center(
       child: _croppedImage != null
           ? Container(
@@ -199,7 +194,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
                   width: double.infinity,
                   height: double.infinity,
                   errorBuilder: (context, error, stackTrace) {
-                    return _buildImageErrorWidget();
+                    return _buildImageErrorWidget(appLocalizations);
                   },
                 ),
               ),
@@ -208,11 +203,11 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
           ],
         ),
       )
-          : _buildImageErrorWidget(),
+          : _buildImageErrorWidget(appLocalizations),
     );
   }
 
-  Widget _buildImageErrorWidget() {
+  Widget _buildImageErrorWidget(AppLocalizations appLocalizations) {
     return Container(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -225,7 +220,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Изображение не доступно',
+            appLocalizations.errorSelectingImage,
             style: TextStyle(
               color: _getSubtitleColor(context),
               fontSize: 16,
@@ -236,7 +231,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
     );
   }
 
-  Widget _buildBottomPanel() {
+  Widget _buildBottomPanel(AppLocalizations appLocalizations) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -258,7 +253,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Квадратная аватарка 1:1',
+            appLocalizations.squareAvatar,
             style: TextStyle(
               color: _getTextColor(context),
               fontSize: 18,
@@ -267,7 +262,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Настройте обрезку для идеальной аватарки',
+            appLocalizations.avatarCropSubtitle,
             style: TextStyle(
               color: _getSubtitleColor(context),
               fontSize: 14,
@@ -275,7 +270,6 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
-
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
@@ -289,9 +283,9 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
                 ),
               ),
               icon: const Icon(Icons.edit, size: 20),
-              label: const Text(
-                'Редактировать',
-                style: TextStyle(
+              label: Text(
+                appLocalizations.editButton,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -304,7 +298,6 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
   }
 }
 
-// Класс для кастомного экрана кадрирования
 class CustomCropScreen extends StatefulWidget {
   final String imagePath;
 
@@ -345,7 +338,7 @@ class _CustomCropScreenState extends State<CustomCropScreen> {
         compressQuality: 85,
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: 'Редактирование',
+            toolbarTitle: AppLocalizations.of(context).cropTitle,
             toolbarColor: _getBackgroundColor(context),
             toolbarWidgetColor: _primaryColor,
             initAspectRatio: CropAspectRatioPreset.square,
@@ -360,14 +353,14 @@ class _CustomCropScreenState extends State<CustomCropScreen> {
             dimmedLayerColor: _getBackgroundColor(context).withOpacity(0.8),
           ),
           IOSUiSettings(
-            title: 'Редактирование',
+            title: AppLocalizations.of(context).cropTitle,
             aspectRatioLockEnabled: true,
             aspectRatioPickerButtonHidden: true,
             resetButtonHidden: true,
             rotateButtonsHidden: true,
             rotateClockwiseButtonHidden: true,
-            doneButtonTitle: 'Готово',
-            cancelButtonTitle: 'Отмена',
+            doneButtonTitle: AppLocalizations.of(context).done,
+            cancelButtonTitle: AppLocalizations.of(context).cancel,
             showCancelConfirmationDialog: true,
             minimumAspectRatio: 1.0,
           ),
@@ -395,19 +388,19 @@ class _CustomCropScreenState extends State<CustomCropScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appLocalizations = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: _getBackgroundColor(context),
       appBar: null,
       body: SafeArea(
         child: Column(
           children: [
-            // Кастомный заголовок такой же как на основном экране
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Крестик
                   Container(
                     width: 40,
                     height: 40,
@@ -427,16 +420,14 @@ class _CustomCropScreenState extends State<CustomCropScreen> {
                       padding: EdgeInsets.zero,
                     ),
                   ),
-                  // Заголовок
                   Text(
-                    'Редактирование',
+                    appLocalizations.avatarCropTitle,
                     style: TextStyle(
                       color: _getTextColor(context),
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  // Галочка
                   Container(
                     width: 40,
                     height: 40,
@@ -469,7 +460,7 @@ class _CustomCropScreenState extends State<CustomCropScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Обрезка...',
+                      appLocalizations.saving,
                       style: TextStyle(
                         color: _getTextColor(context).withOpacity(0.7),
                         fontSize: 16,
