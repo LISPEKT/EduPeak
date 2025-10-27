@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'lesson_screen.dart';
 import '../localization.dart';
+import 'xp_screen.dart';
+import '../models/user_stats.dart';
+import '../data/user_data_storage.dart';
 
 class ResultScreen extends StatelessWidget {
   final dynamic topic;
@@ -194,7 +197,16 @@ class ResultScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        // Переход на экран XP вместо возврата к темам
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => XPScreen(
+                              earnedXP: topic.questions.length, // кол-во вопросов = полученный XP
+                              questionsCount: topic.questions.length,
+                            ),
+                          ),
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).primaryColor,

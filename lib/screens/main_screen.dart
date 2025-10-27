@@ -15,6 +15,10 @@ import 'subscription_screen.dart';
 import '../services/api_service.dart';
 import '../localization.dart';
 import '../data/subjects_manager.dart';
+import 'xp_screen.dart';
+import 'friends_screen.dart';
+import 'achievements_screen.dart';
+import 'eduleague_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -27,7 +31,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int? _selectedGrade;
-  String _selectedSubject = 'История'; // По умолчанию История
+  String _selectedSubject = 'История';
   String _searchQuery = '';
   bool _dailyCompleted = false;
   String _username = '';
@@ -56,12 +60,84 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  // Добавьте методы для навигации в класс _MainScreenState:
+  void _openAchievements() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => AchievementsScreen()),
+    );
+  }
+
+  void _openFriends() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => FriendsScreen()),
+    );
+  }
+
+  void _openEduLeague() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EduLeagueScreen()),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _checkAuthStatus();
-    _loadUserData();
-    _debugCheckTopics();
+    _loadLastSelected();
+    // _loadUserData() и _debugCheckTopics() будут вызваны после построения
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Загружаем данные когда контекст готов для Provider
+    if (_username.isEmpty) { // Загружаем только один раз
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadUserData();
+        _debugCheckTopics();
+      });
+    }
+  }
+
+  // Загружаем последние выбранные класс и предмет
+  Future<void> _loadLastSelected() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastGrade = prefs.getInt('lastSelectedGrade');
+      final lastSubject = prefs.getString('lastSelectedSubject');
+
+      if (mounted) {
+        setState(() {
+          _selectedGrade = lastGrade ?? 5; // По умолчанию 5 класс
+          _selectedSubject = lastSubject ?? 'История'; // По умолчанию История
+        });
+      }
+
+      print('📝 Loaded last selected - Grade: $_selectedGrade, Subject: $_selectedSubject');
+    } catch (e) {
+      print('❌ Error loading last selected: $e');
+      if (mounted) {
+        setState(() {
+          _selectedGrade = 5;
+          _selectedSubject = 'История';
+        });
+      }
+    }
+  }
+
+  // Сохраняем выбранные класс и предмет
+  Future<void> _saveLastSelected() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('lastSelectedGrade', _selectedGrade ?? 5);
+      await prefs.setString('lastSelectedSubject', _selectedSubject);
+      print('💾 Saved last selected - Grade: $_selectedGrade, Subject: $_selectedSubject');
+    } catch (e) {
+      print('❌ Error saving last selected: $e');
+    }
   }
 
   Future<void> _checkAuthStatus() async {
@@ -101,15 +177,11 @@ class _MainScreenState extends State<MainScreen> {
           _avatar = avatar;
           _dailyCompleted = stats.dailyCompletion[DateTime.now().toIso8601String().split('T')[0]] ?? false;
 
-          // Автоматически выбираем 5 класс если не выбран
-          if (_selectedGrade == null) {
-            _selectedGrade = 5;
-          }
-
-          // Автоматически выбираем первый доступный предмет
+          // Автоматически выбираем первый доступный предмет если текущий не доступен
           final subjects = _availableSubjects;
           if (subjects.isNotEmpty && !subjects.contains(_selectedSubject)) {
             _selectedSubject = subjects.first;
+            _saveLastSelected();
           }
         });
       }
@@ -293,6 +365,7 @@ class _MainScreenState extends State<MainScreen> {
         _selectedSubject = subjects.first;
       }
       _topicsListKey.currentState?._clearCache();
+      _saveLastSelected(); // Сохраняем выбор
       print('🎓 Grade changed to: $value, subjects: $subjects');
     });
   }
@@ -302,6 +375,7 @@ class _MainScreenState extends State<MainScreen> {
       setState(() {
         _selectedSubject = value;
         _topicsListKey.currentState?._clearCache();
+        _saveLastSelected(); // Сохраняем выбор
         print('📖 Subject changed to: $value');
       });
     }
@@ -315,7 +389,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _openProfile() {
-    Navigator.pop(context);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -339,7 +412,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _openStatistics() {
-    Navigator.pop(context);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -349,7 +421,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _openSubscription() {
-    Navigator.pop(context);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -359,7 +430,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _openSettings() {
-    Navigator.pop(context);
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -424,7 +494,8 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildDrawer(AppLocalizations appLocalizations) {
+  // В методе _buildDrawer замените существующий код после Statistics на:
+  _buildDrawer(AppLocalizations appLocalizations) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final profileColor = isDark
         ? const Color(0xFF2D4A2D)
@@ -501,6 +572,27 @@ class _MainScreenState extends State<MainScreen> {
             subtitle: appLocalizations.learningProgress,
             color: Colors.green,
             onTap: _openStatistics,
+          ),
+          _DrawerItem(
+            icon: Icons.emoji_events,
+            title: 'Достижения',
+            subtitle: 'Полученные награды',
+            color: Colors.orange,
+            onTap: _openAchievements,
+          ),
+          _DrawerItem(
+            icon: Icons.people,
+            title: 'Друзья',
+            subtitle: 'Ваши друзья и их прогресс',
+            color: Colors.blue,
+            onTap: _openFriends,
+          ),
+          _DrawerItem(
+            icon: Icons.leaderboard,
+            title: 'EduLeague',
+            subtitle: 'Рейтинг и лиги',
+            color: Colors.purple,
+            onTap: _openEduLeague,
           ),
           const Divider(),
           _DrawerItem(
@@ -955,7 +1047,7 @@ class _OptimizedTopicsListView extends StatefulWidget {
   });
 
   @override
-  State<_OptimizedTopicsListView> createState() => _OptimizedTopicsListViewState();
+  State<StatefulWidget> createState() => _OptimizedTopicsListViewState();
 }
 
 class _OptimizedTopicsListViewState extends State<_OptimizedTopicsListView> {

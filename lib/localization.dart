@@ -204,7 +204,7 @@ class AppLocalizations {
       'question_not_found': 'Вопрос не найден',
       'no_answer': 'Нет ответа',
       'explanation_not_found': 'Объяснение не найдено',
-      'selectSubject': 'Выбрать предмет'
+      'selectSubject': 'Выбрать предмет',
     },
     'en': {
       'app_title': 'EduPeak',
@@ -400,7 +400,7 @@ class AppLocalizations {
       'question_not_found': 'Question not found',
       'no_answer': 'No answer',
       'explanation_not_found': 'Explanation not found',
-      'selectSubject': 'Select subject'
+      'selectSubject': 'Select subject',
     },
     'de': {
       'app_title': 'EduPeak',
@@ -596,7 +596,7 @@ class AppLocalizations {
       'question_not_found': 'Frage nicht gefunden',
       'no_answer': 'Keine Antwort',
       'explanation_not_found': 'Erklärung nicht gefunden',
-      'selectSubject': 'Select subject'
+      'selectSubject': 'Betreff auswählen'
     },
   };
 

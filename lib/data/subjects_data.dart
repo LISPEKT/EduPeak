@@ -1,7 +1,7 @@
 // subjects_data.dart
+import 'package:flutter/material.dart';
 import 'history/history_data.dart';
 import '../models/subject.dart';
-import 'package:flutter/material.dart';
 
 // Основные данные предметов с поддержкой локализации
 Map<int, List<Subject>> getSubjectsByGrade(BuildContext context) {

@@ -25,6 +25,72 @@ class UserDataStorage {
     }
   }
 
+  static Future<void> addUserXP(int xp) async {
+    try {
+      final stats = await getUserStats();
+      stats.addXP(xp);
+      await saveUserStats(stats);
+      print('✅ XP added: +$xp XP, Total: ${stats.totalXP}, Weekly: ${stats.weeklyXP}');
+    } catch (e) {
+      print('❌ Error adding XP: $e');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserLeagueInfo() async {
+    try {
+      final stats = await getUserStats();
+      return stats.getOverallStatistics();
+    } catch (e) {
+      print('❌ Error getting league info: $e');
+      return {
+        'currentLeague': 'Бронза',
+        'leagueProgress': 0.0,
+        'xpToNextLeague': 100,
+        'nextLeague': 'Серебро',
+        'totalXP': 0,
+        'weeklyXP': 0,
+      };
+    }
+  }
+
+  static Future<void> resetWeeklyXP() async {
+    try {
+      final stats = await getUserStats();
+      stats.resetWeeklyXP();
+      await saveUserStats(stats);
+      print('✅ Weekly XP reset');
+    } catch (e) {
+      print('❌ Error resetting weekly XP: $e');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserStatsOverview() async {
+    try {
+      final stats = await getUserStats();
+      return {
+        'streakDays': stats.streakDays,
+        'totalXP': stats.totalXP,
+        'weeklyXP': stats.weeklyXP,
+        'completedTopics': stats.getCompletedTopicsCount(),
+        'totalCorrectAnswers': stats.getTotalCorrectAnswers(),
+        'currentLeague': stats.getCurrentLeague(),
+        'username': stats.username,
+      };
+    } catch (e) {
+      print('❌ Error getting user stats overview: $e');
+      return {
+        'streakDays': 0,
+        'totalXP': 0,
+        'weeklyXP': 0,
+        'completedTopics': 0,
+        'totalCorrectAnswers': 0,
+        'currentLeague': 'Бронза',
+        'username': '',
+      };
+    }
+  }
+
+
   static Future<UserStats> getUserStats() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -48,6 +114,7 @@ class UserDataStorage {
     return _getDefaultStats();
   }
 
+  // В классе UserDataStorage обновите метод _getDefaultStats():
   static UserStats _getDefaultStats() {
     return UserStats(
       streakDays: 0,
@@ -55,8 +122,12 @@ class UserDataStorage {
       topicProgress: {},
       dailyCompletion: {},
       username: '',
+      totalXP: 0,
+      weeklyXP: 0,
+      lastWeeklyReset: DateTime.now(),
     );
   }
+
 
   static Future<void> saveUsername(String username) async {
     try {

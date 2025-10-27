@@ -316,7 +316,7 @@ class _TopicPopupState extends State<TopicPopup> {
           ),
           _buildStatItem(
             Icons.timer,
-            '${widget.topic.questions.length * 2}',
+            '${widget.topic.questions.length}',
             _getLocalizedMinutesText(appLocalizations),
           ),
           _buildStatItem(

@@ -41,10 +41,16 @@ class HistoryData {
 
   // Реактивный метод с контекстом
   static List<Subject> getHistorySubjects(BuildContext context, int grade) {
-    final languageManager = Provider.of<LanguageManager>(context, listen: true);
-    final currentLanguage = languageManager.currentLanguageCode;
-    final gradeData = _localizedData[currentLanguage] ?? _localizedData['ru']!;
-    return gradeData[grade] ?? [];
+    try {
+      final languageManager = Provider.of<LanguageManager>(context, listen: false);
+      final currentLanguage = languageManager.currentLanguageCode;
+      final gradeData = _localizedData[currentLanguage] ?? _localizedData['ru']!;
+      return gradeData[grade] ?? [];
+    } catch (e) {
+      // Если контекст не готов, возвращаем русскую версию по умолчанию
+      print('⚠️ Using default history data for grade $grade: $e');
+      return _localizedData['ru']![grade] ?? [];
+    }
   }
 
   // Статические методы для обратной совместимости (тоже реактивные)

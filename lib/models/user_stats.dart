@@ -1,9 +1,14 @@
+import 'package:flutter/material.dart';
+
 class UserStats {
   int streakDays;
   DateTime lastActivity;
   Map<String, Map<String, int>> topicProgress;
   Map<String, bool> dailyCompletion;
   String username;
+  int totalXP;
+  int weeklyXP;
+  DateTime lastWeeklyReset;
 
   UserStats({
     required this.streakDays,
@@ -11,7 +16,10 @@ class UserStats {
     required this.topicProgress,
     required this.dailyCompletion,
     required this.username,
-  });
+    this.totalXP = 0,
+    this.weeklyXP = 0,
+    DateTime? lastWeeklyReset,
+  }) : lastWeeklyReset = lastWeeklyReset ?? DateTime.now();
 
   // Копирующий конструктор для обновления
   UserStats copyWith({
@@ -20,6 +28,9 @@ class UserStats {
     Map<String, Map<String, int>>? topicProgress,
     Map<String, bool>? dailyCompletion,
     String? username,
+    int? totalXP,
+    int? weeklyXP,
+    DateTime? lastWeeklyReset,
   }) {
     return UserStats(
       streakDays: streakDays ?? this.streakDays,
@@ -27,6 +38,9 @@ class UserStats {
       topicProgress: topicProgress ?? Map.from(this.topicProgress),
       dailyCompletion: dailyCompletion ?? Map.from(this.dailyCompletion),
       username: username ?? this.username,
+      totalXP: totalXP ?? this.totalXP,
+      weeklyXP: weeklyXP ?? this.weeklyXP,
+      lastWeeklyReset: lastWeeklyReset ?? this.lastWeeklyReset,
     );
   }
 
@@ -37,6 +51,9 @@ class UserStats {
       'topicProgress': topicProgress,
       'dailyCompletion': dailyCompletion,
       'username': username,
+      'totalXP': totalXP,
+      'weeklyXP': weeklyXP,
+      'lastWeeklyReset': lastWeeklyReset.toIso8601String(),
     };
   }
 
@@ -79,24 +96,112 @@ class UserStats {
       dailyCompletion = {};
     }
 
+    // Парсинг даты сброса недельного XP
+    DateTime lastWeeklyReset;
+    try {
+      lastWeeklyReset = DateTime.parse(json['lastWeeklyReset'] as String? ?? DateTime.now().toIso8601String());
+    } catch (e) {
+      print('Error parsing lastWeeklyReset: $e');
+      lastWeeklyReset = DateTime.now();
+    }
+
     return UserStats(
       streakDays: (json['streakDays'] as int?) ?? 0,
       lastActivity: DateTime.parse(json['lastActivity'] as String? ?? DateTime.now().toIso8601String()),
       topicProgress: topicProgress,
       dailyCompletion: dailyCompletion,
       username: (json['username'] as String?) ?? '',
+      totalXP: (json['totalXP'] as int?) ?? 0,
+      weeklyXP: (json['weeklyXP'] as int?) ?? 0,
+      lastWeeklyReset: lastWeeklyReset,
     );
   }
 
-  // Метод для сброса прогресса
-  void resetProgress() {
-    streakDays = 0;
-    topicProgress.clear();
-    dailyCompletion.clear();
+  // === МЕТОДЫ ДЛЯ РАБОТЫ С XP ===
+
+  // Добавление XP с автоматическим сбросом недельного XP при необходимости
+  void addXP(int xp) {
+    totalXP += xp;
+    weeklyXP += xp;
     lastActivity = DateTime.now();
+
+    // Проверяем, нужно ли сбросить недельный XP
+    _checkWeeklyReset();
   }
 
-  // === НОВЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ID ТЕМ ===
+  // Проверка и сброс недельного XP если прошла неделя
+  void _checkWeeklyReset() {
+    final now = DateTime.now();
+    final daysSinceReset = now.difference(lastWeeklyReset).inDays;
+
+    if (daysSinceReset >= 7) {
+      weeklyXP = 0;
+      lastWeeklyReset = now;
+    }
+  }
+
+  // Получение текущей лиги на основе недельного XP
+  String getCurrentLeague() {
+    _checkWeeklyReset(); // Сначала проверяем актуальность weeklyXP
+
+    if (weeklyXP >= 1001) return 'Бриллиант';
+    if (weeklyXP >= 501) return 'Платина';
+    if (weeklyXP >= 301) return 'Золото';
+    if (weeklyXP >= 101) return 'Серебро';
+    return 'Бронза';
+  }
+
+  // Получение цвета лиги
+  Color getLeagueColor() {
+    final league = getCurrentLeague();
+    switch (league) {
+      case 'Бронза': return Color(0xFFCD7F32);
+      case 'Серебро': return Color(0xFFC0C0C0);
+      case 'Золото': return Color(0xFFFFD700);
+      case 'Платина': return Color(0xFFE5E4E2);
+      case 'Бриллиант': return Color(0xFFB9F2FF);
+      default: return Color(0xFFCD7F32);
+    }
+  }
+
+  // Получение прогресса до следующей лиги (0.0 - 1.0)
+  double getLeagueProgress() {
+    _checkWeeklyReset();
+
+    final currentXP = weeklyXP;
+    if (currentXP >= 1001) return 1.0;
+    if (currentXP >= 501) return (currentXP - 501) / 500.0;
+    if (currentXP >= 301) return (currentXP - 301) / 200.0;
+    if (currentXP >= 101) return (currentXP - 101) / 200.0;
+    return currentXP / 100.0;
+  }
+
+  // Получение XP до следующей лиги
+  int getXPToNextLeague() {
+    _checkWeeklyReset();
+
+    final currentXP = weeklyXP;
+    if (currentXP < 101) return 101 - currentXP;
+    if (currentXP < 301) return 301 - currentXP;
+    if (currentXP < 501) return 501 - currentXP;
+    if (currentXP < 1001) return 1001 - currentXP;
+    return 0;
+  }
+
+  // Получение названия следующей лиги
+  String getNextLeague() {
+    final currentLeague = getCurrentLeague();
+    switch (currentLeague) {
+      case 'Бронза': return 'Серебро';
+      case 'Серебро': return 'Золото';
+      case 'Золото': return 'Платина';
+      case 'Платина': return 'Бриллиант';
+      case 'Бриллиант': return 'Бриллиант';
+      default: return 'Серебро';
+    }
+  }
+
+  // === МЕТОДЫ ДЛЯ РАБОТЫ С ТЕМАМИ ===
 
   // Метод для получения прогресса по ID темы
   int getTopicProgress(String topicId) {
@@ -150,6 +255,8 @@ class UserStats {
     return topicProgress[subjectName] ?? {};
   }
 
+  // === МЕТОДЫ ДЛЯ ЕЖЕДНЕВНОЙ АКТИВНОСТИ ===
+
   // Метод для проверки ежедневного выполнения
   bool isDailyCompleted() {
     final today = DateTime.now().toIso8601String().split('T')[0];
@@ -174,12 +281,14 @@ class UserStats {
     if (dailyCompletion[yesterdayKey] == true) {
       streakDays++;
     } else {
-      // Если вчера не было активности, сбрасываем стрик
+      // Если вчера не было активности, начинаем новый стрик
       streakDays = 1;
     }
 
     lastActivity = today;
   }
+
+  // === СТАТИСТИЧЕСКИЕ МЕТОДЫ ===
 
   // Метод для получения общего количества правильных ответов
   int getTotalCorrectAnswers() {
@@ -206,8 +315,7 @@ class UserStats {
 
       for (final progress in topicProgressMap.values) {
         totalCorrectAnswers += progress;
-        // Здесь нужно получить общее количество вопросов для каждой темы
-        // Пока считаем что тема завершена если правильных ответов >= 1
+        // Считаем тему завершённой если есть хотя бы один правильный ответ
         if (progress > 0) {
           completedTopics++;
         }
@@ -217,11 +325,48 @@ class UserStats {
         'completedTopics': completedTopics,
         'totalCorrectAnswers': totalCorrectAnswers,
         'totalTopics': topicProgressMap.length,
+        'completionPercentage': topicProgressMap.isEmpty ? 0 : (completedTopics / topicProgressMap.length * 100).round(),
       };
     }
 
     return statistics;
   }
+
+  // Получение общей статистики
+  Map<String, dynamic> getOverallStatistics() {
+    return {
+      'streakDays': streakDays,
+      'totalXP': totalXP,
+      'weeklyXP': weeklyXP,
+      'completedTopics': getCompletedTopicsCount(),
+      'totalCorrectAnswers': getTotalCorrectAnswers(),
+      'currentLeague': getCurrentLeague(),
+      'leagueProgress': getLeagueProgress(),
+      'xpToNextLeague': getXPToNextLeague(),
+      'nextLeague': getNextLeague(),
+    };
+  }
+
+  // === МЕТОДЫ ДЛЯ СБРОСА ===
+
+  // Метод для сброса прогресса
+  void resetProgress() {
+    streakDays = 0;
+    topicProgress.clear();
+    dailyCompletion.clear();
+    totalXP = 0;
+    weeklyXP = 0;
+    lastActivity = DateTime.now();
+    lastWeeklyReset = DateTime.now();
+  }
+
+  // Метод для сброса только недельного XP
+  void resetWeeklyXP() {
+    weeklyXP = 0;
+    lastWeeklyReset = DateTime.now();
+  }
+
+  // === МЕТОДЫ ДЛЯ МИГРАЦИИ ===
 
   // Метод для миграции старых данных (по названиям) на новые (по ID)
   void migrateToTopicIds(Map<String, String> topicNameToIdMap) {
@@ -254,6 +399,27 @@ class UserStats {
 
   @override
   String toString() {
-    return 'UserStats(streakDays: $streakDays, completedTopics: ${getCompletedTopicsCount()}, totalCorrectAnswers: ${getTotalCorrectAnswers()})';
+    return 'UserStats('
+        'streakDays: $streakDays, '
+        'totalXP: $totalXP, '
+        'weeklyXP: $weeklyXP, '
+        'completedTopics: ${getCompletedTopicsCount()}, '
+        'totalCorrectAnswers: ${getTotalCorrectAnswers()}, '
+        'currentLeague: ${getCurrentLeague()}'
+        ')';
+  }
+
+  // Метод для создания дефолтного экземпляра
+  factory UserStats.defaultStats() {
+    return UserStats(
+      streakDays: 0,
+      lastActivity: DateTime.now(),
+      topicProgress: {},
+      dailyCompletion: {},
+      username: '',
+      totalXP: 0,
+      weeklyXP: 0,
+      lastWeeklyReset: DateTime.now(),
+    );
   }
 }
