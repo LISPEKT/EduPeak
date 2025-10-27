@@ -14,6 +14,7 @@ import 'statistics_screen.dart';
 import 'subscription_screen.dart';
 import '../services/api_service.dart';
 import '../localization.dart';
+import '../data/subjects_manager.dart';
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -26,7 +27,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int? _selectedGrade;
-  String _selectedSubject = 'Русский язык';
+  String _selectedSubject = 'История'; // По умолчанию История
   String _searchQuery = '';
   bool _dailyCompleted = false;
   String _username = '';
@@ -42,11 +43,25 @@ class _MainScreenState extends State<MainScreen> {
   final GlobalKey<_OptimizedTopicsListViewState> _topicsListKey = GlobalKey();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // Получаем данные предметов через контекст
+  Map<int, List<Subject>> get _subjectsData {
+    try {
+      return getSubjectsByGrade(context);
+    } catch (e) {
+      print('❌ Error getting subjects data: $e');
+      // Возвращаем данные по умолчанию
+      return {
+        5: [Subject(name: 'История', topicsByGrade: {5: []})],
+      };
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _checkAuthStatus();
     _loadUserData();
+    _debugCheckTopics();
   }
 
   Future<void> _checkAuthStatus() async {
@@ -84,28 +99,44 @@ class _MainScreenState extends State<MainScreen> {
           _userStats = stats;
           _username = username;
           _avatar = avatar;
-          _dailyCompleted =
-              stats.dailyCompletion[DateTime.now().toIso8601String().split(
-                  'T')[0]] ?? false;
+          _dailyCompleted = stats.dailyCompletion[DateTime.now().toIso8601String().split('T')[0]] ?? false;
+
+          // Автоматически выбираем 5 класс если не выбран
+          if (_selectedGrade == null) {
+            _selectedGrade = 5;
+          }
+
+          // Автоматически выбираем первый доступный предмет
+          final subjects = _availableSubjects;
+          if (subjects.isNotEmpty && !subjects.contains(_selectedSubject)) {
+            _selectedSubject = subjects.first;
+          }
         });
       }
 
-      print('👤 User data loaded - Username: $username, Avatar: ${avatar != '👤'
-          ? "Custom"
-          : "Default"}, Streak: ${stats.streakDays} days');
-      print('📊 Progress stats: ${stats.topicProgress
-          .length} subjects, ${_calculateTotalTopics(stats)} topics completed');
+      print('👤 User data loaded - Username: $username, Streak: ${stats.streakDays} days');
+      print('📊 User progress: ${stats.topicProgress}');
     } catch (e) {
       print('❌ Error loading user data: $e');
     }
   }
 
-  int _calculateTotalTopics(UserStats stats) {
-    int total = 0;
-    for (final subject in stats.topicProgress.values) {
-      total += subject.length;
+  void _debugCheckTopics() {
+    print('🔍 DEBUG: Checking all topics in data');
+    int totalTopics = 0;
+
+    for (final grade in _subjectsData.keys) {
+      final subjects = _subjectsData[grade] ?? [];
+      for (final subject in subjects) {
+        final topics = subject.topicsByGrade[grade] ?? [];
+        print('   Grade $grade, Subject: ${subject.name}, Topics: ${topics.length}');
+        for (final topic in topics) {
+          print('     - ${topic.name} (ID: ${topic.id})');
+          totalTopics++;
+        }
+      }
     }
-    return total;
+    print('🔍 DEBUG: Total topics found: $totalTopics');
   }
 
   Future<void> _refreshData() async {
@@ -115,16 +146,24 @@ class _MainScreenState extends State<MainScreen> {
 
   List<String> get _availableSubjects {
     if (_selectedGrade != null) {
-      return subjectsByGrade[_selectedGrade]?.map((s) => s.name).toList() ?? [];
+      final subjects = _subjectsData[_selectedGrade] ?? [];
+      final subjectNames = subjects.map((s) => s.name).toList();
+
+      // Убираем дубликаты
+      final uniqueSubjects = subjectNames.toSet().toList();
+      print('📖 Subjects for grade $_selectedGrade: $uniqueSubjects');
+      return uniqueSubjects;
     } else {
       final allSubjects = <String>{};
-      for (final grade in subjectsByGrade.keys) {
-        final subjects = subjectsByGrade[grade] ?? [];
+      for (final grade in _subjectsData.keys) {
+        final subjects = _subjectsData[grade] ?? [];
         for (final subject in subjects) {
           allSubjects.add(subject.name);
         }
       }
-      return allSubjects.toList();
+      final result = allSubjects.toList();
+      print('📖 All subjects: $result');
+      return result;
     }
   }
 
@@ -132,19 +171,20 @@ class _MainScreenState extends State<MainScreen> {
     final List<dynamic> allTopics = [];
 
     if (_selectedGrade != null) {
-      final subjects = subjectsByGrade[_selectedGrade];
+      final subjects = _subjectsData[_selectedGrade];
       if (subjects != null) {
         for (final subject in subjects) {
           if (subject.name == _selectedSubject) {
             final topics = subject.topicsByGrade[_selectedGrade] ?? [];
             allTopics.addAll(topics);
+            print('📚 Found ${topics.length} topics for $subject');
             break;
           }
         }
       }
     } else {
-      for (final grade in subjectsByGrade.keys) {
-        final subjects = subjectsByGrade[grade] ?? [];
+      for (final grade in _subjectsData.keys) {
+        final subjects = _subjectsData[grade] ?? [];
         for (final subject in subjects) {
           if (subject.name == _selectedSubject) {
             final topics = subject.topicsByGrade[grade] ?? [];
@@ -157,14 +197,15 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     if (_searchQuery.isNotEmpty) {
-      return allTopics.where((topic) {
+      final filtered = allTopics.where((topic) {
         final topicData = topic is _TopicWithGrade ? topic.topic : topic;
-        return topicData.name.toLowerCase().contains(
-            _searchQuery.toLowerCase()) ||
-            topicData.description.toLowerCase().contains(
-                _searchQuery.toLowerCase());
+        return topicData.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            topicData.description.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
+      print('🔍 Filtered ${filtered.length} topics for search: "$_searchQuery"');
+      return filtered;
     } else {
+      print('📚 Total topics found: ${allTopics.length}');
       return allTopics;
     }
   }
@@ -172,24 +213,33 @@ class _MainScreenState extends State<MainScreen> {
   bool _isTopicCompleted(String topicName) {
     final topic = _findTopicInAllSubjects(topicName);
     if (topic == null) {
+      print('❌ Topic not found: $topicName');
       return false;
     }
 
+    final topicId = topic.id;
+
+    print('🔍 Checking completion for topic: $topicName (ID: $topicId)');
+
     for (final subjectName in _userStats.topicProgress.keys) {
       final subjectProgress = _userStats.topicProgress[subjectName];
-      if (subjectProgress != null && subjectProgress.containsKey(topicName)) {
-        final topicCorrectAnswers = subjectProgress[topicName] ?? 0;
+      if (subjectProgress != null && subjectProgress.containsKey(topicId)) {
+        final topicCorrectAnswers = subjectProgress[topicId] ?? 0;
         final totalQuestions = topic.questions.length;
-        return topicCorrectAnswers >= totalQuestions;
+        final isCompleted = topicCorrectAnswers >= totalQuestions;
+
+        print('📊 Progress found - Subject: $subjectName, Correct: $topicCorrectAnswers/$totalQuestions, Completed: $isCompleted');
+        return isCompleted;
       }
     }
 
+    print('📊 No progress found for topic: $topicName (ID: $topicId)');
     return false;
   }
 
   dynamic _findTopicInAllSubjects(String topicName) {
-    for (final grade in subjectsByGrade.keys) {
-      final subjects = subjectsByGrade[grade] ?? [];
+    for (final grade in _subjectsData.keys) {
+      final subjects = _subjectsData[grade] ?? [];
       for (final subject in subjects) {
         final topics = subject.topicsByGrade[grade] ?? [];
         for (final topic in topics) {
@@ -203,18 +253,23 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showTopicPopup(BuildContext context, dynamic topic) {
+    final topicData = topic is _TopicWithGrade ? topic.topic : topic;
+    final topicGrade = topic is _TopicWithGrade ? topic.grade : _selectedGrade;
+
+    print('🎯 Showing topic popup:');
+    print('   Topic: ${topicData.name} (ID: ${topicData.id})');
+    print('   Grade: $topicGrade');
+    print('   Subject: $_selectedSubject');
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          TopicPopup(
-            topic: topic is _TopicWithGrade ? topic.topic : topic,
-            currentGrade: topic is _TopicWithGrade
-                ? topic.grade
-                : _selectedGrade,
-            currentSubject: _selectedSubject,
-          ),
+      builder: (context) => TopicPopup(
+        topic: topicData,
+        currentGrade: topicGrade,
+        currentSubject: _selectedSubject,
+      ),
     );
   }
 
@@ -234,10 +289,11 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _selectedGrade = value;
       final subjects = _availableSubjects;
-      if (subjects.isNotEmpty && !subjects.contains(_selectedSubject)) {
+      if (subjects.isNotEmpty) {
         _selectedSubject = subjects.first;
       }
       _topicsListKey.currentState?._clearCache();
+      print('🎓 Grade changed to: $value, subjects: $subjects');
     });
   }
 
@@ -246,6 +302,7 @@ class _MainScreenState extends State<MainScreen> {
       setState(() {
         _selectedSubject = value;
         _topicsListKey.currentState?._clearCache();
+        print('📖 Subject changed to: $value');
       });
     }
   }
@@ -262,22 +319,21 @@ class _MainScreenState extends State<MainScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            ProfileScreen(
-              currentAvatar: _avatar,
-              onAvatarUpdate: (newAvatar) {
-                setState(() {
-                  _avatar = newAvatar;
-                });
-                UserDataStorage.saveAvatar(newAvatar);
-              },
-              onUsernameUpdate: (newUsername) {
-                setState(() {
-                  _username = newUsername;
-                });
-                UserDataStorage.saveUsername(newUsername);
-              },
-            ),
+        builder: (_) => ProfileScreen(
+          currentAvatar: _avatar,
+          onAvatarUpdate: (newAvatar) {
+            setState(() {
+              _avatar = newAvatar;
+            });
+            UserDataStorage.saveAvatar(newAvatar);
+          },
+          onUsernameUpdate: (newUsername) {
+            setState(() {
+              _username = newUsername;
+            });
+            UserDataStorage.saveUsername(newUsername);
+          },
+        ),
       ),
     ).then((_) => _refreshData());
   }
@@ -326,9 +382,7 @@ class _MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: Theme
-          .of(context)
-          .scaffoldBackgroundColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       drawer: _buildDrawer(appLocalizations),
       body: SafeArea(
         child: Column(
@@ -671,6 +725,7 @@ class _GradeSubjectSelector extends StatelessWidget {
               selectedSubject: selectedSubject,
               availableSubjects: availableSubjects,
               onChanged: onSubjectChanged,
+              appLocalizations: appLocalizations,
             ),
           ),
         ],
@@ -692,6 +747,8 @@ class _GradeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final availableGrades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
@@ -719,7 +776,7 @@ class _GradeDropdown extends StatelessWidget {
               return DropdownMenuItem(
                 value: grade,
                 child: Text(
-                  '$grade класс',
+                  '$grade ${appLocalizations.grade}',
                   style: TextStyle(
                     color: Theme.of(context).textTheme.bodyLarge?.color,
                   ),
@@ -744,15 +801,42 @@ class _SubjectDropdown extends StatelessWidget {
   final String selectedSubject;
   final List<String> availableSubjects;
   final ValueChanged<String?> onChanged;
+  final AppLocalizations appLocalizations;
 
   const _SubjectDropdown({
     required this.selectedSubject,
     required this.availableSubjects,
     required this.onChanged,
+    required this.appLocalizations,
   });
 
   @override
   Widget build(BuildContext context) {
+    final subjectEmojis = {
+      'Русский язык': '📚',
+      'Математика': '🔢',
+      'Алгебра': '𝑥²',
+      'Геометрия': '△',
+      'Английский язык': '🔤',
+      'Литература': '📖',
+      'Биология': '🌿',
+      'Физика': '⚡',
+      'Химия': '🧪',
+      'География': '🌍',
+      'История': '🏛️',
+      'Обществознание': '👥',
+      'Информатика': '💻',
+      'Статистика и вероятность': '📊',
+    };
+
+    // Убедимся, что нет дублирующихся предметов
+    final uniqueSubjects = availableSubjects.toSet().toList();
+
+    // Если выбранный предмет не в списке, выберем первый доступный
+    final currentSubject = uniqueSubjects.contains(selectedSubject)
+        ? selectedSubject
+        : (uniqueSubjects.isNotEmpty ? uniqueSubjects.first : '');
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
@@ -763,12 +847,12 @@ class _SubjectDropdown extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: DropdownButton<String>(
-          value: selectedSubject,
+          value: currentSubject.isEmpty ? null : currentSubject,
           isExpanded: true,
           underline: const SizedBox(),
-          items: availableSubjects.map((subject) {
+          items: uniqueSubjects.map((subject) {
             final emoji = subjectEmojis[subject] ?? '📚';
-            return DropdownMenuItem(
+            return DropdownMenuItem<String>(
               value: subject,
               child: Text(
                 '$emoji $subject',
@@ -784,6 +868,12 @@ class _SubjectDropdown extends StatelessWidget {
           icon: Icon(
             Icons.arrow_drop_down,
             color: Theme.of(context).textTheme.bodyLarge?.color,
+          ),
+          hint: Text(
+            'Выберите предмет',
+            style: TextStyle(
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
           ),
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../localization.dart';
 
 class AnswerPopup extends StatelessWidget {
   final dynamic question;
@@ -18,6 +19,7 @@ class AnswerPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     Color backgroundColor;
@@ -29,12 +31,12 @@ class AnswerPopup extends StatelessWidget {
       backgroundColor = isDark ? const Color(0xFF1B5E20) : const Color(0xFFE8F5E8);
       accentColor = isDark ? const Color(0xFF4CAF50) : Colors.green;
       icon = Icons.check_circle;
-      title = 'Правильно!';
+      title = localizations.correct;
     } else {
       backgroundColor = isDark ? const Color(0xFFB71C1C) : const Color(0xFFFFEBEE);
       accentColor = isDark ? const Color(0xFFF44336) : Colors.red;
       icon = Icons.error;
-      title = 'Неправильно';
+      title = localizations.incorrect;
     }
 
     // Безопасное получение правильного ответа
@@ -43,9 +45,9 @@ class AnswerPopup extends StatelessWidget {
         if (question.correctIndex < question.options.length) {
           return question.options[question.correctIndex];
         }
-        return 'Правильный ответ не найден';
+        return localizations.correctAnswerNotFound;
       } catch (e) {
-        return 'Ошибка загрузки ответа';
+        return localizations.answerLoadError;
       }
     }
 
@@ -101,7 +103,7 @@ class AnswerPopup extends StatelessWidget {
                         children: [
                           // Вопрос
                           Text(
-                            'Вопрос:',
+                            '${localizations.question}:',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -110,7 +112,7 @@ class AnswerPopup extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            question.text ?? 'Вопрос не найден',
+                            question.text ?? localizations.questionNotFound,
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark ? Colors.white70 : Colors.black54,
@@ -120,7 +122,7 @@ class AnswerPopup extends StatelessWidget {
 
                           // Ваш ответ
                           Text(
-                            'Ваш ответ:',
+                            '${localizations.yourAnswer}:',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -139,7 +141,7 @@ class AnswerPopup extends StatelessWidget {
                               ),
                             ),
                             child: Text(
-                              selectedAnswer.isEmpty ? 'Нет ответа' : selectedAnswer,
+                              selectedAnswer.isEmpty ? localizations.noAnswer : selectedAnswer,
                               style: TextStyle(
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
@@ -150,7 +152,7 @@ class AnswerPopup extends StatelessWidget {
                             const SizedBox(height: 16),
                             // Правильный ответ
                             Text(
-                              'Правильный ответ:',
+                              '${localizations.correctAnswer}:',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -181,7 +183,7 @@ class AnswerPopup extends StatelessWidget {
                           const SizedBox(height: 16),
                           // Объяснение
                           Text(
-                            'Объяснение:',
+                            '${localizations.explanation}:',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -190,7 +192,7 @@ class AnswerPopup extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            question.explanation ?? 'Объяснение не найдено',
+                            question.explanation ?? localizations.explanationNotFound,
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark ? Colors.white70 : Colors.black54,
@@ -217,7 +219,7 @@ class AnswerPopup extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        isLastQuestion ? 'Завершить тест' : 'Следующий вопрос',
+                        isLastQuestion ? localizations.finishTest : localizations.nextQuestion,
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),

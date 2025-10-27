@@ -889,7 +889,7 @@ $feedback
             const SizedBox(height: 16),
             _buildInfoRow(
               title: appLocalizations.version,
-              value: 'alpha 0.28',
+              value: 'alpha 0.31',
             ),
             _buildInfoRow(
               title: appLocalizations.developer,

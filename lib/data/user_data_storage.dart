@@ -13,6 +13,8 @@ class UserDataStorage {
   static const String _isLoggedInKey = 'isLoggedIn';
   static const String _authTokenKey = 'auth_token';
 
+  // === ВАШИ МЕТОДЫ ===
+
   static Future<void> saveUserStats(UserStats stats) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -183,46 +185,23 @@ class UserDataStorage {
     }
   }
 
+  // user_data_storage.dart - проверьте метод
   static Future<void> updateTopicProgress(
-      String subject,
-      String topic,
-      int correctAnswers,
+      String subjectName,
+      String topicId, // Должен принимать ID, а не название
+      int correctAnswers
       ) async {
     try {
       final stats = await getUserStats();
-      if (!stats.topicProgress.containsKey(subject)) {
-        stats.topicProgress[subject] = {};
-      }
 
-      final safeCorrectAnswers = correctAnswers.clamp(0, 100);
-      final previousProgress = stats.topicProgress[subject]![topic] ?? 0;
+      // Сохраняем по ID темы
+      stats.saveTopicProgress(subjectName, topicId, correctAnswers);
 
-      // Сохраняем только если новый результат лучше
-      if (safeCorrectAnswers > previousProgress) {
-        stats.topicProgress[subject]![topic] = safeCorrectAnswers;
-        await saveUserStats(stats);
-
-        print('📚 Topic progress updated LOCALLY: $subject - $topic: $previousProgress → $safeCorrectAnswers');
-
-        // Отправляем на сервер если пользователь авторизован
-        if (await isLoggedIn()) {
-          try {
-            print('☁️ Sending progress to server...');
-            await ApiService.updateTopicProgress(
-              subject,
-              topic,
-              safeCorrectAnswers,
-            );
-            print('✅ Progress synced to server');
-          } catch (e) {
-            print('❌ Failed to sync progress to server: $e');
-          }
-        }
-      } else {
-        print('📊 Progress not updated (current: $previousProgress, new: $safeCorrectAnswers)');
-      }
+      await _saveUserStats(stats);
+      print('💾 Progress saved - Subject: $subjectName, Topic ID: $topicId, Correct: $correctAnswers');
     } catch (e) {
       print('❌ Error updating topic progress: $e');
+      rethrow;
     }
   }
 
@@ -256,8 +235,12 @@ class UserDataStorage {
   static Future<bool> isLoggedIn() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString(_authTokenKey);
-      return token != null && (prefs.getBool(_isLoggedInKey) ?? false);
+      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+      final token = prefs.getString('auth_token');
+
+      print('🔐 Checking login status: isLoggedIn=$isLoggedIn, hasToken=${token != null}');
+
+      return isLoggedIn && token != null && token.isNotEmpty;
     } catch (e) {
       print('❌ Error checking login status: $e');
       return false;
@@ -279,7 +262,7 @@ class UserDataStorage {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_authTokenKey, token);
       await prefs.setBool(_isLoggedInKey, true);
-      print('🔐 Auth token saved');
+      print('🔐 Auth token saved, login status: true');
     } catch (e) {
       print('❌ Error saving auth token: $e');
     }
@@ -295,8 +278,24 @@ class UserDataStorage {
     }
   }
 
-  static Future<void> syncFromServer() async {
+  static Future<void> syncAllProgressToServer() async {
     if (await isLoggedIn()) {
+      try {
+        final stats = await getUserStats();
+        print('🔄 Syncing all progress to server: ${stats.topicProgress.length} subjects');
+        await ApiService.syncAllProgressToServer(stats.topicProgress);
+        print('✅ All progress synced to server');
+      } catch (e) {
+        print('❌ Error syncing all progress to server: $e');
+      }
+    }
+  }
+
+  static Future<void> syncFromServer() async {
+    final loggedIn = await isLoggedIn();
+    print('🔄 Starting sync, isLoggedIn: $loggedIn');
+
+    if (loggedIn) {
       try {
         print('🔄 Starting FULL server sync...');
 
@@ -352,7 +351,7 @@ class UserDataStorage {
             final stats = await getUserStats();
             bool hasUpdates = false;
 
-            print('📊 Server progress data: $progressData');
+            print('📊 Server progress data: ${progressData.keys.length} subjects');
 
             // Обновляем локальный прогресс данными с сервера
             for (final subject in progressData.keys) {
@@ -384,10 +383,11 @@ class UserDataStorage {
               print('📊 Local progress is up to date');
             }
           } else {
-            print('⚠️ No progress data from server');
+            print('⚠️ No progress data from server, keeping local data');
           }
         } catch (e) {
           print('⚠️ Progress sync error: $e');
+          // При ошибке продолжаем с локальными данными
         }
 
         // Сохраняем время последней синхронизации
@@ -464,6 +464,115 @@ class UserDataStorage {
     } catch (e) {
       print('❌ Error getting last sync time: $e');
       return null;
+    }
+  }
+
+  // === ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ID ТЕМ ===
+
+  static Future<void> saveTopicProgress(String subjectName, String topicId, int correctAnswers) async {
+    try {
+      final stats = await getUserStats();
+
+      // Создаем копию текущего прогресса
+      final updatedProgress = Map<String, Map<String, int>>.from(stats.topicProgress);
+
+      // Добавляем или обновляем прогресс для предмета
+      if (!updatedProgress.containsKey(subjectName)) {
+        updatedProgress[subjectName] = {};
+      }
+
+      updatedProgress[subjectName]![topicId] = correctAnswers;
+
+      // Создаем обновленную статистику
+      final updatedStats = UserStats(
+        streakDays: stats.streakDays,
+        lastActivity: DateTime.now(),
+        topicProgress: updatedProgress,
+        dailyCompletion: stats.dailyCompletion,
+        username: stats.username,
+      );
+
+      await saveUserStats(updatedStats);
+
+      if (await isLoggedIn()) {
+        try {
+          await ApiService.updateTopicProgress(subjectName, topicId, correctAnswers);
+          print('✅ Progress synced to server');
+        } catch (e) {
+          print('❌ Failed to sync progress to server: $e');
+        }
+      }
+
+      print('✅ Progress saved: $subjectName - $topicId: $correctAnswers correct answers');
+    } catch (e) {
+      print('Error saving topic progress: $e');
+      rethrow;
+    }
+  }
+
+  static Future<int> getTopicProgressById(String topicId) async {
+    try {
+      final stats = await getUserStats();
+
+      for (final subjectProgress in stats.topicProgress.values) {
+        if (subjectProgress.containsKey(topicId)) {
+          return subjectProgress[topicId]!;
+        }
+      }
+
+      return 0;
+    } catch (e) {
+      print('Error getting topic progress by ID: $e');
+      return 0;
+    }
+  }
+
+  // Метод для миграции на систему с ID тем
+  static Future<void> migrateToTopicIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final migrated = prefs.getBool('topic_ids_migrated') ?? false;
+
+      if (migrated) return;
+
+      final stats = await getUserStats();
+      final newProgress = <String, Map<String, int>>{};
+
+      // Здесь нужно добавить логику для сопоставления старых названий с новыми ID
+      // Это временное решение - в будущем все темы будут иметь ID
+
+      final migratedStats = UserStats(
+        streakDays: stats.streakDays,
+        lastActivity: stats.lastActivity,
+        topicProgress: newProgress,
+        dailyCompletion: stats.dailyCompletion,
+        username: stats.username,
+      );
+
+      await saveUserStats(migratedStats);
+      await prefs.setBool('topic_ids_migrated', true);
+
+      print('✅ Topic IDs migration completed');
+    } catch (e) {
+      print('❌ Error during topic IDs migration: $e');
+    }
+  }
+
+  // Вспомогательный метод для сохранения статистики (для совместимости)
+  static Future<void> _saveUserStats(UserStats stats) async {
+    await saveUserStats(stats);
+  }
+
+  // Вспомогательный метод для синхронизации (для совместимости)
+  static Future<void> _syncUserData(UserStats stats) async {
+    if (await isLoggedIn()) {
+      try {
+        // Используем существующий метод для синхронизации всего прогресса
+        await ApiService.syncAllProgressToServer(stats.topicProgress);
+        print('✅ User data synced to server');
+      } catch (e) {
+        print('❌ Error syncing user data: $e');
+      }
     }
   }
 }

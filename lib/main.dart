@@ -1,4 +1,3 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -11,13 +10,20 @@ import 'services/api_service.dart';
 import 'data/user_data_storage.dart';
 import 'localization.dart';
 import 'language_manager.dart';
+import 'data/subjects_manager.dart'; // Добавляем импорт
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final languageManager = LanguageManager();
+  await languageManager.initializationComplete;
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => ThemeManager()),
-        ChangeNotifierProvider(create: (context) => LanguageManager()),
+        ChangeNotifierProvider.value(value: languageManager),
+        ChangeNotifierProvider(create: (context) => SubjectsManager()), // Добавляем SubjectsManager
       ],
       child: const MyApp(),
     ),
@@ -119,9 +125,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 color: Theme.of(context).primaryColor,
               ),
               const SizedBox(height: 20),
-              Text(
-                'Загрузка...',
-                style: Theme.of(context).textTheme.bodyLarge,
+              Consumer<LanguageManager>(
+                builder: (context, languageManager, child) {
+                  return Text(
+                    languageManager.currentLanguageCode == 'ru'
+                        ? 'Загрузка...'
+                        : languageManager.currentLanguageCode == 'en'
+                        ? 'Loading...'
+                        : 'Laden...',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  );
+                },
               ),
             ],
           ),

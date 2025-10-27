@@ -39,6 +39,13 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+
+    print('🎯 TestScreen initialized:');
+    print('   Topic: ${widget.topic.name} (ID: ${widget.topic.id})');
+    print('   Grade: ${widget.currentGrade}');
+    print('   Subject: ${widget.currentSubject}');
+    print('   Questions: ${widget.topic.questions.length}');
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -186,19 +193,51 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   }
 
   void _completeTest() async {
-    try {
-      await UserDataStorage.updateDailyCompletion();
+    print('🎯 START _completeTest');
+    print('📊 Test results - Correct: $_correctAnswersCount/$totalQuestions');
 
-      final subjectName = _findSubjectForTopic();
+    try {
+      print('1. Starting daily completion update...');
+      await UserDataStorage.updateDailyCompletion();
+      print('✅ Daily completion updated');
+
+      // ВАЖНО: Используем переданный предмет или определяем автоматически
+      String subjectName = widget.currentSubject ?? 'История';
+
+      // Если предмет не передан, определяем по теме
+      if (subjectName.isEmpty) {
+        subjectName = _findSubjectForTopic();
+      }
+
+      final topicId = widget.topic.id;
+
+      print('2. Topic info - Subject: $subjectName, Topic ID: $topicId, Topic Name: ${widget.topic.name}');
+      print('3. UserStats before save:');
+      final statsBefore = await UserDataStorage.getUserStats();
+      print('   Progress: ${statsBefore.topicProgress}');
+
+      print('4. Calling updateTopicProgress...');
       await UserDataStorage.updateTopicProgress(
           subjectName,
-          widget.topic.name,
+          topicId,
           _correctAnswersCount
       );
+      print('✅ updateTopicProgress completed');
+
+      print('5. UserStats after save:');
+      final statsAfter = await UserDataStorage.getUserStats();
+      print('   Progress: ${statsAfter.topicProgress}');
+
+      print('6. Verifying save...');
+      final savedProgress = statsAfter.getTopicProgress(topicId);
+      print('   Saved progress for $topicId: $savedProgress');
 
     } catch (e) {
-      print('❌ ERROR saving progress: $e');
+      print('❌ ERROR in _completeTest: $e');
+      print('❌ Stack trace: ${e.toString()}');
     }
+
+    print('🎯 END _completeTest');
 
     if (mounted) {
       Navigator.pushReplacement(
@@ -228,23 +267,40 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   }
 
   String _findSubjectForTopic() {
-    for (final grade in subjectsByGrade.keys) {
-      final subjects = subjectsByGrade[grade] ?? [];
+    print('🔍 START _findSubjectForTopic');
+    print('   Looking for topic: ${widget.topic.name} (ID: ${widget.topic.id})');
+
+    final subjectsData = getSubjectsByGrade(context);
+
+    for (final grade in subjectsData.keys) {
+      final subjects = subjectsData[grade] ?? [];
       for (final subject in subjects) {
         final topics = subject.topicsByGrade[grade] ?? [];
         for (final topic in topics) {
-          if (topic.name == widget.topic.name) {
+          if (topic.id == widget.topic.id) {
+            print('✅ FOUND topic in subject: ${subject.name}');
             return subject.name;
           }
         }
       }
     }
-    return _getSubjectNameByTopicName();
+
+    // Fallback: определяем предмет по названию темы
+    final fallbackSubject = _getSubjectNameByTopicName();
+    print('❌ Topic not found by ID, using fallback: $fallbackSubject');
+    print('🔍 END _findSubjectForTopic');
+    return fallbackSubject;
   }
 
   String _getSubjectNameByTopicName() {
     final topicName = widget.topic.name.toLowerCase();
-    if (topicName.contains('грамматика') || topicName.contains('орфография') ||
+    if (topicName.contains('история') ||
+        topicName.contains('египет') ||
+        topicName.contains('рим') ||
+        topicName.contains('греция') ||
+        topicName.contains('первобыт')) {
+      return 'История';
+    } else if (topicName.contains('грамматика') || topicName.contains('орфография') ||
         topicName.contains('синтаксис') || topicName.contains('сложносочин') ||
         topicName.contains('сложноподчин')) {
       return 'Русский язык';
@@ -252,7 +308,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
         topicName.contains('математик')) {
       return 'Математика';
     }
-    return 'Русский язык';
+    return 'История'; // По умолчанию История
   }
 
   Color _getProgressColor() {

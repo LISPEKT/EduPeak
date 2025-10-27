@@ -198,6 +198,13 @@ class AppLocalizations {
       'edit_button': 'Редактировать',
       'crop_title': 'Обрезка',
       'saving': 'Сохранение...',
+      'grade': 'Класс',
+      'correct_answer_not_found': 'Правильный ответ не найден',
+      'answer_load_error': 'Ошибка загрузки ответа',
+      'question_not_found': 'Вопрос не найден',
+      'no_answer': 'Нет ответа',
+      'explanation_not_found': 'Объяснение не найдено',
+      'selectSubject': 'Выбрать предмет'
     },
     'en': {
       'app_title': 'EduPeak',
@@ -387,6 +394,13 @@ class AppLocalizations {
       'edit_button': 'Edit',
       'crop_title': 'Crop',
       'saving': 'Saving...',
+      'grade': 'Class',
+      'correct_answer_not_found': 'Correct answer not found',
+      'answer_load_error': 'Error loading answer',
+      'question_not_found': 'Question not found',
+      'no_answer': 'No answer',
+      'explanation_not_found': 'Explanation not found',
+      'selectSubject': 'Select subject'
     },
     'de': {
       'app_title': 'EduPeak',
@@ -576,6 +590,13 @@ class AppLocalizations {
       'edit_button': 'Bearbeiten',
       'crop_title': 'Zuschneiden',
       'saving': 'Speichern...',
+      'grade': 'Klasse',
+      'correct_answer_not_found': 'Richtige Antwort nicht gefunden',
+      'answer_load_error': 'Fehler beim Laden der Antwort',
+      'question_not_found': 'Frage nicht gefunden',
+      'no_answer': 'Keine Antwort',
+      'explanation_not_found': 'Erklärung nicht gefunden',
+      'selectSubject': 'Select subject'
     },
   };
 
@@ -671,7 +692,7 @@ class AppLocalizations {
   String get hello => _localizedValues[locale.languageCode]?['hello'] ?? 'Hello';
   String get startLessonText => _localizedValues[locale.languageCode]?['start_lesson_text'] ?? 'Start lesson';
   String get todayCompleted => _localizedValues[locale.languageCode]?['today_completed'] ?? 'Today completed';
-  String get allGrades => _localizedValues[locale.languageCode]?['all_grades'] ?? 'All grades';
+  String get allGrades => _localizedValues[locale.languageCode]?['all_classes'] ?? 'All classes';
   String get searchTopics => _localizedValues[locale.languageCode]?['search_topics'] ?? 'Search topics';
   String get noTopicsFound => _localizedValues[locale.languageCode]?['no_topics_found'] ?? 'No topics found';
   String get tryChangingSearch => _localizedValues[locale.languageCode]?['try_changing_search'] ?? 'Try changing search';
@@ -767,6 +788,14 @@ class AppLocalizations {
   String get editButton => _localizedValues[locale.languageCode]?['edit_button'] ?? 'Edit';
   String get cropTitle => _localizedValues[locale.languageCode]?['crop_title'] ?? 'Crop';
   String get saving => _localizedValues[locale.languageCode]?['saving'] ?? 'Saving...';
+  String get grade => _localizedValues[locale.languageCode]?['grade'] ?? 'Grade';
+  String get correctAnswerNotFound => _localizedValues[locale.languageCode]?['correct_answer_not_found'] ?? 'Correct answer not found';
+  String get answerLoadError => _localizedValues[locale.languageCode]?['answer_load_error'] ?? 'Error loading answer';
+  String get questionNotFound => _localizedValues[locale.languageCode]?['question_not_found'] ?? 'Question not found';
+  String get noAnswer => _localizedValues[locale.languageCode]?['no_answer'] ?? 'No answer';
+  String get explanationNotFound => _localizedValues[locale.languageCode]?['explanation_not_found'] ?? 'Explanation not found';
+  String get selectSubject => _localizedValues[locale.languageCode]?['select_subject'] ?? 'Select subject';
+
 }
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

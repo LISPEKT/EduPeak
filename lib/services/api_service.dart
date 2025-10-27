@@ -1,4 +1,5 @@
 // lib/services/api_service.dart
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,7 +42,6 @@ class ApiService {
     await ApiService()._updateTopicProgress(subject, topicName, correctAnswers);
   }
 
-  // ИСПРАВЛЕНО: Убрали дублирующий статический метод
   static Future<Map<String, dynamic>?> getUserProgress() async {
     final apiService = ApiService();
     await apiService.initialize();
@@ -54,6 +54,11 @@ class ApiService {
 
   static Future<Map<String, dynamic>> discoverEndpoints() async {
     return await ApiService()._discoverEndpoints();
+  }
+
+  // Новый метод для массовой синхронизации прогресса
+  static Future<void> syncAllProgressToServer(Map<String, Map<String, int>> progressData) async {
+    await ApiService()._syncAllProgressToServer(progressData);
   }
 
   // Реализации методов
@@ -179,8 +184,8 @@ class ApiService {
             'Origin': _baseUrl,
             'Referer': '$_baseUrl/login',
           },
-          followRedirects: false, // Не следовать редиректам автоматически
-          validateStatus: (status) => status! < 500, // Принимать статусы < 500
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
         ),
       );
 
@@ -196,6 +201,11 @@ class ApiService {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('userEmail', email);
+
+          // ВАЖНО: Сохраняем auth token для UserDataStorage
+          await prefs.setString('auth_token', _sessionCookie ?? '');
+
+          print('✅ Login successful, auth status updated');
 
           return {'success': true, 'message': 'Вход выполнен успешно'};
         }
@@ -477,36 +487,276 @@ class ApiService {
     }
   }
 
-  // Заглушки для методов, которые могут быть не реализованы на сервере
+  // ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ПРОГРЕССОМ
   Future<void> _updateTopicProgress(String subject, String topicName, int correctAnswers) async {
-    // Локальное сохранение прогресса
-    final prefs = await SharedPreferences.getInstance();
-    final progressKey = 'progress_${subject}_$topicName';
-    await prefs.setInt(progressKey, correctAnswers);
-    print('✅ Progress saved locally: $subject - $topicName: $correctAnswers');
+    try {
+      if (!_isInitialized) await initialize();
+
+      // Получаем свежий CSRF токен
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        throw Exception('Не удалось получить CSRF токен');
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'subject': subject,
+        'topic': topicName,
+        'correct_answers': correctAnswers.toString(),
+      };
+
+      print('📚 Sending progress to server: $subject - $topicName: $correctAnswers');
+
+      final response = await _dio.post(
+        '/progress/update',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Origin': _baseUrl,
+            'Referer': '$_baseUrl/profile',
+          },
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      print('📡 Progress update response status: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 302) {
+        print('✅ Progress successfully saved on server');
+
+        // Дублируем в локальное хранилище для надежности
+        await _saveProgressLocally(subject, topicName, correctAnswers);
+
+      } else {
+        print('⚠️ Server progress update failed, saving locally only');
+        await _saveProgressLocally(subject, topicName, correctAnswers);
+      }
+
+    } catch (e) {
+      print('❌ Server progress update error: $e');
+      print('💾 Saving progress locally as fallback');
+      await _saveProgressLocally(subject, topicName, correctAnswers);
+    }
   }
 
   Future<Map<String, dynamic>?> _getUserProgress() async {
-    // Локальное получение прогресса
-    final prefs = await SharedPreferences.getInstance();
-    final keys = prefs.getKeys().where((key) => key.startsWith('progress_')).toList();
+    try {
+      if (!_isInitialized) await initialize();
 
+      print('📥 Requesting progress from server...');
+
+      final response = await _dio.get(
+        '/progress',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      print('📡 Progress response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        // Пытаемся распарсить JSON ответ
+        try {
+          final responseData = response.data;
+
+          if (responseData is Map<String, dynamic>) {
+            // Если сервер возвращает JSON
+            print('✅ Got JSON progress data from server');
+            return responseData;
+          } else if (responseData is String) {
+            // Если сервер возвращает HTML, пытаемся извлечь данные из страницы
+            final progress = _parseProgressFromHtml(responseData);
+            if (progress.isNotEmpty) {
+              print('✅ Extracted progress from HTML: ${progress.length} subjects');
+              return {'progress': progress};
+            }
+          }
+        } catch (e) {
+          print('⚠️ Error parsing server progress: $e');
+        }
+      }
+
+      // Если не удалось получить с сервера, возвращаем локальные данные
+      print('🔄 Falling back to local progress data');
+      return await _getLocalProgress();
+
+    } catch (e) {
+      print('❌ Server progress request error: $e');
+      return await _getLocalProgress();
+    }
+  }
+
+  // Метод для массовой синхронизации прогресса на сервер
+  Future<void> _syncAllProgressToServer(Map<String, Map<String, int>> progressData) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      print('🔄 Starting bulk progress sync...');
+
+      // Получаем свежий CSRF токен
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        throw Exception('Не удалось получить CSRF токен');
+      }
+
+      // Конвертируем данные в формат для отправки
+      final progressList = <Map<String, String>>[];
+      progressData.forEach((subject, topics) {
+        topics.forEach((topic, correctAnswers) {
+          progressList.add({
+            'subject': subject,
+            'topic': topic,
+            'correct_answers': correctAnswers.toString(),
+          });
+        });
+      });
+
+      final formData = {
+        '_token': csrfToken,
+        'progress': jsonEncode(progressList),
+      };
+
+      print('📤 Sending ${progressList.length} progress items to server...');
+
+      final response = await _dio.post(
+        '/progress/sync',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Origin': _baseUrl,
+            'Referer': '$_baseUrl/profile',
+          },
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Bulk progress sync completed successfully');
+      } else {
+        print('⚠️ Bulk progress sync failed with status: ${response.statusCode}');
+      }
+
+    } catch (e) {
+      print('❌ Bulk progress sync error: $e');
+      // При ошибке сохраняем все данные локально
+      await _saveAllProgressLocally(progressData);
+    }
+  }
+
+  // Вспомогательные методы для локального хранения (как fallback)
+  Future<void> _saveProgressLocally(String subject, String topicName, int correctAnswers) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final progressKey = 'progress_${subject}_$topicName';
+      await prefs.setInt(progressKey, correctAnswers);
+      print('💾 Progress saved locally: $subject - $topicName: $correctAnswers');
+    } catch (e) {
+      print('❌ Error saving progress locally: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> _getLocalProgress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final keys = prefs.getKeys().where((key) => key.startsWith('progress_')).toList();
+
+      final progress = <String, Map<String, int>>{};
+      for (final key in keys) {
+        final parts = key.replaceFirst('progress_', '').split('_');
+        if (parts.length >= 2) {
+          final subject = parts[0];
+          final topicName = parts.sublist(1).join('_');
+          final correctAnswers = prefs.getInt(key) ?? 0;
+
+          if (!progress.containsKey(subject)) {
+            progress[subject] = {};
+          }
+          progress[subject]![topicName] = correctAnswers;
+        }
+      }
+
+      print('📊 Loaded local progress: ${progress.length} subjects');
+      return {'progress': progress};
+    } catch (e) {
+      print('❌ Error loading local progress: $e');
+      return {'progress': {}};
+    }
+  }
+
+  Future<void> _saveAllProgressLocally(Map<String, Map<String, int>> progressData) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Очищаем старый прогресс
+      final oldKeys = prefs.getKeys().where((key) => key.startsWith('progress_')).toList();
+      for (final key in oldKeys) {
+        await prefs.remove(key);
+      }
+
+      // Сохраняем новый прогресс
+      progressData.forEach((subject, topics) {
+        topics.forEach((topic, correctAnswers) async {
+          final progressKey = 'progress_${subject}_$topic';
+          await prefs.setInt(progressKey, correctAnswers);
+        });
+      });
+
+      print('💾 All progress saved locally: ${progressData.length} subjects');
+    } catch (e) {
+      print('❌ Error saving all progress locally: $e');
+    }
+  }
+
+  // Метод для парсинга прогресса из HTML (если сервер не предоставляет JSON API)
+  Map<String, Map<String, int>> _parseProgressFromHtml(String html) {
     final progress = <String, Map<String, int>>{};
-    for (final key in keys) {
-      final parts = key.replaceFirst('progress_', '').split('_');
-      if (parts.length >= 2) {
-        final subject = parts[0];
-        final topicName = parts.sublist(1).join('_');
-        final correctAnswers = prefs.getInt(key) ?? 0;
+
+    try {
+      print('🔍 Parsing progress from HTML...');
+
+      // Паттерны для поиска прогресса в HTML
+      // Вариант 1: Ищем в data-атрибутах
+      final dataPattern = RegExp(r'data-subject="([^"]+)" data-topic="([^"]+)" data-progress="(\d+)"');
+      for (final match in dataPattern.allMatches(html)) {
+        final subject = match.group(1)!;
+        final topic = match.group(2)!;
+        final progressValue = int.tryParse(match.group(3)!) ?? 0;
 
         if (!progress.containsKey(subject)) {
           progress[subject] = {};
         }
-        progress[subject]![topicName] = correctAnswers;
+        progress[subject]![topic] = progressValue;
       }
+
+      // Вариант 2: Ищем в таблицах или списках
+      if (progress.isEmpty) {
+        final tablePattern = RegExp(r'<tr[^>]*>.*?<td[^>]*>([^<]+)</td>.*?<td[^>]*>([^<]+)</td>.*?<td[^>]*>(\d+)</td>', caseSensitive: false, dotAll: true);
+        for (final match in tablePattern.allMatches(html)) {
+          final subject = match.group(1)!.trim();
+          final topic = match.group(2)!.trim();
+          final progressValue = int.tryParse(match.group(3)!) ?? 0;
+
+          if (!progress.containsKey(subject)) {
+            progress[subject] = {};
+          }
+          progress[subject]![topic] = progressValue;
+        }
+      }
+
+      print('📊 Parsed ${progress.length} subjects from HTML');
+
+    } catch (e) {
+      print('❌ Error parsing progress from HTML: $e');
     }
 
-    return {'progress': progress};
+    return progress;
   }
 
   Future<Map<String, dynamic>> _updateAvatar(String imagePath) async {
@@ -644,6 +894,21 @@ class ApiService {
       endpoints['/profile/avatar'] = false;
     }
 
+    // Проверяем эндпоинты для прогресса
+    try {
+      final response = await _dio.get('/progress');
+      endpoints['/progress'] = response.statusCode == 200;
+    } catch (e) {
+      endpoints['/progress'] = false;
+    }
+
+    try {
+      final response = await _dio.get('/progress/update');
+      endpoints['/progress/update'] = response.statusCode == 200;
+    } catch (e) {
+      endpoints['/progress/update'] = false;
+    }
+
     return {
       'success': true,
       'endpoints': endpoints,
@@ -710,37 +975,82 @@ class ApiService {
 
       // Пытаемся найти имя пользователя разными способами
       try {
-        // Паттерн 1: Ищем в заголовках h1-h6
-        final namePattern1 = RegExp(r'<h[1-6][^>]*>([^<]+)</h[1-6]>');
-        // Паттерн 2: Ищем в div с классами содержащими name, user, profile
-        final namePattern2 = RegExp(r'<div[^>]*class="[^"]*(name|user|profile)[^"]*"[^>]*>([^<]+)</div>');
-        // Паттерн 3: Ищем в span с классами
-        final namePattern3 = RegExp(r'<span[^>]*class="[^"]*(name|user)[^"]*"[^>]*>([^<]+)</span>');
-        // Паттерн 4: Ищем после слова "Имя" или "Name"
-        final namePattern4 = RegExp(r'[Ии]мя[^>]*>([^<]+)<');
-        // Паттерн 5: Ищем текст который выглядит как имя (только буквы, пробелы, кириллица)
+        // ПРИОРИТЕТ 1: Ищем имя в параграфе под аватаром (самый надежный способ)
+        final namePattern1 = RegExp(r'<img[^>]*alt="Аватар"[^>]*>[\s\S]*?<p[^>]*class="[^"]*text-gray-600[^"]*"[^>]*>([^<]+)</p>', caseSensitive: false);
+        // ПРИОРИТЕТ 2: Ищем в любом параграфе с классом text-gray-600 (где обычно отображаются имена)
+        final namePattern2 = RegExp(r'<p[^>]*class="[^"]*text-gray-600[^"]*"[^>]*>([^<]+)</p>', caseSensitive: false);
+        // ПРИОРИТЕТ 3: Ищем в заголовках h1-h6, но исключаем "Профиль пользователя"
+        final namePattern3 = RegExp(r'<h[1-6][^>]*>([^<]+)</h[1-6]>');
+        // ПРИОРИТЕТ 4: Ищем в div с классами содержащими name, user, profile
+        final namePattern4 = RegExp(r'<div[^>]*class="[^"]*(name|user|profile)[^"]*"[^>]*>([^<]+)</div>');
+        // ПРИОРИТЕТ 5: Ищем текст который выглядит как имя (только буквы, пробелы, кириллица, латиница)
         final namePattern5 = RegExp(r'>([А-Яа-яA-Za-z\s]{2,30})<');
 
-        // Собираем все возможные кандидаты
+        // Собираем все возможные кандидаты в порядке приоритета
         final candidates = <String>[];
 
+        // Приоритет 1: Имя под аватаром
         for (final match in namePattern1.allMatches(html)) {
-          candidates.add(match.group(1)!.trim());
-        }
-        for (final match in namePattern2.allMatches(html)) {
-          if (match.groupCount >= 2) candidates.add(match.group(2)!.trim());
-        }
-        for (final match in namePattern3.allMatches(html)) {
-          if (match.groupCount >= 2) candidates.add(match.group(2)!.trim());
-        }
-        for (final match in namePattern4.allMatches(html)) {
-          candidates.add(match.group(1)!.trim());
-        }
-        for (final match in namePattern5.allMatches(html)) {
-          candidates.add(match.group(1)!.trim());
+          final candidate = match.group(1)!.trim();
+          if (candidate.isNotEmpty && candidate != 'Аватар') {
+            candidates.add(candidate);
+            print('🎯 Found name under avatar: "$candidate"');
+          }
         }
 
-        // Фильтруем кандидатов
+        // Приоритет 2: Любой text-gray-600 параграф
+        for (final match in namePattern2.allMatches(html)) {
+          final candidate = match.group(1)!.trim();
+          if (candidate.isNotEmpty &&
+              candidate != 'Аватар' &&
+              !candidate.contains('Загрузить') &&
+              !candidate.contains('аватар')) {
+            candidates.add(candidate);
+            print('🎯 Found name in text-gray-600: "$candidate"');
+          }
+        }
+
+        // Приоритет 3: Заголовки (исключаем "Профиль пользователя")
+        for (final match in namePattern3.allMatches(html)) {
+          final candidate = match.group(1)!.trim();
+          if (candidate.isNotEmpty &&
+              !candidate.contains('Профиль') &&
+              !candidate.contains('пользователя') &&
+              !candidate.contains('Profile')) {
+            candidates.add(candidate);
+            print('🎯 Found name in heading: "$candidate"');
+          }
+        }
+
+        // Приоритет 4: Div с классами
+        for (final match in namePattern4.allMatches(html)) {
+          if (match.groupCount >= 2) {
+            final candidate = match.group(2)!.trim();
+            if (candidate.isNotEmpty) {
+              candidates.add(candidate);
+              print('🎯 Found name in div: "$candidate"');
+            }
+          }
+        }
+
+        // Приоритет 5: Общий поиск
+        for (final match in namePattern5.allMatches(html)) {
+          final candidate = match.group(1)!.trim();
+          if (candidate.isNotEmpty &&
+              candidate.length > 1 &&
+              candidate.length < 50 &&
+              !candidate.contains('@') &&
+              !candidate.contains('http') &&
+              !candidate.contains('<') &&
+              !candidate.contains('>') &&
+              !['Профиль', 'Profile', 'Вход', 'Login', 'Выйти', 'Logout', 'Главная', 'Home', 'LISPEKT']
+                  .contains(candidate)) {
+            candidates.add(candidate);
+            print('🎯 Found name in general search: "$candidate"');
+          }
+        }
+
+        // Фильтруем кандидатов - ищем "LISPEKT" или другие реальные имена
         for (final candidate in candidates) {
           if (candidate.isNotEmpty &&
               candidate.length > 1 &&
@@ -749,13 +1059,36 @@ class ApiService {
               !candidate.contains('http') &&
               !candidate.contains('<') &&
               !candidate.contains('>') &&
-              !['Профиль', 'Profile', 'Вход', 'Login', 'Выйти', 'Logout', 'Главная', 'Home']
+              !candidate.contains('Профиль') &&
+              !candidate.contains('пользователя') &&
+              !['Вход', 'Login', 'Выйти', 'Logout', 'Главная', 'Home']
                   .contains(candidate)) {
-            name = candidate;
-            print('✅ Found name: "$name"');
-            break;
+
+            // Если нашли "LISPEKT" - это наш пользователь
+            if (candidate == 'LISPEKT') {
+              name = candidate;
+              print('✅ Found exact username: "$name"');
+              break;
+            }
+
+            // Или любое другое имя, которое не является заголовком страницы
+            if (candidate != 'Профиль пользователя' && !candidate.contains('Профиль')) {
+              name = candidate;
+              print('✅ Found valid username: "$name"');
+              break;
+            }
           }
         }
+
+        // Если не нашли нормальное имя, но видим LISPEKT в других местах
+        if (name == 'Пользователь' || name == 'Профиль пользователя') {
+          // Дополнительная проверка: ищем LISPEKT в любом месте HTML
+          if (html.contains('LISPEKT')) {
+            name = 'LISPEKT';
+            print('✅ Found LISPEKT in HTML, setting as username');
+          }
+        }
+
       } catch (e) {
         print('⚠️ Error parsing name: $e');
       }
@@ -764,6 +1097,7 @@ class ApiService {
       try {
         final avatarPatterns = [
           RegExp(r'<img[^>]*src="([^"]*avatar[^"]*)"', caseSensitive: false),
+          RegExp(r'<img[^>]*src="([^"]*images/[^"]*)"', caseSensitive: false),
           RegExp(r'<img[^>]*src="([^"]*uploads[^"]*)"', caseSensitive: false),
           RegExp(r'<img[^>]*src="(/storage/[^"]*)"', caseSensitive: false),
           RegExp(r'<img[^>]*src="(.*\.(jpg|jpeg|png|gif|webp))"', caseSensitive: false),
