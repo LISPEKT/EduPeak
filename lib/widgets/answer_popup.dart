@@ -17,10 +17,56 @@ class AnswerPopup extends StatelessWidget {
     super.key,
   });
 
+  // Вспомогательные методы для обработки correctIndex
+  int _getCorrectIndex(dynamic correctIndex) {
+    if (correctIndex is int) {
+      return correctIndex;
+    } else if (correctIndex is List<int>) {
+      return correctIndex.isNotEmpty ? correctIndex[0] : -1;
+    } else if (correctIndex is List) {
+      return correctIndex.isNotEmpty ? (correctIndex[0] as int) : -1;
+    }
+    return -1;
+  }
+
+  List<int> _getCorrectAnswers(dynamic correctIndex) {
+    if (correctIndex is List<int>) {
+      return correctIndex;
+    } else if (correctIndex is List) {
+      return correctIndex.cast<int>();
+    } else if (correctIndex is int) {
+      return [correctIndex];
+    }
+    return [];
+  }
+
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Логика получения правильного ответа
+    String getCorrectAnswerText() {
+      try {
+        if (question.answerType == 'text') {
+          final correctIndex = _getCorrectIndex(question.correctIndex);
+          return question.options[correctIndex];
+        } else if (question.answerType == 'single_choice') {
+          final correctIndex = _getCorrectIndex(question.correctIndex);
+          return question.options[correctIndex];
+        } else if (question.answerType == 'multiple_choice') {
+          final correctAnswers = _getCorrectAnswers(question.correctIndex);
+          final correctOptions = correctAnswers.map((index) => question.options[index]).toList();
+          return correctOptions.join(', ');
+        }
+        return localizations.correctAnswerNotFound;
+      } catch (e) {
+        print('❌ Error getting correct answer: $e');
+        print('❌ Correct index type: ${question.correctIndex.runtimeType}');
+        print('❌ Correct index value: ${question.correctIndex}');
+        return localizations.answerLoadError;
+      }
+    }
 
     Color backgroundColor;
     Color accentColor;
@@ -28,27 +74,15 @@ class AnswerPopup extends StatelessWidget {
     String title;
 
     if (isCorrect) {
-      backgroundColor = isDark ? const Color(0xFF1B5E20) : const Color(0xFFE8F5E8);
+      backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
       accentColor = isDark ? const Color(0xFF4CAF50) : Colors.green;
       icon = Icons.check_circle;
       title = localizations.correct;
     } else {
-      backgroundColor = isDark ? const Color(0xFFB71C1C) : const Color(0xFFFFEBEE);
+      backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
       accentColor = isDark ? const Color(0xFFF44336) : Colors.red;
       icon = Icons.error;
       title = localizations.incorrect;
-    }
-
-    // Безопасное получение правильного ответа
-    String getCorrectAnswer() {
-      try {
-        if (question.correctIndex < question.options.length) {
-          return question.options[question.correctIndex];
-        }
-        return localizations.correctAnswerNotFound;
-      } catch (e) {
-        return localizations.answerLoadError;
-      }
     }
 
     return Container(
@@ -71,15 +105,10 @@ class AnswerPopup extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Заголовок с иконкой
                   Center(
                     child: Column(
                       children: [
-                        Icon(
-                          icon,
-                          color: accentColor,
-                          size: 48,
-                        ),
+                        Icon(icon, color: accentColor, size: 48),
                         const SizedBox(height: 8),
                         Text(
                           title,
@@ -94,7 +123,6 @@ class AnswerPopup extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // Область с контентом
                   Expanded(
                     child: SingleChildScrollView(
                       controller: scrollController,
@@ -120,7 +148,7 @@ class AnswerPopup extends StatelessWidget {
                           ),
                           const SizedBox(height: 16),
 
-                          // Ваш ответ
+                          // Ответ пользователя
                           Text(
                             '${localizations.yourAnswer}:',
                             style: TextStyle(
@@ -134,23 +162,22 @@ class AnswerPopup extends StatelessWidget {
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.black26 : Colors.white,
+                              color: isDark ? Colors.black26 : Colors.grey[50],
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: accentColor.withOpacity(0.3),
-                              ),
+                              border: Border.all(color: accentColor.withOpacity(0.3)),
                             ),
                             child: Text(
                               selectedAnswer.isEmpty ? localizations.noAnswer : selectedAnswer,
                               style: TextStyle(
                                 color: isDark ? Colors.white : Colors.black87,
+                                fontSize: 14,
                               ),
                             ),
                           ),
 
+                          // Правильный ответ (показываем только если ответ неправильный)
                           if (!isCorrect) ...[
                             const SizedBox(height: 16),
-                            // Правильный ответ
                             Text(
                               '${localizations.correctAnswer}:',
                               style: TextStyle(
@@ -166,22 +193,21 @@ class AnswerPopup extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: Colors.green.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: Colors.green.withOpacity(0.3),
-                                ),
+                                border: Border.all(color: Colors.green.withOpacity(0.3)),
                               ),
                               child: Text(
-                                getCorrectAnswer(),
-                                style: const TextStyle(
+                                getCorrectAnswerText(),
+                                style: TextStyle(
                                   color: Colors.green,
                                   fontWeight: FontWeight.w500,
+                                  fontSize: 14,
                                 ),
                               ),
                             ),
                           ],
 
-                          const SizedBox(height: 16),
                           // Объяснение
+                          const SizedBox(height: 16),
                           Text(
                             '${localizations.explanation}:',
                             style: TextStyle(
@@ -192,7 +218,9 @@ class AnswerPopup extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            question.explanation ?? localizations.explanationNotFound,
+                            question.explanation?.isNotEmpty == true
+                                ? question.explanation
+                                : localizations.explanationNotFound,
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark ? Colors.white70 : Colors.black54,
@@ -204,8 +232,8 @@ class AnswerPopup extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
                   // Кнопка продолжения
+                  const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -214,12 +242,11 @@ class AnswerPopup extends StatelessWidget {
                         backgroundColor: accentColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 2,
                       ),
                       child: Text(
-                        isLastQuestion ? localizations.finishTest : localizations.nextQuestion,
+                        isLastQuestion ? localizations.finishTest : localizations.continueText,
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),

@@ -1,9 +1,12 @@
 // lib/services/api_service.dart
+import '../models/user_stats.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import '../screens/achievements_screen.dart';
+import '../data/user_data_storage.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -16,7 +19,8 @@ class ApiService {
   String? _csrfToken;
   String? _sessionCookie;
 
-  // Статические методы для совместимости со старым кодом
+  // === СТАТИЧЕСКИЕ МЕТОДЫ ДЛЯ СОВМЕСТИМОСТИ ===
+
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('isLoggedIn') ?? false;
@@ -56,12 +60,86 @@ class ApiService {
     return await ApiService()._discoverEndpoints();
   }
 
-  // Новый метод для массовой синхронизации прогресса
   static Future<void> syncAllProgressToServer(Map<String, Map<String, int>> progressData) async {
     await ApiService()._syncAllProgressToServer(progressData);
   }
 
-  // Реализации методов
+  // === НОВЫЕ СТАТИЧЕСКИЕ МЕТОДЫ ДЛЯ ЭКРАНОВ ===
+
+  // Достижения
+  static Future<Map<String, dynamic>> getAchievements() async {
+    return await ApiService()._getAchievements();
+  }
+
+  static Future<Map<String, dynamic>> unlockAchievement(String achievementId) async {
+    return await ApiService()._unlockAchievement(achievementId);
+  }
+
+  static Future<Map<String, dynamic>> getAchievementProgress() async {
+    return await ApiService()._getAchievementProgress();
+  }
+
+  // Друзья
+  static Future<Map<String, dynamic>> getFriends() async {
+    return await ApiService()._getFriends();
+  }
+
+  static Future<Map<String, dynamic>> sendFriendRequest(String username) async {
+    return await ApiService()._sendFriendRequest(username);
+  }
+
+  static Future<Map<String, dynamic>> acceptFriendRequest(String requestId) async {
+    return await ApiService()._acceptFriendRequest(requestId);
+  }
+
+  static Future<Map<String, dynamic>> declineFriendRequest(String requestId) async {
+    return await ApiService()._declineFriendRequest(requestId);
+  }
+
+  static Future<Map<String, dynamic>> removeFriend(String friendId) async {
+    return await ApiService()._removeFriend(friendId);
+  }
+
+  static Future<Map<String, dynamic>> searchUsers(String query) async {
+    return await ApiService()._searchUsers(query);
+  }
+
+  // Лиги и XP
+  static Future<Map<String, dynamic>> getLeagueLeaderboard(String leagueName) async {
+    return await ApiService()._getLeagueLeaderboard(leagueName);
+  }
+
+  static Future<Map<String, dynamic>> getUserLeagueInfo() async {
+    return await ApiService()._getUserLeagueInfo();
+  }
+
+  static Future<Map<String, dynamic>> addXP(int xp, String source) async {
+    return await ApiService()._addXP(xp, source);
+  }
+
+  static Future<Map<String, dynamic>> getUserXPStats() async {
+    return await ApiService()._getUserXPStats();
+  }
+
+  // === СИНХРОНИЗАЦИЯ ДАННЫХ ===
+  static Future<Map<String, dynamic>> syncAllUserData() async {
+    return await ApiService()._syncAllUserData();
+  }
+
+  static Future<Map<String, dynamic>> getAllUserData() async {
+    return await ApiService()._getAllUserData();
+  }
+
+  static Future<Map<String, dynamic>> uploadAllLocalData() async {
+    return await ApiService()._uploadAllLocalData();
+  }
+
+  static Future<Map<String, dynamic>> checkDataConflicts() async {
+    return await ApiService()._checkDataConflicts();
+  }
+
+  // === РЕАЛИЗАЦИЯ МЕТОДОВ ===
+
   Future<void> initialize() async {
     if (_isInitialized) return;
 
@@ -76,40 +154,42 @@ class ApiService {
       },
     ));
 
-    // Добавляем перехватчик для обработки cookies
+    // В методе initialize() обновите InterceptorsWrapper:
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        // Загружаем cookies перед каждым запросом
         await _loadCookies();
+
+        // Добавляем session cookie в заголовки
         if (_sessionCookie != null) {
           options.headers['cookie'] = _sessionCookie;
+          print('🍪 Adding session cookie to request');
         }
-        if (_csrfToken != null && (options.method == 'POST' || options.method == 'PUT' || options.method == 'PATCH')) {
-          if (options.data is Map) {
-            (options.data as Map)['_token'] = _csrfToken;
-          } else if (options.data is String) {
-            // Для form-data добавляем токен
-            final data = options.data as String;
-            if (!data.contains('_token=')) {
-              options.data = '$data&_token=$_csrfToken';
-            }
-          }
+
+        // ВАЖНО: Не добавляем CSRF токен автоматически для login запроса
+        // Потому что мы уже вручную добавили правильный токен из формы
+        // Добавляем только если это не login запрос и токен еще не добавлен
+        if (_csrfToken != null &&
+            (options.method == 'POST' || options.method == 'PUT' || options.method == 'PATCH') &&
+            !options.uri.path.contains('/login') &&
+            options.data is Map &&
+            !(options.data as Map).containsKey('_token')) {
+
+          (options.data as Map)['_token'] = _csrfToken;
+          print('🔐 Adding CSRF token from cookie to request data');
         }
+
         handler.next(options);
       },
       onResponse: (response, handler) {
-        // Сохраняем cookies из ответа
         _saveCookiesFromResponse(response);
         handler.next(response);
       },
-    ));
-
-    _dio.interceptors.add(LogInterceptor(
-      request: true,
-      requestBody: true,
-      responseBody: true,
-      requestHeader: true,
-      responseHeader: true,
+      onError: (DioException error, handler) {
+        if (error.response != null) {
+          _saveCookiesFromResponse(error.response!);
+        }
+        handler.next(error);
+      },
     ));
 
     await _loadCookies();
@@ -160,26 +240,53 @@ class ApiService {
     try {
       if (!_isInitialized) await initialize();
 
-      // Получаем свежий CSRF токен
-      final csrfToken = await _getCsrfToken();
-      if (csrfToken == null) {
-        throw Exception('Не удалось получить CSRF токен');
+      print('🔄 Starting login process...');
+
+      // 1. Получаем страницу логина для получения CSRF токена
+      final loginResponse = await _dio.get(
+        '/login',
+        options: Options(
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        ),
+      );
+
+      // Сохраняем куки из запроса логина
+      _saveCookiesFromResponse(loginResponse);
+
+      // 2. Парсим CSRF токен ИЗ HTML ФОРМЫ (а не из куки!)
+      final html = loginResponse.data.toString();
+      final tokenPattern = RegExp(r'name="_token" value="([^"]+)"');
+      final match = tokenPattern.firstMatch(html);
+
+      if (match == null) {
+        print('❌ CSRF Token not found in login form');
+        return {'success': false, 'message': 'Ошибка получения токена безопасности'};
       }
 
+      final csrfToken = match.group(1)!;
+      print('✅ CSRF Token found in form: $csrfToken');
+
+      // 3. Подготавливаем данные для отправки с правильным токеном
       final formData = {
-        '_token': csrfToken,
+        '_token': csrfToken, // Используем токен из формы, а не из куки!
         'email': email,
         'password': password,
       };
 
       print('🔐 Login attempt with email: $email');
 
+      // 4. Отправляем POST запрос
       final response = await _dio.post(
         '/login',
         data: formData,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
           headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'X-Requested-With': 'XMLHttpRequest',
             'Origin': _baseUrl,
             'Referer': '$_baseUrl/login',
@@ -190,41 +297,54 @@ class ApiService {
       );
 
       print('📡 Login response status: ${response.statusCode}');
-      print('📡 Login response headers: ${response.headers}');
 
-      // Проверяем редирект на профиль (успешный вход)
+      // Сохраняем куки из ответа
+      _saveCookiesFromResponse(response);
+
+      // 5. Анализируем ответ
       if (response.statusCode == 302) {
         final location = response.headers['location']?.first;
+        print('🔄 Redirect to: $location');
+
         if (location != null && location.contains('/profile')) {
+          // Успешный вход
           await _saveCookies();
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('userEmail', email);
-
-          // ВАЖНО: Сохраняем auth token для UserDataStorage
           await prefs.setString('auth_token', _sessionCookie ?? '');
 
-          print('✅ Login successful, auth status updated');
-
+          print('✅ Login successful');
           return {'success': true, 'message': 'Вход выполнен успешно'};
+        } else if (location != null && location.contains('/login')) {
+          return {'success': false, 'message': 'Неверный email или пароль'};
         }
       }
 
-      // Если нет редиректа, проверяем содержимое ответа
+      // 6. Проверяем содержимое ответа на ошибки
       final responseText = response.data.toString();
       if (responseText.contains('Неверный email или пароль') ||
           responseText.contains('Invalid credentials')) {
         return {'success': false, 'message': 'Неверный email или пароль'};
       }
 
+      if (response.statusCode == 419) {
+        return {'success': false, 'message': 'Сессия истекла. Попробуйте еще раз.'};
+      }
+
       return {'success': false, 'message': 'Ошибка входа. Проверьте данные.'};
+
     } catch (e) {
       print('❌ Login error: $e');
 
       if (e is DioException) {
         final response = e.response;
         if (response != null) {
+          if (response.statusCode == 419) {
+            return {'success': false, 'message': 'Сессия истекла. Попробуйте еще раз.'};
+          }
+
           final responseText = response.data.toString();
           if (responseText.contains('Неверный email или пароль') ||
               responseText.contains('Invalid credentials')) {
@@ -487,7 +607,6 @@ class ApiService {
     }
   }
 
-  // ОБНОВЛЕННЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ПРОГРЕССОМ
   Future<void> _updateTopicProgress(String subject, String topicName, int correctAnswers) async {
     try {
       if (!_isInitialized) await initialize();
@@ -590,7 +709,6 @@ class ApiService {
     }
   }
 
-  // Метод для массовой синхронизации прогресса на сервер
   Future<void> _syncAllProgressToServer(Map<String, Map<String, int>> progressData) async {
     try {
       if (!_isInitialized) await initialize();
@@ -650,7 +768,6 @@ class ApiService {
     }
   }
 
-  // Вспомогательные методы для локального хранения (как fallback)
   Future<void> _saveProgressLocally(String subject, String topicName, int correctAnswers) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -714,7 +831,6 @@ class ApiService {
     }
   }
 
-  // Метод для парсинга прогресса из HTML (если сервер не предоставляет JSON API)
   Map<String, Map<String, int>> _parseProgressFromHtml(String html) {
     final progress = <String, Map<String, int>>{};
 
@@ -920,12 +1036,16 @@ class ApiService {
     final cookies = response.headers['set-cookie'];
     if (cookies != null) {
       for (final cookie in cookies) {
-        if (cookie.contains('laravel-session')) {
+        print('🍪 Raw cookie: $cookie');
+
+        if (cookie.contains('edupeak-session') || cookie.contains('laravel-session')) {
           _sessionCookie = cookie.split(';').first;
+          print('✅ Session cookie: $_sessionCookie');
         } else if (cookie.contains('XSRF-TOKEN')) {
           final tokenMatch = RegExp(r'XSRF-TOKEN=([^;]+)').firstMatch(cookie);
           if (tokenMatch != null) {
             _csrfToken = Uri.decodeComponent(tokenMatch.group(1)!);
+            print('✅ CSRF Token from cookie: $_csrfToken');
           }
         }
       }
@@ -1142,6 +1262,957 @@ class ApiService {
         'email': '',
         'avatar_url': '',
         'streak': 0,
+      };
+    }
+  }
+
+  // === НОВЫЕ МЕТОДЫ ДЛЯ ЭКРАНОВ ===
+
+  // Достижения
+  Future<Map<String, dynamic>> _getAchievements() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      print('🏆 Getting achievements from server...');
+
+      final response = await _dio.get(
+        '/achievements',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {'success': true, 'achievements': data['achievements'] ?? []};
+          }
+        } catch (e) {
+          print('⚠️ Error parsing achievements JSON: $e');
+        }
+      }
+
+      // Fallback: возвращаем пустой список
+      return {
+        'success': false,
+        'achievements': [],
+        'message': 'Сервер недоступен, используем локальные данные'
+      };
+
+    } catch (e) {
+      print('❌ Error getting achievements: $e');
+      return {
+        'success': false,
+        'achievements': [],
+        'message': 'Ошибка получения достижений'
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _unlockAchievement(String achievementId) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'achievement_id': achievementId,
+      };
+
+      final response = await _dio.post(
+        '/achievements/unlock',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Достижение разблокировано'};
+      } else {
+        return {'success': false, 'message': 'Ошибка разблокировки достижения'};
+      }
+
+    } catch (e) {
+      print('❌ Error unlocking achievement: $e');
+      return {'success': false, 'message': 'Ошибка сети'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getAchievementProgress() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final response = await _dio.get(
+        '/achievements/progress',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {'success': true, 'progress': data['progress'] ?? {}};
+          }
+        } catch (e) {
+          print('⚠️ Error parsing achievement progress: $e');
+        }
+      }
+
+      return {'success': false, 'progress': {}};
+
+    } catch (e) {
+      print('❌ Error getting achievement progress: $e');
+      return {'success': false, 'progress': {}};
+    }
+  }
+
+  // Друзья
+  Future<Map<String, dynamic>> _getFriends() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final response = await _dio.get(
+        '/friends',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {
+              'success': true,
+              'friends': data['friends'] ?? [],
+              'pending_requests': data['pending_requests'] ?? []
+            };
+          }
+        } catch (e) {
+          print('⚠️ Error parsing friends JSON: $e');
+        }
+      }
+
+      // Fallback данные
+      return {
+        'success': false,
+        'friends': [],
+        'pending_requests': [],
+        'message': 'Сервер недоступен, используем локальные данные'
+      };
+
+    } catch (e) {
+      print('❌ Error getting friends: $e');
+      return {
+        'success': false,
+        'friends': [],
+        'pending_requests': []
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _sendFriendRequest(String username) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'username': username,
+      };
+
+      final response = await _dio.post(
+        '/friends/request',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Запрос на дружбу отправлен'};
+      } else {
+        return {'success': false, 'message': 'Ошибка отправки запроса'};
+      }
+
+    } catch (e) {
+      print('❌ Error sending friend request: $e');
+      return {'success': false, 'message': 'Ошибка сети'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _acceptFriendRequest(String requestId) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'request_id': requestId,
+      };
+
+      final response = await _dio.post(
+        '/friends/accept',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Запрос принят'};
+      } else {
+        return {'success': false, 'message': 'Ошибка принятия запроса'};
+      }
+
+    } catch (e) {
+      print('❌ Error accepting friend request: $e');
+      return {'success': false, 'message': 'Ошибка сети'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _declineFriendRequest(String requestId) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'request_id': requestId,
+      };
+
+      final response = await _dio.post(
+        '/friends/decline',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Запрос отклонен'};
+      } else {
+        return {'success': false, 'message': 'Ошибка отклонения запроса'};
+      }
+
+    } catch (e) {
+      print('❌ Error declining friend request: $e');
+      return {'success': false, 'message': 'Ошибка сети'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _removeFriend(String friendId) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'friend_id': friendId,
+      };
+
+      final response = await _dio.post(
+        '/friends/remove',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Друг удален'};
+      } else {
+        return {'success': false, 'message': 'Ошибка удаления друга'};
+      }
+
+    } catch (e) {
+      print('❌ Error removing friend: $e');
+      return {'success': false, 'message': 'Ошибка сети'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _searchUsers(String query) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final response = await _dio.get(
+        '/users/search?username=${Uri.encodeComponent(query)}',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {'success': true, 'users': data['users'] ?? []};
+          }
+        } catch (e) {
+          print('⚠️ Error parsing search results: $e');
+        }
+      }
+
+      return {'success': false, 'users': []};
+
+    } catch (e) {
+      print('❌ Error searching users: $e');
+      return {'success': false, 'users': []};
+    }
+  }
+
+  // Лиги и XP
+  Future<Map<String, dynamic>> _getLeagueLeaderboard(String leagueName) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final response = await _dio.get(
+        '/league/$leagueName/leaderboard',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {'success': true, 'leaderboard': data['leaderboard'] ?? []};
+          }
+        } catch (e) {
+          print('⚠️ Error parsing leaderboard: $e');
+        }
+      }
+
+      return {'success': false, 'leaderboard': []};
+
+    } catch (e) {
+      print('❌ Error getting league leaderboard: $e');
+      return {'success': false, 'leaderboard': []};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getUserLeagueInfo() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final response = await _dio.get(
+        '/league/user-info',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {
+              'success': true,
+              'current_league': data['current_league'] ?? 'Бронза',
+              'weekly_xp': data['weekly_xp'] ?? 0,
+              'rank': data['rank'] ?? 0,
+              'total_users': data['total_users'] ?? 0,
+            };
+          }
+        } catch (e) {
+          print('⚠️ Error parsing league info: $e');
+        }
+      }
+
+      // Fallback данные
+      return {
+        'success': false,
+        'current_league': 'Бронза',
+        'weekly_xp': 0,
+        'rank': 0,
+        'total_users': 0,
+      };
+
+    } catch (e) {
+      print('❌ Error getting user league info: $e');
+      return {
+        'success': false,
+        'current_league': 'Бронза',
+        'weekly_xp': 0,
+        'rank': 0,
+        'total_users': 0,
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _addXP(int xp, String source) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'xp': xp,
+        'source': source,
+      };
+
+      final response = await _dio.post(
+        '/xp/add',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'XP добавлен'};
+      } else {
+        return {'success': false, 'message': 'Ошибка добавления XP'};
+      }
+
+    } catch (e) {
+      print('❌ Error adding XP: $e');
+      return {'success': false, 'message': 'Ошибка сети'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getUserXPStats() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final response = await _dio.get(
+        '/xp/stats',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {
+              'success': true,
+              'total_xp': data['total_xp'] ?? 0,
+              'weekly_xp': data['weekly_xp'] ?? 0,
+              'current_league': data['current_league'] ?? 'Бронза',
+              'league_progress': data['league_progress'] ?? 0.0,
+            };
+          }
+        } catch (e) {
+          print('⚠️ Error parsing XP stats: $e');
+        }
+      }
+
+      // Fallback данные
+      return {
+        'success': false,
+        'total_xp': 0,
+        'weekly_xp': 0,
+        'current_league': 'Бронза',
+        'league_progress': 0.0,
+      };
+
+    } catch (e) {
+      print('❌ Error getting XP stats: $e');
+      return {
+        'success': false,
+        'total_xp': 0,
+        'weekly_xp': 0,
+        'current_league': 'Бронза',
+        'league_progress': 0.0,
+      };
+    }
+  }
+
+  // === МЕТОДЫ ПОЛНОЙ СИНХРОНИЗАЦИИ ДАННЫХ ===
+
+  Future<Map<String, dynamic>> _syncAllUserData() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      print('🔄 STARTING FULL USER DATA SYNC');
+
+      // 1. Получаем все данные с сервера
+      final serverData = await _getAllUserData();
+
+      if (!serverData['success']) {
+        return {
+          'success': false,
+          'message': 'Не удалось получить данные с сервера',
+          'synced': false
+        };
+      }
+
+      // 2. Получаем все локальные данные
+      final localData = await _getAllLocalData();
+
+      // 3. Разрешаем конфликты и объединяем данные
+      final mergedData = _mergeData(localData, serverData['data']);
+
+      // 4. Сохраняем объединенные данные локально
+      await _saveMergedData(mergedData);
+
+      // 5. Отправляем объединенные данные на сервер
+      await _uploadMergedData(mergedData);
+
+      print('✅ FULL USER DATA SYNC COMPLETED SUCCESSFULLY');
+
+      return {
+        'success': true,
+        'message': 'Данные успешно синхронизированы',
+        'synced': true,
+        'stats': {
+          'topics_synced': mergedData['topicProgress']?.length ?? 0,
+          'xp_synced': mergedData['totalXP'] ?? 0,
+          'streak_synced': mergedData['streakDays'] ?? 0,
+        }
+      };
+
+    } catch (e) {
+      print('❌ FULL SYNC ERROR: $e');
+      return {
+        'success': false,
+        'message': 'Ошибка синхронизации: $e',
+        'synced': false
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _getAllUserData() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      print('📥 DOWNLOADING ALL USER DATA FROM SERVER');
+
+      final Map<String, dynamic> result = {};
+
+      // 1. Получаем профиль
+      final profile = await getProfile();
+      if (profile != null) {
+        result['profile'] = profile;
+      }
+
+      // 2. Получаем прогресс
+      final progress = await _getUserProgress();
+      if (progress != null && progress['progress'] != null) {
+        result['topicProgress'] = progress['progress'];
+      }
+
+      // 3. Получаем статистику XP
+      final xpStats = await _getUserXPStats();
+      if (xpStats['success'] == true) {
+        result['xp'] = {
+          'totalXP': xpStats['total_xp'],
+          'weeklyXP': xpStats['weekly_xp'],
+          'currentLeague': xpStats['current_league'],
+        };
+      }
+
+      // 4. Получаем достижения
+      final achievements = await _getAchievementProgress();
+      if (achievements['success'] == true) {
+        result['achievements'] = achievements['progress'];
+      }
+
+      // 5. Получаем друзей
+      final friends = await _getFriends();
+      if (friends['success'] == true) {
+        result['friends'] = {
+          'friends': friends['friends'],
+          'pending_requests': friends['pending_requests'],
+        };
+      }
+
+      print('✅ SERVER DATA DOWNLOADED: ${result.keys.length} categories');
+
+      return {
+        'success': true,
+        'data': result,
+        'message': 'Данные успешно получены с сервера'
+      };
+
+    } catch (e) {
+      print('❌ ERROR GETTING ALL USER DATA: $e');
+      return {
+        'success': false,
+        'data': {},
+        'message': 'Ошибка получения данных: $e'
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _uploadAllLocalData() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      print('📤 UPLOADING ALL LOCAL DATA TO SERVER');
+
+      // 1. Получаем все локальные данные
+      final localData = await _getAllLocalData();
+
+      // 2. Отправляем прогресс по темам
+      final topicProgress = localData['topicProgress'] ?? {};
+      int topicsUploaded = 0;
+      for (final subject in topicProgress.keys) {
+        final topics = topicProgress[subject];
+        if (topics is Map) {
+          for (final topic in topics.keys) {
+            final correctAnswers = topics[topic];
+            if (correctAnswers is int) {
+              await _updateTopicProgress(subject, topic, correctAnswers);
+              topicsUploaded++;
+            }
+          }
+        }
+      }
+
+      // 3. Отправляем XP
+      final totalXP = localData['totalXP'] ?? 0;
+      if (totalXP > 0) {
+        await _addXP(0, 'sync'); // Отправляем 0 XP, так как основное уже должно быть на сервере
+      }
+
+      print('✅ ALL LOCAL DATA UPLOADED TO SERVER: $topicsUploaded topics');
+
+      return {
+        'success': true,
+        'message': 'Локальные данные успешно отправлены на сервер',
+        'uploaded': {
+          'topics': topicsUploaded,
+          'totalXP': totalXP,
+        }
+      };
+
+    } catch (e) {
+      print('❌ ERROR UPLOADING LOCAL DATA: $e');
+      return {
+        'success': false,
+        'message': 'Ошибка отправки данных: $e',
+        'uploaded': false
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _getAllLocalData() async {
+    try {
+      print('💾 GETTING ALL LOCAL DATA');
+
+      final Map<String, dynamic> result = {};
+
+      // 1. Получаем статистику пользователя
+      final userStats = await UserDataStorage.getUserStats();
+      result['topicProgress'] = userStats.topicProgress;
+      result['totalXP'] = userStats.totalXP;
+      result['weeklyXP'] = userStats.weeklyXP;
+      result['streakDays'] = userStats.streakDays;
+      result['lastActivity'] = userStats.lastActivity.toIso8601String();
+      result['username'] = userStats.username;
+
+      // 2. Получаем аватар
+      final avatar = await UserDataStorage.getAvatar();
+      if (avatar != '👤') {
+        result['avatar'] = avatar;
+      }
+
+      // 3. Получаем ежедневную активность
+      result['dailyCompletion'] = userStats.dailyCompletion;
+
+      // 4. Получаем достижения (заглушка - нужно реализовать в UserDataStorage)
+      result['achievements'] = {};
+
+      print('✅ LOCAL DATA RETRIEVED: ${result.keys.length} categories');
+
+      return result;
+
+    } catch (e) {
+      print('❌ ERROR GETTING LOCAL DATA: $e');
+      return {};
+    }
+  }
+
+  Map<String, dynamic> _mergeData(Map<String, dynamic> localData, Map<String, dynamic> serverData) {
+    print('🔄 MERGING LOCAL AND SERVER DATA');
+
+    final mergedData = <String, dynamic>{};
+
+    // 1. Объединяем прогресс по темам
+    final localProgress = localData['topicProgress'] ?? {};
+    final serverProgress = serverData['topicProgress'] ?? {};
+    final mergedProgress = <String, Map<String, int>>{};
+
+    // Объединяем все предметы
+    final allSubjects = <String>{};
+    allSubjects.addAll(localProgress.keys);
+    allSubjects.addAll(serverProgress.keys);
+
+    for (final subject in allSubjects) {
+      final localTopics = localProgress[subject] ?? {};
+      final serverTopics = serverProgress[subject] ?? {};
+      final mergedTopics = <String, int>{};
+
+      // Объединяем все темы
+      final allTopics = <String>{};
+      allTopics.addAll(localTopics.keys);
+      allTopics.addAll(serverTopics.keys);
+
+      for (final topic in allTopics) {
+        final localValue = localTopics[topic] ?? 0;
+        final serverValue = serverTopics[topic] ?? 0;
+
+        // Берем максимальное значение
+        mergedTopics[topic] = localValue > serverValue ? localValue : serverValue;
+
+        if (localValue != serverValue) {
+          print('📊 Topic conflict resolved: $subject - $topic: local=$localValue, server=$serverValue -> merged=${mergedTopics[topic]}');
+        }
+      }
+
+      mergedProgress[subject] = mergedTopics;
+    }
+
+    mergedData['topicProgress'] = mergedProgress;
+
+    // 2. Объединяем XP (берем максимальное значение)
+    final localXP = localData['totalXP'] ?? 0;
+    final serverXP = serverData['xp']?['totalXP'] ?? 0;
+    mergedData['totalXP'] = localXP > serverXP ? localXP : serverXP;
+
+    final localWeeklyXP = localData['weeklyXP'] ?? 0;
+    final serverWeeklyXP = serverData['xp']?['weeklyXP'] ?? 0;
+    mergedData['weeklyXP'] = localWeeklyXP > serverWeeklyXP ? localWeeklyXP : serverWeeklyXP;
+
+    // 3. Объединяем стрик (берем максимальное значение)
+    final localStreak = localData['streakDays'] ?? 0;
+    final serverStreak = serverData['profile']?['streak'] ?? 0;
+    mergedData['streakDays'] = localStreak > serverStreak ? localStreak : serverStreak;
+
+    // 4. Объединяем имя пользователя (предпочтение серверу)
+    final serverName = serverData['profile']?['name'];
+    if (serverName != null && serverName.isNotEmpty && serverName != 'Пользователь') {
+      mergedData['username'] = serverName;
+    } else {
+      mergedData['username'] = localData['username'] ?? '';
+    }
+
+    // 5. Объединяем аватар (предпочтение серверу)
+    final serverAvatar = serverData['profile']?['avatar_url'];
+    if (serverAvatar != null && serverAvatar.isNotEmpty) {
+      mergedData['avatar'] = serverAvatar;
+    } else {
+      mergedData['avatar'] = localData['avatar'] ?? '👤';
+    }
+
+    // 6. Объединяем ежедневную активность
+    final localDaily = localData['dailyCompletion'] ?? {};
+    final serverDaily = serverData['dailyCompletion'] ?? {};
+    final mergedDaily = Map<String, bool>.from(localDaily);
+    mergedDaily.addAll(serverDaily); // Серверные данные перезаписывают локальные
+    mergedData['dailyCompletion'] = mergedDaily;
+
+    print('✅ DATA MERGED: ${mergedProgress.length} subjects, ${mergedData['totalXP']} XP, ${mergedData['streakDays']} days streak');
+
+    return mergedData;
+  }
+
+  Future<void> _saveMergedData(Map<String, dynamic> mergedData) async {
+    try {
+      print('💾 SAVING MERGED DATA TO LOCAL STORAGE');
+
+      // Создаем UserStats из объединенных данных
+      final userStats = UserStats(
+        streakDays: mergedData['streakDays'] ?? 0,
+        lastActivity: DateTime.now(),
+        topicProgress: Map<String, Map<String, int>>.from(mergedData['topicProgress'] ?? {}),
+        dailyCompletion: Map<String, bool>.from(mergedData['dailyCompletion'] ?? {}),
+        username: mergedData['username'] ?? '',
+        totalXP: mergedData['totalXP'] ?? 0,
+        weeklyXP: mergedData['weeklyXP'] ?? 0,
+        lastWeeklyReset: DateTime.now(),
+      );
+
+      // Сохраняем статистику
+      await UserDataStorage.saveUserStats(userStats);
+
+      // Сохраняем аватар если есть
+      final avatar = mergedData['avatar'];
+      if (avatar != null && avatar != '👤') {
+        await UserDataStorage.saveAvatar(avatar);
+      }
+
+      print('✅ MERGED DATA SAVED LOCALLY');
+    } catch (e) {
+      print('❌ ERROR SAVING MERGED DATA: $e');
+    }
+  }
+
+  Future<void> _uploadMergedData(Map<String, dynamic> mergedData) async {
+    try {
+      print('📤 UPLOADING MERGED DATA TO SERVER');
+
+      // 1. Обновляем профиль
+      final username = mergedData['username'];
+      if (username != null && username.isNotEmpty) {
+        await updateProfile(username, '');
+      }
+
+      // 2. Отправляем прогресс по темам
+      final topicProgress = mergedData['topicProgress'] ?? {};
+      for (final subject in topicProgress.keys) {
+        final topics = topicProgress[subject];
+        if (topics is Map) {
+          for (final topic in topics.keys) {
+            final correctAnswers = topics[topic];
+            if (correctAnswers is int) {
+              await _updateTopicProgress(subject, topic, correctAnswers);
+            }
+          }
+        }
+      }
+
+      // 3. Отправляем аватар если есть
+      final avatar = mergedData['avatar'];
+      if (avatar != null && avatar != '👤' && avatar.toString().startsWith('http')) {
+        // Если это URL с сервера, не загружаем повторно
+        print('🖼️ Avatar already on server, skipping upload');
+      }
+
+      print('✅ MERGED DATA UPLOADED TO SERVER');
+    } catch (e) {
+      print('❌ ERROR UPLOADING MERGED DATA: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> _checkDataConflicts() async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      print('🔍 CHECKING DATA CONFLICTS');
+
+      final localData = await _getAllLocalData();
+      final serverDataResponse = await _getAllUserData();
+
+      if (!serverDataResponse['success']) {
+        return {
+          'success': false,
+          'message': 'Не удалось получить данные с сервера для проверки конфликтов'
+        };
+      }
+
+      final serverData = serverDataResponse['data'];
+      final conflicts = <String, dynamic>{};
+
+      // Проверяем конфликты прогресса
+      final localProgress = localData['topicProgress'] ?? {};
+      final serverProgress = serverData['topicProgress'] ?? {};
+      final progressConflicts = <String, Map<String, dynamic>>{};
+
+      for (final subject in localProgress.keys) {
+        final localTopics = localProgress[subject] ?? {};
+        final serverTopics = serverProgress[subject] ?? {};
+
+        for (final topic in localTopics.keys) {
+          final localValue = localTopics[topic] ?? 0;
+          final serverValue = serverTopics[topic] ?? 0;
+
+          if (localValue != serverValue) {
+            if (!progressConflicts.containsKey(subject)) {
+              progressConflicts[subject] = {};
+            }
+            progressConflicts[subject]![topic] = {
+              'local': localValue,
+              'server': serverValue,
+              'resolved': localValue > serverValue ? 'local' : 'server'
+            };
+          }
+        }
+      }
+
+      if (progressConflicts.isNotEmpty) {
+        conflicts['progress'] = progressConflicts;
+      }
+
+      // Проверяем конфликты XP
+      final localXP = localData['totalXP'] ?? 0;
+      final serverXP = serverData['xp']?['totalXP'] ?? 0;
+      if (localXP != serverXP) {
+        conflicts['xp'] = {
+          'local': localXP,
+          'server': serverXP,
+          'resolved': localXP > serverXP ? 'local' : 'server'
+        };
+      }
+
+      // Проверяем конфликты стрика
+      final localStreak = localData['streakDays'] ?? 0;
+      final serverStreak = serverData['profile']?['streak'] ?? 0;
+      if (localStreak != serverStreak) {
+        conflicts['streak'] = {
+          'local': localStreak,
+          'server': serverStreak,
+          'resolved': localStreak > serverStreak ? 'local' : 'server'
+        };
+      }
+
+      print('✅ CONFLICT CHECK COMPLETED: ${conflicts.length} conflict types found');
+
+      return {
+        'success': true,
+        'conflicts': conflicts,
+        'hasConflicts': conflicts.isNotEmpty,
+        'message': conflicts.isNotEmpty ? 'Обнаружены конфликты данных' : 'Конфликты не обнаружены'
+      };
+
+    } catch (e) {
+      print('❌ ERROR CHECKING DATA CONFLICTS: $e');
+      return {
+        'success': false,
+        'conflicts': {},
+        'hasConflicts': false,
+        'message': 'Ошибка проверки конфликтов: $e'
       };
     }
   }

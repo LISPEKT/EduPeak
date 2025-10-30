@@ -151,15 +151,42 @@ $feedback
         final confirmed = await _showFinalConfirmationDialog();
         if (confirmed != true) return;
 
-        final stats = await UserDataStorage.getUserStats();
-        stats.resetProgress();
-        await UserDataStorage.saveUserStats(stats);
+        // Сохраняем текущие данные пользователя перед сбросом
+        final currentUsername = await UserDataStorage.getUsername();
+        final currentAvatar = await UserDataStorage.getAvatar();
+
+        // Создаем новую чистую статистику
+        final cleanStats = UserStats(
+          streakDays: 0,
+          lastActivity: DateTime.now(),
+          topicProgress: {}, // ПУСТОЙ прогресс по темам
+          dailyCompletion: {},
+          username: currentUsername, // Сохраняем имя
+          totalXP: 0,
+          weeklyXP: 0,
+          lastWeeklyReset: DateTime.now(),
+        );
+
+        // Сохраняем чистую статистику
+        await UserDataStorage.saveUserStats(cleanStats);
+
+        // Очищаем локальный прогресс в SharedPreferences
+        final progressKeys = prefs.getKeys().where((key) => key.startsWith('progress_')).toList();
+        for (final key in progressKeys) {
+          await prefs.remove(key);
+        }
+
+        // Восстанавливаем аватар если был
+        if (currentAvatar != '👤') {
+          await UserDataStorage.saveAvatar(currentAvatar);
+        }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Прогресс успешно сброшен'),
+              content: Text('Прогресс успешно сброшен. Теперь можно заново проходить тесты и получать XP.'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
             ),
           );
         }
@@ -889,7 +916,7 @@ $feedback
             const SizedBox(height: 16),
             _buildInfoRow(
               title: appLocalizations.version,
-              value: 'alpha 0.32',
+              value: 'alpha 0.33.1',
             ),
             _buildInfoRow(
               title: appLocalizations.developer,

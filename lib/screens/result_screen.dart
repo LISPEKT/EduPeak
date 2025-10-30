@@ -7,7 +7,7 @@ import '../data/user_data_storage.dart';
 
 class ResultScreen extends StatelessWidget {
   final dynamic topic;
-  final List<int> userAnswers;
+  final List<dynamic> userAnswers; // Изменено с List<int> на List<dynamic>
   final List<String> textAnswers;
   final int? correctAnswersCount;
   final int? currentGrade;
@@ -15,7 +15,7 @@ class ResultScreen extends StatelessWidget {
 
   const ResultScreen({
     required this.topic,
-    required this.userAnswers,
+    required this.userAnswers, // Теперь принимает List<dynamic>
     required this.textAnswers,
     this.correctAnswersCount,
     this.currentGrade,
@@ -38,10 +38,30 @@ class ResultScreen extends StatelessWidget {
                 question.options[question.correctIndex].toLowerCase()) {
           correct++;
         }
-      } else {
+      } else if (question.answerType == 'single_choice') {
+        // Для вопросов с одним вариантом ответа
         if (i < userAnswers.length &&
-            userAnswers[i] == question.correctIndex) {
+            (userAnswers[i] as int) == question.correctIndex) {
           correct++;
+        }
+      } else if (question.answerType == 'multiple_choice') {
+        // Для вопросов с несколькими вариантами ответов
+        if (i < userAnswers.length) {
+          final userAnswersList = (userAnswers[i] as List<int>)..sort();
+          final correctAnswers = (question.correctIndex as List<int>)..sort();
+
+          if (userAnswersList.length == correctAnswers.length) {
+            bool isCorrect = true;
+            for (int j = 0; j < userAnswersList.length; j++) {
+              if (userAnswersList[j] != correctAnswers[j]) {
+                isCorrect = false;
+                break;
+              }
+            }
+            if (isCorrect) {
+              correct++;
+            }
+          }
         }
       }
     }
@@ -197,13 +217,14 @@ class ResultScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        // Переход на экран XP вместо возврата к темам
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(
                             builder: (_) => XPScreen(
-                              earnedXP: topic.questions.length, // кол-во вопросов = полученный XP
+                              earnedXP: topic.questions.length,
                               questionsCount: topic.questions.length,
+                              topicId: topic.id, // Передаем ID темы
+                              subjectName: currentSubject, // Передаем название предмета
                             ),
                           ),
                         );

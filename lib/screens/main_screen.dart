@@ -575,22 +575,22 @@ class _MainScreenState extends State<MainScreen> {
           ),
           _DrawerItem(
             icon: Icons.emoji_events,
-            title: 'Достижения',
-            subtitle: 'Полученные награды',
+            title: appLocalizations.achievements,
+            subtitle: appLocalizations.achievements,
             color: Colors.orange,
             onTap: _openAchievements,
           ),
           _DrawerItem(
             icon: Icons.people,
-            title: 'Друзья',
-            subtitle: 'Ваши друзья и их прогресс',
+            title: appLocalizations.friends,
+            subtitle: appLocalizations.friends,
             color: Colors.blue,
             onTap: _openFriends,
           ),
           _DrawerItem(
             icon: Icons.leaderboard,
-            title: 'EduLeague',
-            subtitle: 'Рейтинг и лиги',
+            title: appLocalizations.educationalLeague,
+            subtitle: appLocalizations.educationalLeague,
             color: Colors.purple,
             onTap: _openEduLeague,
           ),
@@ -804,7 +804,9 @@ class _GradeSubjectSelector extends StatelessWidget {
       color: Theme.of(context).cardColor,
       child: Row(
         children: [
-          Expanded(
+          // Классы - уже
+          Container(
+            width: MediaQuery.of(context).size.width * 0.35, // 35% ширины
             child: _GradeDropdown(
               selectedGrade: selectedGrade,
               onChanged: onGradeChanged,
@@ -812,6 +814,7 @@ class _GradeSubjectSelector extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
+          // Предметы - шире
           Expanded(
             child: _SubjectDropdown(
               selectedSubject: selectedSubject,
@@ -849,7 +852,7 @@ class _GradeDropdown extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: DropdownButton<int?>(
           value: selectedGrade,
           isExpanded: true,
@@ -861,6 +864,7 @@ class _GradeDropdown extends StatelessWidget {
                 appLocalizations.allGrades,
                 style: TextStyle(
                   color: Theme.of(context).textTheme.bodyLarge?.color,
+                  fontSize: 14,
                 ),
               ),
             ),
@@ -871,6 +875,7 @@ class _GradeDropdown extends StatelessWidget {
                   '$grade ${appLocalizations.grade}',
                   style: TextStyle(
                     color: Theme.of(context).textTheme.bodyLarge?.color,
+                    fontSize: 14,
                   ),
                 ),
               );
@@ -937,7 +942,7 @@ class _SubjectDropdown extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: DropdownButton<String>(
           value: currentSubject.isEmpty ? null : currentSubject,
           isExpanded: true,
@@ -950,7 +955,9 @@ class _SubjectDropdown extends StatelessWidget {
                 '$emoji $subject',
                 style: TextStyle(
                   color: Theme.of(context).textTheme.bodyLarge?.color,
+                  fontSize: 14,
                 ),
+                overflow: TextOverflow.ellipsis,
               ),
             );
           }).toList(),
@@ -962,9 +969,10 @@ class _SubjectDropdown extends StatelessWidget {
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
           hint: Text(
-            'Выберите предмет',
+            appLocalizations.selectSubject,
             style: TextStyle(
               color: Theme.of(context).textTheme.bodyLarge?.color,
+              fontSize: 14,
             ),
           ),
         ),
@@ -1207,7 +1215,7 @@ class _TopicCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  '$grade класс',
+                  '$grade ${AppLocalizations.of(context).grade}',
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).primaryColor,
@@ -1218,50 +1226,83 @@ class _TopicCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               topicData.name,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: isCompleted && Theme.of(context).brightness == Brightness.dark
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isCompleted
+                    ? (Theme.of(context).brightness == Brightness.dark
                     ? Colors.white
+                    : Colors.black87)
                     : null,
               ),
             ),
           ],
         ),
-        subtitle: Text(
-          topicData.description,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: isCompleted && Theme.of(context).brightness == Brightness.dark
-                ? Colors.white70
-                : null,
-          ),
-        ),
-        trailing: isCompleted
-            ? Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF4CAF50)
-                : const Color(0xFF4CAF50),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.check,
-            color: Colors.white,
-            size: 16,
-          ),
-        )
-            : Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.arrow_forward,
-            color: Theme.of(context).primaryColor,
-            size: 16,
-          ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              topicData.description,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: isCompleted
+                    ? (Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white70
+                    : Colors.black54)
+                    : null,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.quiz,
+                  size: 16,
+                  color: isCompleted
+                      ? (Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black54)
+                      : null,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${topicData.questions.length} ${AppLocalizations.of(context).questions}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: isCompleted
+                        ? (Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white70
+                        : Colors.black54)
+                        : null,
+                  ),
+                ),
+                if (isCompleted) ...[
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF4CAF50)
+                        : const Color(0xFF2E7D32),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    AppLocalizations.of(context).completed,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF4CAF50)
+                          : const Color(0xFF2E7D32),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
         ),
         onTap: onTap,
+        contentPadding: const EdgeInsets.all(16),
       ),
     );
   }
@@ -1270,9 +1311,7 @@ class _TopicCard extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   final AppLocalizations appLocalizations;
 
-  const _EmptyState({
-    required this.appLocalizations,
-  });
+  const _EmptyState({required this.appLocalizations});
 
   @override
   Widget build(BuildContext context) {
@@ -1283,7 +1322,7 @@ class _EmptyState extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 64,
-            color: Colors.grey[400],
+            color: Theme.of(context).primaryColor.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1292,8 +1331,10 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            appLocalizations.tryChangingSearch,
-            style: Theme.of(context).textTheme.bodyMedium,
+            appLocalizations.tryDifferentSearch,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+            ),
           ),
         ],
       ),

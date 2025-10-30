@@ -3,7 +3,7 @@ description: "Приложение для подтягивания школьн�
 
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 0.33.1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -18,24 +18,28 @@ dependencies:
   cupertino_icons: ^1.0.2
   provider: ^6.1.1
   image_picker: ^1.0.4
-  image_cropper: ^9.1.0
+  image_cropper: ^11.0.0
   path_provider: ^2.1.5
   http: ^1.1.0
   dio: ^5.4.0
   cookie_jar: ^4.0.8
   dio_cookie_manager: ^3.0.0
   cookie_store: ^0.3.5
+  firebase_messaging: ^16.0.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
-  flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter_icons:
   android: true
   ios: true
-  image_path: "lib/assets/icons/icon.png"
+  web:
+    generate: true
+    image_path: "assets/icons/icon.png"
+  image_path: "assets/icons/icon.png"
 
 flutter:
   uses-material-design: true

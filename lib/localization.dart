@@ -205,6 +205,170 @@ class AppLocalizations {
       'no_answer': 'Нет ответа',
       'explanation_not_found': 'Объяснение не найдено',
       'selectSubject': 'Выбрать предмет',
+      // Достижения
+      'achievements': 'Достижения',
+      'achievementProgress': 'Прогресс достижений',
+      'achievementUnlocked': 'Достижение разблокировано!',
+      'achievementDetails': 'Детали достижения',
+      'unlocked': 'Разблокировано',
+      'locked': 'Заблокировано',
+      'progress': 'Прогресс',
+      'totalAchievements': 'Всего достижений',
+      'completedAchievements': 'Получено',
+      'remainingAchievements': 'Осталось',
+      'overallProgress': 'Прогресс',
+      'completed': 'Выполнено',
+
+      // Типы достижений
+      'testsCompleted': 'Тесты пройдены',
+      'streakDays': 'Дней подряд',
+      'perfectTests': 'Идеальные тесты',
+      'subjectsCompleted': 'Предметы завершены',
+      'testsInOneDay': 'Тестов за день',
+      'totalXP': 'Всего XP',
+      'league': 'Лига',
+      'correctAnswers': 'Правильные ответы',
+      'dailyActivity': 'Ежедневная активность',
+      'special': 'Специальные',
+
+      // Друзья
+      'friends': 'Друзья',
+      'friendRequests': 'Запросы в друзья',
+      'pendingRequests': 'Ожидающие запросы',
+      'addFriend': 'Добавить друга',
+      'removeFriend': 'Удалить из друзей',
+      'acceptRequest': 'Принять запрос',
+      'declineRequest': 'Отклонить запрос',
+      'sendRequest': 'Отправить запрос',
+      'searchUsers': 'Поиск пользователей',
+      'enterUsername': 'Введите имя пользователя',
+      'usersNotFound': 'Пользователи не найдены',
+      'noFriends': 'У вас пока нет друзей',
+      'findUsersAndAdd': 'Найдите пользователей и добавьте их в друзья',
+      'noRequests': 'Нет запросов в друзья',
+      'incomingRequests': 'Входящие запросы появятся здесь',
+      'friendRequestSent': 'Запрос на дружбу отправлен пользователю @%s',
+      'requestAccepted': 'Запрос принят',
+      'requestDeclined': 'Запрос отклонен',
+      'friendRemoved': 'Друг удален',
+
+      // Статистика друзей
+      'streak': 'Стрик',
+      'completedTopics': 'Пройдено тем',
+      'weeklyXP': 'XP за неделю',
+
+      // Уведомления
+      'requestFailed': 'Не удалось отправить запрос',
+      'acceptFailed': 'Не удалось принять запрос',
+      'declineFailed': 'Не удалось отклонить запрос',
+      'removeFailed': 'Не удалось удалить друга',
+      'searchError': 'Ошибка поиска пользователей',
+
+      // Достижения - названия
+      'firstStep': 'Первый шаг',
+      'testMaster': 'Мастер тестов',
+      'testExpert': 'Эксперт тестов',
+      'testLegend': 'Легенда тестов',
+      'journeyStart': 'Начало пути',
+      'weekOfStrength': 'Неделя силы',
+      'twoWeeks': 'Две недели',
+      'monthOfDiscipline': 'Месяц дисциплины',
+      'quarterChampion': 'Квартал чемпиона',
+      'perfectionist': 'Перфекционист',
+      'flawless': 'Безупречно',
+      'perfectResult': 'Идеальный результат',
+      'subjectExpert': 'Эксперт предмета',
+      'subjectMaster': 'Мастер предметов',
+      'grandmaster': 'Грандмастер',
+      'fastLearner': 'Быстрый ученик',
+      'marathoner': 'Марафонец',
+      'dailyWarrior': 'Ежедневный воин',
+      'knowledgeSeeker': 'Искатель знаний',
+      'wisdomKeeper': 'Хранитель мудрости',
+      'knowledgeMaster': 'Мастер знаний',
+      'bronzeFighter': 'Бронзовый боец',
+      'silverStrategist': 'Серебряный стратег',
+      'goldChampion': 'Золотой чемпион',
+      'platinumGenius': 'Платиновый гений',
+      'diamondMaster': 'Бриллиантовый мастер',
+      'accurateAnswer': 'Точный ответ',
+      'erudite': 'Эрудит',
+      'knowItAll': 'Всезнайка',
+      'walkingEncyclopedia': 'Ходячая энциклопедия',
+      'earlyBird': 'Ранняя пташка',
+      'nightOwl': 'Ночная сова',
+      'weekendWarrior': 'Воитель выходного дня',
+
+      // Достижения - описания
+      'completeFirstTest': 'Пройдите первый тест',
+      'complete10Tests': 'Пройдите 10 тестов',
+      'complete50Tests': 'Пройдите 50 тестов',
+      'complete100Tests': 'Пройдите 100 тестов',
+      'study3Days': 'Занимайтесь 3 дня подряд',
+      'study7Days': 'Занимайтесь 7 дней подряд',
+      'study14Days': 'Занимайтесь 14 дней подряд',
+      'study30Days': 'Занимайтесь 30 дней подряд',
+      'study90Days': 'Занимайтесь 90 дней подряд',
+      'get100Percent': 'Получите 100% в тесте',
+      'get100Percent5Tests': 'Получите 100% в 5 тестах',
+      'get100Percent20Tests': 'Получите 100% в 20 тестах',
+      'completeAllTopics': 'Завершите все темы по одному предмету',
+      'completeAllTopics3Subjects': 'Завершите все темы по 3 предметам',
+      'completeAllTopics5Subjects': 'Завершите все темы по 5 предметам',
+      'complete5TestsDay': 'Пройдите 5 тестов за один день',
+      'complete10TestsDay': 'Пройдите 10 тестов за один день',
+      'studyEveryDayWeek': 'Занимайтесь каждый день в течение недели',
+      'earn1000XP': 'Заработайте 1000 XP',
+      'earn5000XP': 'Заработайте 5000 XP',
+      'earn10000XP': 'Заработайте 10000 XP',
+      'reachBronzeLeague': 'Достигните бронзовой лиги',
+      'reachSilverLeague': 'Достигните серебряной лиги',
+      'reachGoldLeague': 'Достигните золотой лиги',
+      'reachPlatinumLeague': 'Достигните платиновой лиги',
+      'reachDiamondLeague': 'Достигните бриллиантовой лиги',
+      'give100Correct': 'Дайте 100 правильных ответов',
+      'give500Correct': 'Дайте 500 правильных ответов',
+      'give1000Correct': 'Дайте 1000 правильных ответов',
+      'give5000Correct': 'Дайте 5000 правильных ответов',
+      'studyMorning': 'Занимайтесь утром (6:00-9:00)',
+      'studyNight': 'Занимайтесь ночью (22:00-2:00)',
+      'studyWeekends': 'Занимайтесь в выходные дни',
+      'experienceEarned': 'Опыт получен',
+      'testAlreadyCompleted': 'Тест уже пройден',
+      'questionsCompleted': 'Вопросов пройдено',
+      'alreadyCompleted': 'уже пройдено',
+      'currentLeague': 'Текущая лига',
+      'totalExperience': 'Всего опыта',
+      'weeklyExperience': 'Опыт за неделю',
+      'leagueProgress': 'Прогресс лиги',
+      'toNextLeague': 'До следующей лиги',
+      'excellentWork': 'Отличная работа!',
+      'youEarnedXP': 'Вы получили',
+      'forTestCompletion': 'за завершение теста',
+      'continueLearning': 'Продолжить обучение',
+      'animationInProgress': 'Анимация...',
+      'you': 'Вы',
+      'educationalLeague': 'Учебная лига',
+      'yourLeague': 'Ваша лига',
+      'needMoreXP': 'Нужно еще',
+      'noDataInLeague': 'Нет данных в лиге',
+
+      // Дополнительные
+      'daysShort': 'д',
+      'topicsShort': 'т',
+      'searchResults': 'Результаты поиска:',
+      'close': 'Закрыть',
+
+      'rank': 'Ранг',
+      'noRank': 'Без ранга',
+      'playersInLeague': 'Игроки в лиге',
+      'noPlayersInLeague': 'Нет игроков в лиге',
+      'beFirstInLeague': 'Станьте первым в лиге!',
+
+      'please_select_at_least_one_answer': "Пожалуйста, выберите хотя бы один ответ",
+      'select_multiple_answers': "Выберите несколько вариантов ответа",
+      'questions': 'вопросов',
+      'tryDifferentSearch': 'Попробуйте изменить поисковый запрос',
     },
     'en': {
       'app_title': 'EduPeak',
@@ -216,7 +380,7 @@ class AppLocalizations {
       'success': 'Success',
       'subjects': 'Subjects',
       'join_and_improve': 'Join and boost your brainpower',
-      'exam_preparation': 'OGE/EGE Preparation • Olympiad Tasks',
+      'exam_preparation': 'GSE/USE Preparation • Olympiad Tasks',
       'choose_language': 'Choose Language',
       'russian': 'Russian (Русский) 🇷🇺',
       'english': 'English (English) 🇬🇧 ',
@@ -401,6 +565,169 @@ class AppLocalizations {
       'no_answer': 'No answer',
       'explanation_not_found': 'Explanation not found',
       'selectSubject': 'Select subject',
+      // Achievements
+      'achievements': 'Achievements',
+      'achievementProgress': 'Achievement Progress',
+      'achievementUnlocked': 'Achievement Unlocked!',
+      'achievementDetails': 'Achievement Details',
+      'unlocked': 'Unlocked',
+      'locked': 'Locked',
+      'progress': 'Progress',
+      'totalAchievements': 'Total Achievements',
+      'completedAchievements': 'Completed',
+      'remainingAchievements': 'Remaining',
+      'overallProgress': 'Progress',
+      'completed': 'Completed',
+
+      // Achievement types
+      'testsCompleted': 'Tests Completed',
+      'streakDays': 'Streak Days',
+      'perfectTests': 'Perfect Tests',
+      'subjectsCompleted': 'Subjects Completed',
+      'testsInOneDay': 'Tests in One Day',
+      'totalXP': 'Total XP',
+      'league': 'League',
+      'correctAnswers': 'Correct Answers',
+      'dailyActivity': 'Daily Activity',
+      'special': 'Special',
+
+      // Friends
+      'friends': 'Friends',
+      'friendRequests': 'Friend Requests',
+      'pendingRequests': 'Pending Requests',
+      'addFriend': 'Add Friend',
+      'removeFriend': 'Remove Friend',
+      'acceptRequest': 'Accept Request',
+      'declineRequest': 'Decline Request',
+      'sendRequest': 'Send Request',
+      'searchUsers': 'Search Users',
+      'enterUsername': 'Enter username',
+      'usersNotFound': 'Users not found',
+      'noFriends': 'You have no friends yet',
+      'findUsersAndAdd': 'Find users and add them as friends',
+      'noRequests': 'No friend requests',
+      'incomingRequests': 'Incoming requests will appear here',
+      'friendRequestSent': 'Friend request sent to @%s',
+      'requestAccepted': 'Request accepted',
+      'requestDeclined': 'Request declined',
+      'friendRemoved': 'Friend removed',
+
+      // Friend stats
+      'streak': 'Streak',
+      'completedTopics': 'Completed topics',
+      'weeklyXP': 'Weekly XP',
+
+      // Notifications
+      'requestFailed': 'Failed to send request',
+      'acceptFailed': 'Failed to accept request',
+      'declineFailed': 'Failed to decline request',
+      'removeFailed': 'Failed to remove friend',
+      'searchError': 'Error searching users',
+
+      // Achievements - names
+      'firstStep': 'First Step',
+      'testMaster': 'Test Master',
+      'testExpert': 'Test Expert',
+      'testLegend': 'Test Legend',
+      'journeyStart': 'Journey Start',
+      'weekOfStrength': 'Week of Strength',
+      'twoWeeks': 'Two Weeks',
+      'monthOfDiscipline': 'Month of Discipline',
+      'quarterChampion': 'Quarter Champion',
+      'perfectionist': 'Perfectionist',
+      'flawless': 'Flawless',
+      'perfectResult': 'Perfect Result',
+      'subjectExpert': 'Subject Expert',
+      'subjectMaster': 'Subject Master',
+      'grandmaster': 'Grandmaster',
+      'fastLearner': 'Fast Learner',
+      'marathoner': 'Marathoner',
+      'dailyWarrior': 'Daily Warrior',
+      'knowledgeSeeker': 'Knowledge Seeker',
+      'wisdomKeeper': 'Wisdom Keeper',
+      'knowledgeMaster': 'Knowledge Master',
+      'bronzeFighter': 'Bronze Fighter',
+      'silverStrategist': 'Silver Strategist',
+      'goldChampion': 'Gold Champion',
+      'platinumGenius': 'Platinum Genius',
+      'diamondMaster': 'Diamond Master',
+      'accurateAnswer': 'Accurate Answer',
+      'erudite': 'Erudite',
+      'knowItAll': 'Know-It-All',
+      'walkingEncyclopedia': 'Walking Encyclopedia',
+      'earlyBird': 'Early Bird',
+      'nightOwl': 'Night Owl',
+      'weekendWarrior': 'Weekend Warrior',
+
+      // Achievements - descriptions
+      'completeFirstTest': 'Complete your first test',
+      'complete10Tests': 'Complete 10 tests',
+      'complete50Tests': 'Complete 50 tests',
+      'complete100Tests': 'Complete 100 tests',
+      'study3Days': 'Study for 3 days in a row',
+      'study7Days': 'Study for 7 days in a row',
+      'study14Days': 'Study for 14 days in a row',
+      'study30Days': 'Study for 30 days in a row',
+      'study90Days': 'Study for 90 days in a row',
+      'get100Percent': 'Get 100% on a test',
+      'get100Percent5Tests': 'Get 100% on 5 tests',
+      'get100Percent20Tests': 'Get 100% on 20 tests',
+      'completeAllTopics': 'Complete all topics in one subject',
+      'completeAllTopics3Subjects': 'Complete all topics in 3 subjects',
+      'completeAllTopics5Subjects': 'Complete all topics in 5 subjects',
+      'complete5TestsDay': 'Complete 5 tests in one day',
+      'complete10TestsDay': 'Complete 10 tests in one day',
+      'studyEveryDayWeek': 'Study every day for a week',
+      'earn1000XP': 'Earn 1000 XP',
+      'earn5000XP': 'Earn 5000 XP',
+      'earn10000XP': 'Earn 10000 XP',
+      'reachBronzeLeague': 'Reach Bronze league',
+      'reachSilverLeague': 'Reach Silver league',
+      'reachGoldLeague': 'Reach Gold league',
+      'reachPlatinumLeague': 'Reach Platinum league',
+      'reachDiamondLeague': 'Reach Diamond league',
+      'give100Correct': 'Give 100 correct answers',
+      'give500Correct': 'Give 500 correct answers',
+      'give1000Correct': 'Give 1000 correct answers',
+      'give5000Correct': 'Give 5000 correct answers',
+      'studyMorning': 'Study in the morning (6:00-9:00)',
+      'studyNight': 'Study at night (22:00-2:00)',
+      'studyWeekends': 'Study on weekends',
+
+      // Additional
+      'daysShort': 'd',
+      'topicsShort': 't',
+      'searchResults': 'Search results:',
+      'close': 'Close',
+
+      'experienceEarned': 'Experience earned',
+      'testAlreadyCompleted': 'Test already completed',
+      'questionsCompleted': 'Questions completed',
+      'alreadyCompleted': 'already completed',
+      'currentLeague': 'Current league',
+      'totalExperience': 'Total experience',
+      'weeklyExperience': 'Weekly experience',
+      'leagueProgress': 'League progress',
+      'toNextLeague': 'To next league',
+      'excellentWork': 'Excellent work!',
+      'youEarnedXP': 'You earned',
+      'forTestCompletion': 'for test completion',
+      'continueLearning': 'Continue learning',
+      'animationInProgress': 'Animation in progress',
+      'you': 'You',
+      'educationalLeague': 'Educational League',
+      'yourLeague': 'Your league',
+      'needMoreXP': 'Need more',
+      'noDataInLeague': 'No data in league',
+      'rank': 'Rank',
+      'noRank': 'No rank',
+      'playersInLeague': 'Players in league',
+      'noPlayersInLeague': 'No players in league',
+      'beFirstInLeague': 'Be the first in league!',
+      'please_select_at_least_one_answer': "Please select at least one answer",
+      'select_multiple_answers': "Select multiple answers",
+      'questions': 'questions',
+      'tryDifferentSearch': 'Try changing your search query',
     },
     'de': {
       'app_title': 'EduPeak',
@@ -412,7 +739,7 @@ class AppLocalizations {
       'success': 'Erfolg',
       'subjects': 'Fächer',
       'join_and_improve': 'Schließen Sie sich an und trainieren Sie Ihr Gehirn',
-      'exam_preparation': 'OGE/EGE Vorbereitung • Olympiade-Aufgaben',
+      'exam_preparation': 'AS/ES Vorbereitung • Olympiade-Aufgaben',
       'choose_language': 'Sprache auswählen',
       'russian': 'Russisch (Русский) 🇷🇺',
       'english': 'Englisch (English) 🇬🇧 ',
@@ -596,7 +923,170 @@ class AppLocalizations {
       'question_not_found': 'Frage nicht gefunden',
       'no_answer': 'Keine Antwort',
       'explanation_not_found': 'Erklärung nicht gefunden',
-      'selectSubject': 'Betreff auswählen'
+      'selectSubject': 'Betreff auswählen',
+      // Achievements
+      'achievements': 'Erfolge',
+      'achievementProgress': 'Erfolgsfortschritt',
+      'achievementUnlocked': 'Erfolg freigeschaltet!',
+      'achievementDetails': 'Erfolgsdetails',
+      'unlocked': 'Freigeschaltet',
+      'locked': 'Gesperrt',
+      'progress': 'Fortschritt',
+      'totalAchievements': 'Gesamterfolge',
+      'completedAchievements': 'Abgeschlossene Erfolge',
+      'remainingAchievements': 'Verbleibende Erfolge',
+      'overallProgress': 'Gesamtfortschritt',
+      'completed': 'Abgeschlossen',
+
+      // Achievement types
+      'testsCompleted': 'Tests abgeschlossen',
+      'streakDays': 'Tage in Folge',
+      'perfectTests': 'Perfekte Tests',
+      'subjectsCompleted': 'Fächer abgeschlossen',
+      'testsInOneDay': 'Tests an einem Tag',
+      'totalXP': 'Gesamt-XP',
+      'league': 'Liga',
+      'correctAnswers': 'Richtige Antworten',
+      'dailyActivity': 'Tägliche Aktivität',
+      'special': 'Spezial',
+
+      // Friends
+      'friends': 'Freunde',
+      'friendRequests': 'Freundschaftsanfragen',
+      'pendingRequests': 'Ausstehende Anfragen',
+      'addFriend': 'Freund hinzufügen',
+      'removeFriend': 'Freund entfernen',
+      'acceptRequest': 'Anfrage annehmen',
+      'declineRequest': 'Anfrage ablehnen',
+      'sendRequest': 'Anfrage senden',
+      'searchUsers': 'Benutzer suchen',
+      'enterUsername': 'Benutzernamen eingeben',
+      'usersNotFound': 'Benutzer nicht gefunden',
+      'noFriends': 'Sie haben noch keine Freunde',
+      'findUsersAndAdd': 'Finden Sie Benutzer und fügen Sie sie als Freunde hinzu',
+      'noRequests': 'Keine Freundschaftsanfragen',
+      'incomingRequests': 'Eingehende Anfragen erscheinen hier',
+      'friendRequestSent': 'Freundschaftsanfrage an @%s gesendet',
+      'requestAccepted': 'Anfrage angenommen',
+      'requestDeclined': 'Anfrage abgelehnt',
+      'friendRemoved': 'Freund entfernt',
+
+      // Friend stats
+      'streak': 'Serie',
+      'completedTopics': 'Abgeschlossene Themen',
+      'weeklyXP': 'Wöchentliche XP',
+
+      // Notifications
+      'requestFailed': 'Anfrage konnte nicht gesendet werden',
+      'acceptFailed': 'Anfrage konnte nicht angenommen werden',
+      'declineFailed': 'Anfrage konnte nicht abgelehnt werden',
+      'removeFailed': 'Freund konnte nicht entfernt werden',
+      'searchError': 'Fehler bei der Benutzersuche',
+
+      // Достижения - названия
+      'firstStep': 'Erster Schritt',
+      'testMaster': 'Testmeister',
+      'testExpert': 'Testexperte',
+      'testLegend': 'Testlegende',
+      'journeyStart': 'Reisebeginn',
+      'weekOfStrength': 'Woche der Stärke',
+      'twoWeeks': 'Zwei Wochen',
+      'monthOfDiscipline': 'Monat der Disziplin',
+      'quarterChampion': 'Vierteljahres-Champion',
+      'perfectionist': 'Perfektionist',
+      'flawless': 'Fehlerfrei',
+      'perfectResult': 'Perfektes Ergebnis',
+      'subjectExpert': 'Fachexperte',
+      'subjectMaster': 'Fachmeister',
+      'grandmaster': 'Großmeister',
+      'fastLearner': 'Schneller Lerner',
+      'marathoner': 'Marathonläufer',
+      'dailyWarrior': 'Täglicher Kämpfer',
+      'knowledgeSeeker': 'Wissenssuchender',
+      'wisdomKeeper': 'Weisheitshüter',
+      'knowledgeMaster': 'Wissensmeister',
+      'bronzeFighter': 'Bronzekämpfer',
+      'silverStrategist': 'Silberstratege',
+      'goldChampion': 'Goldchampion',
+      'platinumGenius': 'Platin-Genie',
+      'diamondMaster': 'Diamantmeister',
+      'accurateAnswer': 'Genaue Antwort',
+      'erudite': 'Gelehrter',
+      'knowItAll': 'Alleswisser',
+      'walkingEncyclopedia': 'Wandelnde Enzyklopädie',
+      'earlyBird': 'Früher Vogel',
+      'nightOwl': 'Nachteule',
+      'weekendWarrior': 'Wochenendkrieger',
+
+      // Достижения - описания
+      'completeFirstTest': 'Absolviere deinen ersten Test',
+      'complete10Tests': 'Absolviere 10 Tests',
+      'complete50Tests': 'Absolviere 50 Tests',
+      'complete100Tests': 'Absolviere 100 Tests',
+      'study3Days': 'Lerne 3 Tage hintereinander',
+      'study7Days': 'Lerne 7 Tage hintereinander',
+      'study14Days': 'Lerne 14 Tage hintereinander',
+      'study30Days': 'Lerne 30 Tage hintereinander',
+      'study90Days': 'Lerne 90 Tage hintereinander',
+      'get100Percent': 'Erziele 100% in einem Test',
+      'get100Percent5Tests': 'Erziele 100% in 5 Tests',
+      'get100Percent20Tests': 'Erziele 100% in 20 Tests',
+      'completeAllTopics': 'Schließe alle Themen in einem Fach ab',
+      'completeAllTopics3Subjects': 'Schließe alle Themen in 3 Fächern ab',
+      'completeAllTopics5Subjects': 'Schließe alle Themen in 5 Fächern ab',
+      'complete5TestsDay': 'Absolviere 5 Tests an einem Tag',
+      'complete10TestsDay': 'Absolviere 10 Tests an einem Tag',
+      'studyEveryDayWeek': 'Lerne jeden Tag für eine Woche',
+      'earn1000XP': 'Verdiene 1000 XP',
+      'earn5000XP': 'Verdiene 5000 XP',
+      'earn10000XP': 'Verdiene 10000 XP',
+      'reachBronzeLeague': 'Erreiche die Bronze-Liga',
+      'reachSilverLeague': 'Erreiche die Silber-Liga',
+      'reachGoldLeague': 'Erreiche die Gold-Liga',
+      'reachPlatinumLeague': 'Erreiche die Platin-Liga',
+      'reachDiamondLeague': 'Erreiche die Diamant-Liga',
+      'give100Correct': 'Gib 100 richtige Antworten',
+      'give500Correct': 'Gib 500 richtige Antworten',
+      'give1000Correct': 'Gib 1000 richtige Antworten',
+      'give5000Correct': 'Gib 5000 richtige Antworten',
+      'studyMorning': 'Lerne morgens (6:00-9:00)',
+      'studyNight': 'Lerne nachts (22:00-2:00)',
+      'studyWeekends': 'Lerne an Wochenenden',
+
+      // Дополнительные
+      'daysShort': 'T',
+      'topicsShort': 'Th',
+      'searchResults': 'Suchergebnisse:',
+      'close': 'Schließen',
+
+      'experienceEarned': 'Erfahrung verdient',
+      'testAlreadyCompleted': 'Test bereits',
+      'questionsCompleted': 'Fragen',
+      'alreadyCompleted': 'Bereits',
+      'currentLeague': 'Aktuelle Liga',
+      'totalExperience': 'Gesamterfahrung',
+      'weeklyExperience': 'Wöchentliche Erfahrung',
+      'leagueProgress': 'Liga-Fortschritt',
+      'toNextLeague': 'Zur nächsten Liga',
+      'excellentWork': 'Ausgezeichnete Arbeit!',
+      'youEarnedXP': 'Du hast verdient',
+      'forTestCompletion': 'für Testabschluss',
+      'continueLearning': 'Weiter lernen',
+      'animationInProgress': 'Animation läuft',
+      'you': 'Du',
+      'educationalLeague': 'Bildungsliga',
+      'yourLeague': 'Deine Liga',
+      'needMoreXP': 'Brauche mehr',
+      'noDataInLeague': 'Keine Daten in der Liga',
+      'rank': 'Rang',
+      'noRank': 'Kein Rang',
+      'playersInLeague': 'Spieler in der Liga',
+      'noPlayersInLeague': 'Keine Spieler in der Liga',
+      'beFirstInLeague': 'Sei der Erste in der Liga!',
+      'please_select_at_least_one_answer': "Bitte wählen Sie mindestens eine Antwort aus",
+      'select_multiple_answers': "Wählen Sie mehrere Antworten aus",
+      'questions': 'Fragen',
+      'tryDifferentSearch': 'Versuchen Sie, Ihre Suchanfrage zu ändern',
     },
   };
 
@@ -692,7 +1182,7 @@ class AppLocalizations {
   String get hello => _localizedValues[locale.languageCode]?['hello'] ?? 'Hello';
   String get startLessonText => _localizedValues[locale.languageCode]?['start_lesson_text'] ?? 'Start lesson';
   String get todayCompleted => _localizedValues[locale.languageCode]?['today_completed'] ?? 'Today completed';
-  String get allGrades => _localizedValues[locale.languageCode]?['all_classes'] ?? 'All classes';
+  String get allGrades => _localizedValues[locale.languageCode]?['all_grades'] ?? 'All classes';
   String get searchTopics => _localizedValues[locale.languageCode]?['search_topics'] ?? 'Search topics';
   String get noTopicsFound => _localizedValues[locale.languageCode]?['no_topics_found'] ?? 'No topics found';
   String get tryChangingSearch => _localizedValues[locale.languageCode]?['try_changing_search'] ?? 'Try changing search';
@@ -795,7 +1285,174 @@ class AppLocalizations {
   String get noAnswer => _localizedValues[locale.languageCode]?['no_answer'] ?? 'No answer';
   String get explanationNotFound => _localizedValues[locale.languageCode]?['explanation_not_found'] ?? 'Explanation not found';
   String get selectSubject => _localizedValues[locale.languageCode]?['select_subject'] ?? 'Select subject';
+  String get close => _localizedValues[locale.languageCode]?['close'] ?? 'Close';
 
+  // Achievements
+  String get achievements => _localizedValues[locale.languageCode]?['achievements'] ?? 'Achievements';
+  String get achievementProgress => _localizedValues[locale.languageCode]?['achievementProgress'] ?? 'Achievement Progress';
+  String get achievementUnlocked => _localizedValues[locale.languageCode]?['achievementUnlocked'] ?? 'Achievement Unlocked!';
+  String get achievementDetails => _localizedValues[locale.languageCode]?['achievementDetails'] ?? 'Achievement Details';
+  String get unlocked => _localizedValues[locale.languageCode]?['unlocked'] ?? 'Unlocked';
+  String get locked => _localizedValues[locale.languageCode]?['locked'] ?? 'Locked';
+  String get progress => _localizedValues[locale.languageCode]?['progress'] ?? 'Progress';
+  String get totalAchievements => _localizedValues[locale.languageCode]?['totalAchievements'] ?? 'Total Achievements';
+  String get completedAchievements => _localizedValues[locale.languageCode]?['completedAchievements'] ?? 'Completed Achievements';
+  String get remainingAchievements => _localizedValues[locale.languageCode]?['remainingAchievements'] ?? 'Remaining Achievements';
+  String get overallProgress => _localizedValues[locale.languageCode]?['overallProgress'] ?? 'Overall Progress';
+  String get completed => _localizedValues[locale.languageCode]?['completed'] ?? 'Completed';
+
+  // Achievement types
+  String get testsCompleted => _localizedValues[locale.languageCode]?['testsCompleted'] ?? 'Tests Completed';
+  String get streakDays => _localizedValues[locale.languageCode]?['streakDays'] ?? 'Streak Days';
+  String get perfectTests => _localizedValues[locale.languageCode]?['perfectTests'] ?? 'Perfect Tests';
+  String get subjectsCompleted => _localizedValues[locale.languageCode]?['subjectsCompleted'] ?? 'Subjects Completed';
+  String get testsInOneDay => _localizedValues[locale.languageCode]?['testsInOneDay'] ?? 'Tests in One Day';
+  String get totalXP => _localizedValues[locale.languageCode]?['totalXP'] ?? 'Total XP';
+  String get league => _localizedValues[locale.languageCode]?['league'] ?? 'League';
+  String get dailyActivity => _localizedValues[locale.languageCode]?['dailyActivity'] ?? 'Daily Activity';
+  String get special => _localizedValues[locale.languageCode]?['special'] ?? 'Special';
+
+  // Friends
+  String get friends => _localizedValues[locale.languageCode]?['friends'] ?? 'Friends';
+  String get friendRequests => _localizedValues[locale.languageCode]?['friendRequests'] ?? 'Friend Requests';
+  String get pendingRequests => _localizedValues[locale.languageCode]?['pendingRequests'] ?? 'Pending Requests';
+  String get addFriend => _localizedValues[locale.languageCode]?['addFriend'] ?? 'Add Friend';
+  String get removeFriend => _localizedValues[locale.languageCode]?['removeFriend'] ?? 'Remove Friend';
+  String get acceptRequest => _localizedValues[locale.languageCode]?['acceptRequest'] ?? 'Accept Request';
+  String get declineRequest => _localizedValues[locale.languageCode]?['declineRequest'] ?? 'Decline Request';
+  String get sendRequest => _localizedValues[locale.languageCode]?['sendRequest'] ?? 'Send Request';
+  String get searchUsers => _localizedValues[locale.languageCode]?['searchUsers'] ?? 'Search Users';
+  String get usersNotFound => _localizedValues[locale.languageCode]?['usersNotFound'] ?? 'Users not found';
+  String get noFriends => _localizedValues[locale.languageCode]?['noFriends'] ?? 'You have no friends yet';
+  String get findUsersAndAdd => _localizedValues[locale.languageCode]?['findUsersAndAdd'] ?? 'Find users and add them as friends';
+  String get noRequests => _localizedValues[locale.languageCode]?['noRequests'] ?? 'No friend requests';
+  String get incomingRequests => _localizedValues[locale.languageCode]?['incomingRequests'] ?? 'Incoming requests will appear here';
+  String get friendRequestSent => _localizedValues[locale.languageCode]?['friendRequestSent'] ?? 'Friend request sent to @%s';
+  String get requestAccepted => _localizedValues[locale.languageCode]?['requestAccepted'] ?? 'Request accepted';
+  String get requestDeclined => _localizedValues[locale.languageCode]?['requestDeclined'] ?? 'Request declined';
+  String get friendRemoved => _localizedValues[locale.languageCode]?['friendRemoved'] ?? 'Friend removed';
+
+  // Friend stats
+  String get streak => _localizedValues[locale.languageCode]?['streak'] ?? 'Streak';
+  String get weeklyXP => _localizedValues[locale.languageCode]?['weeklyXP'] ?? 'Weekly XP';
+
+  // Notifications
+  String get requestFailed => _localizedValues[locale.languageCode]?['requestFailed'] ?? 'Failed to send request';
+  String get acceptFailed => _localizedValues[locale.languageCode]?['acceptFailed'] ?? 'Failed to accept request';
+  String get declineFailed => _localizedValues[locale.languageCode]?['declineFailed'] ?? 'Failed to decline request';
+  String get removeFailed => _localizedValues[locale.languageCode]?['removeFailed'] ?? 'Failed to remove friend';
+  String get searchError => _localizedValues[locale.languageCode]?['searchError'] ?? 'Error searching users';
+
+  // Achievement names
+  String get firstStep => _localizedValues[locale.languageCode]?['firstStep'] ?? 'First Step';
+  String get testMaster => _localizedValues[locale.languageCode]?['testMaster'] ?? 'Test Master';
+  String get testExpert => _localizedValues[locale.languageCode]?['testExpert'] ?? 'Test Expert';
+  String get testLegend => _localizedValues[locale.languageCode]?['testLegend'] ?? 'Test Legend';
+  String get journeyStart => _localizedValues[locale.languageCode]?['journeyStart'] ?? 'Journey Start';
+  String get weekOfStrength => _localizedValues[locale.languageCode]?['weekOfStrength'] ?? 'Week of Strength';
+  String get twoWeeks => _localizedValues[locale.languageCode]?['twoWeeks'] ?? 'Two Weeks';
+  String get monthOfDiscipline => _localizedValues[locale.languageCode]?['monthOfDiscipline'] ?? 'Month of Discipline';
+  String get quarterChampion => _localizedValues[locale.languageCode]?['quarterChampion'] ?? 'Quarter Champion';
+  String get perfectionist => _localizedValues[locale.languageCode]?['perfectionist'] ?? 'Perfectionist';
+  String get flawless => _localizedValues[locale.languageCode]?['flawless'] ?? 'Flawless';
+  String get perfectResult => _localizedValues[locale.languageCode]?['perfectResult'] ?? 'Perfect Result';
+  String get subjectExpert => _localizedValues[locale.languageCode]?['subjectExpert'] ?? 'Subject Expert';
+  String get subjectMaster => _localizedValues[locale.languageCode]?['subjectMaster'] ?? 'Subject Master';
+  String get grandmaster => _localizedValues[locale.languageCode]?['grandmaster'] ?? 'Grandmaster';
+  String get fastLearner => _localizedValues[locale.languageCode]?['fastLearner'] ?? 'Fast Learner';
+  String get marathoner => _localizedValues[locale.languageCode]?['marathoner'] ?? 'Marathoner';
+  String get dailyWarrior => _localizedValues[locale.languageCode]?['dailyWarrior'] ?? 'Daily Warrior';
+  String get knowledgeSeeker => _localizedValues[locale.languageCode]?['knowledgeSeeker'] ?? 'Knowledge Seeker';
+  String get wisdomKeeper => _localizedValues[locale.languageCode]?['wisdomKeeper'] ?? 'Wisdom Keeper';
+  String get knowledgeMaster => _localizedValues[locale.languageCode]?['knowledgeMaster'] ?? 'Knowledge Master';
+  String get bronzeFighter => _localizedValues[locale.languageCode]?['bronzeFighter'] ?? 'Bronze Fighter';
+  String get silverStrategist => _localizedValues[locale.languageCode]?['silverStrategist'] ?? 'Silver Strategist';
+  String get goldChampion => _localizedValues[locale.languageCode]?['goldChampion'] ?? 'Gold Champion';
+  String get platinumGenius => _localizedValues[locale.languageCode]?['platinumGenius'] ?? 'Platinum Genius';
+  String get diamondMaster => _localizedValues[locale.languageCode]?['diamondMaster'] ?? 'Diamond Master';
+  String get accurateAnswer => _localizedValues[locale.languageCode]?['accurateAnswer'] ?? 'Accurate Answer';
+  String get erudite => _localizedValues[locale.languageCode]?['erudite'] ?? 'Erudite';
+  String get knowItAll => _localizedValues[locale.languageCode]?['knowItAll'] ?? 'Know-It-All';
+  String get walkingEncyclopedia => _localizedValues[locale.languageCode]?['walkingEncyclopedia'] ?? 'Walking Encyclopedia';
+  String get earlyBird => _localizedValues[locale.languageCode]?['earlyBird'] ?? 'Early Bird';
+  String get nightOwl => _localizedValues[locale.languageCode]?['nightOwl'] ?? 'Night Owl';
+  String get weekendWarrior => _localizedValues[locale.languageCode]?['weekendWarrior'] ?? 'Weekend Warrior';
+
+  // Achievement descriptions
+  String get completeFirstTest => _localizedValues[locale.languageCode]?['completeFirstTest'] ?? 'Complete your first test';
+  String get complete10Tests => _localizedValues[locale.languageCode]?['complete10Tests'] ?? 'Complete 10 tests';
+  String get complete50Tests => _localizedValues[locale.languageCode]?['complete50Tests'] ?? 'Complete 50 tests';
+  String get complete100Tests => _localizedValues[locale.languageCode]?['complete100Tests'] ?? 'Complete 100 tests';
+  String get study3Days => _localizedValues[locale.languageCode]?['study3Days'] ?? 'Study for 3 days in a row';
+  String get study7Days => _localizedValues[locale.languageCode]?['study7Days'] ?? 'Study for 7 days in a row';
+  String get study14Days => _localizedValues[locale.languageCode]?['study14Days'] ?? 'Study for 14 days in a row';
+  String get study30Days => _localizedValues[locale.languageCode]?['study30Days'] ?? 'Study for 30 days in a row';
+  String get study90Days => _localizedValues[locale.languageCode]?['study90Days'] ?? 'Study for 90 days in a row';
+  String get get100Percent => _localizedValues[locale.languageCode]?['get100Percent'] ?? 'Get 100% on a test';
+  String get get100Percent5Tests => _localizedValues[locale.languageCode]?['get100Percent5Tests'] ?? 'Get 100% on 5 tests';
+  String get get100Percent20Tests => _localizedValues[locale.languageCode]?['get100Percent20Tests'] ?? 'Get 100% on 20 tests';
+  String get completeAllTopics => _localizedValues[locale.languageCode]?['completeAllTopics'] ?? 'Complete all topics in one subject';
+  String get completeAllTopics3Subjects => _localizedValues[locale.languageCode]?['completeAllTopics3Subjects'] ?? 'Complete all topics in 3 subjects';
+  String get completeAllTopics5Subjects => _localizedValues[locale.languageCode]?['completeAllTopics5Subjects'] ?? 'Complete all topics in 5 subjects';
+  String get complete5TestsDay => _localizedValues[locale.languageCode]?['complete5TestsDay'] ?? 'Complete 5 tests in one day';
+  String get complete10TestsDay => _localizedValues[locale.languageCode]?['complete10TestsDay'] ?? 'Complete 10 tests in one day';
+  String get studyEveryDayWeek => _localizedValues[locale.languageCode]?['studyEveryDayWeek'] ?? 'Study every day for a week';
+  String get earn1000XP => _localizedValues[locale.languageCode]?['earn1000XP'] ?? 'Earn 1000 XP';
+  String get earn5000XP => _localizedValues[locale.languageCode]?['earn5000XP'] ?? 'Earn 5000 XP';
+  String get earn10000XP => _localizedValues[locale.languageCode]?['earn10000XP'] ?? 'Earn 10000 XP';
+  String get reachBronzeLeague => _localizedValues[locale.languageCode]?['reachBronzeLeague'] ?? 'Reach Bronze league';
+  String get reachSilverLeague => _localizedValues[locale.languageCode]?['reachSilverLeague'] ?? 'Reach Silver league';
+  String get reachGoldLeague => _localizedValues[locale.languageCode]?['reachGoldLeague'] ?? 'Reach Gold league';
+  String get reachPlatinumLeague => _localizedValues[locale.languageCode]?['reachPlatinumLeague'] ?? 'Reach Platinum league';
+  String get reachDiamondLeague => _localizedValues[locale.languageCode]?['reachDiamondLeague'] ?? 'Reach Diamond league';
+  String get give100Correct => _localizedValues[locale.languageCode]?['give100Correct'] ?? 'Give 100 correct answers';
+  String get give500Correct => _localizedValues[locale.languageCode]?['give500Correct'] ?? 'Give 500 correct answers';
+  String get give1000Correct => _localizedValues[locale.languageCode]?['give1000Correct'] ?? 'Give 1000 correct answers';
+  String get give5000Correct => _localizedValues[locale.languageCode]?['give5000Correct'] ?? 'Give 5000 correct answers';
+  String get studyMorning => _localizedValues[locale.languageCode]?['studyMorning'] ?? 'Study in the morning (6:00-9:00)';
+  String get studyNight => _localizedValues[locale.languageCode]?['studyNight'] ?? 'Study at night (22:00-2:00)';
+  String get studyWeekends => _localizedValues[locale.languageCode]?['studyWeekends'] ?? 'Study on weekends';
+
+  // Additional
+  String get daysShort => _localizedValues[locale.languageCode]?['daysShort'] ?? 'd';
+  String get topicsShort => _localizedValues[locale.languageCode]?['topicsShort'] ?? 't';
+  String get searchResults => _localizedValues[locale.languageCode]?['searchResults'] ?? 'Search results:';
+
+  String get experienceEarned => _localizedValues[locale.languageCode]?['experienceEarned'] ?? 'Experience earned';
+  String get testAlreadyCompleted => _localizedValues[locale.languageCode]?['testAlreadyCompleted'] ?? 'Test already completed';
+  String get questionsCompleted => _localizedValues[locale.languageCode]?['questionsCompleted'] ?? 'Questions completed';
+  String get alreadyCompleted => _localizedValues[locale.languageCode]?['alreadyCompleted'] ?? 'already completed';
+  String get currentLeague => _localizedValues[locale.languageCode]?['currentLeague'] ?? 'Current league';
+  String get totalExperience => _localizedValues[locale.languageCode]?['totalExperience'] ?? 'Total experience';
+  String get weeklyExperience => _localizedValues[locale.languageCode]?['weeklyExperience'] ?? 'Weekly experience';
+  String get leagueProgress => _localizedValues[locale.languageCode]?['leagueProgress'] ?? 'League progress';
+  String get toNextLeague => _localizedValues[locale.languageCode]?['toNextLeague'] ?? 'To next league';
+  String get excellentWork => _localizedValues[locale.languageCode]?['excellentWork'] ?? 'Excellent work!';
+  String get youEarnedXP => _localizedValues[locale.languageCode]?['youEarnedXP'] ?? 'You earned';
+  String get forTestCompletion => _localizedValues[locale.languageCode]?['forTestCompletion'] ?? 'for test completion';
+  String get continueLearning => _localizedValues[locale.languageCode]?['continueLearning'] ?? 'Continue learning';
+  String get animationInProgress => _localizedValues[locale.languageCode]?['animationInProgress'] ?? 'Animation in progress';
+  String get you => _localizedValues[locale.languageCode]?['you'] ?? 'You';
+  String get educationalLeague => _localizedValues[locale.languageCode]?['educationalLeague'] ?? 'Educational League';
+  String get yourLeague => _localizedValues[locale.languageCode]?['yourLeague'] ?? 'Your league';
+  String get needMoreXP => _localizedValues[locale.languageCode]?['needMoreXP'] ?? 'Need more';
+  String get noDataInLeague => _localizedValues[locale.languageCode]?['noDataInLeague'] ?? 'No data in league';
+
+  // Добавьте эти геттеры в класс AppLocalizations:
+
+  String get rank => _localizedValues[locale.languageCode]?['rank'] ?? 'Rank';
+  String get noRank => _localizedValues[locale.languageCode]?['noRank'] ?? 'No rank';
+  String get playersInLeague => _localizedValues[locale.languageCode]?['playersInLeague'] ?? 'Players in league';
+  String get noPlayersInLeague => _localizedValues[locale.languageCode]?['noPlayersInLeague'] ?? 'No players in league';
+  String get beFirstInLeague => _localizedValues[locale.languageCode]?['beFirstInLeague'] ?? 'Be the first in league!';
+
+  String get pleaseSelectAtLeastOneAnswer => _localizedValues[locale.languageCode]?['please_select_at_least_one_answer'] ?? 'Please select at least one answer';
+  String get selectMultipleAnswers => _localizedValues[locale.languageCode]?['select_multiple_answers'] ?? 'Select multiple answers';
+  String get noAnswerSelected => _localizedValues[locale.languageCode]?['no_answer_selected'] ?? 'No answer selected';
+  String get unknownAnswerType => _localizedValues[locale.languageCode]?['unknown_answer_type'] ?? 'Unknown answer type';
+  String get noAnswerProvided => _localizedValues[locale.languageCode]?['no_answer_provided'] ?? 'No answer provided';
+  String get questions => _localizedValues[locale.languageCode]?['questions'] ?? 'questions';
+  String get tryDifferentSearch => _localizedValues[locale.languageCode]?['tryDifferentSearch'] ?? 'Try changing search';
 }
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

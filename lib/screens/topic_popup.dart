@@ -187,24 +187,6 @@ class _TopicPopupState extends State<TopicPopup> {
 
             const SizedBox(height: 16),
 
-            // Объяснение темы (если есть)
-            if (widget.topic.explanation != null && widget.topic.explanation.isNotEmpty) ...[
-              Text(
-                appLocalizations.lessonExplanation,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontSize: 18,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.topic.explanation,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-
             // Статистика темы
             _buildTopicStats(appLocalizations),
 

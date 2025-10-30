@@ -13,7 +13,7 @@ class UserDataStorage {
   static const String _isLoggedInKey = 'isLoggedIn';
   static const String _authTokenKey = 'auth_token';
 
-  // === ВАШИ МЕТОДЫ ===
+  // === ОСНОВНЫЕ МЕТОДЫ ===
 
   static Future<void> saveUserStats(UserStats stats) async {
     try {
@@ -24,72 +24,6 @@ class UserDataStorage {
       print('❌ Error saving user stats: $e');
     }
   }
-
-  static Future<void> addUserXP(int xp) async {
-    try {
-      final stats = await getUserStats();
-      stats.addXP(xp);
-      await saveUserStats(stats);
-      print('✅ XP added: +$xp XP, Total: ${stats.totalXP}, Weekly: ${stats.weeklyXP}');
-    } catch (e) {
-      print('❌ Error adding XP: $e');
-    }
-  }
-
-  static Future<Map<String, dynamic>> getUserLeagueInfo() async {
-    try {
-      final stats = await getUserStats();
-      return stats.getOverallStatistics();
-    } catch (e) {
-      print('❌ Error getting league info: $e');
-      return {
-        'currentLeague': 'Бронза',
-        'leagueProgress': 0.0,
-        'xpToNextLeague': 100,
-        'nextLeague': 'Серебро',
-        'totalXP': 0,
-        'weeklyXP': 0,
-      };
-    }
-  }
-
-  static Future<void> resetWeeklyXP() async {
-    try {
-      final stats = await getUserStats();
-      stats.resetWeeklyXP();
-      await saveUserStats(stats);
-      print('✅ Weekly XP reset');
-    } catch (e) {
-      print('❌ Error resetting weekly XP: $e');
-    }
-  }
-
-  static Future<Map<String, dynamic>> getUserStatsOverview() async {
-    try {
-      final stats = await getUserStats();
-      return {
-        'streakDays': stats.streakDays,
-        'totalXP': stats.totalXP,
-        'weeklyXP': stats.weeklyXP,
-        'completedTopics': stats.getCompletedTopicsCount(),
-        'totalCorrectAnswers': stats.getTotalCorrectAnswers(),
-        'currentLeague': stats.getCurrentLeague(),
-        'username': stats.username,
-      };
-    } catch (e) {
-      print('❌ Error getting user stats overview: $e');
-      return {
-        'streakDays': 0,
-        'totalXP': 0,
-        'weeklyXP': 0,
-        'completedTopics': 0,
-        'totalCorrectAnswers': 0,
-        'currentLeague': 'Бронза',
-        'username': '',
-      };
-    }
-  }
-
 
   static Future<UserStats> getUserStats() async {
     try {
@@ -114,7 +48,6 @@ class UserDataStorage {
     return _getDefaultStats();
   }
 
-  // В классе UserDataStorage обновите метод _getDefaultStats():
   static UserStats _getDefaultStats() {
     return UserStats(
       streakDays: 0,
@@ -127,7 +60,6 @@ class UserDataStorage {
       lastWeeklyReset: DateTime.now(),
     );
   }
-
 
   static Future<void> saveUsername(String username) async {
     try {
@@ -256,10 +188,9 @@ class UserDataStorage {
     }
   }
 
-  // user_data_storage.dart - проверьте метод
   static Future<void> updateTopicProgress(
       String subjectName,
-      String topicId, // Должен принимать ID, а не название
+      String topicId,
       int correctAnswers
       ) async {
     try {
@@ -268,8 +199,18 @@ class UserDataStorage {
       // Сохраняем по ID темы
       stats.saveTopicProgress(subjectName, topicId, correctAnswers);
 
-      await _saveUserStats(stats);
+      await saveUserStats(stats);
       print('💾 Progress saved - Subject: $subjectName, Topic ID: $topicId, Correct: $correctAnswers');
+
+      // Пытаемся синхронизировать с сервером
+      if (await isLoggedIn()) {
+        try {
+          await ApiService.updateTopicProgress(subjectName, topicId, correctAnswers);
+          print('✅ Progress synced to server');
+        } catch (e) {
+          print('❌ Failed to sync progress to server: $e');
+        }
+      }
     } catch (e) {
       print('❌ Error updating topic progress: $e');
       rethrow;
@@ -370,10 +311,11 @@ class UserDataStorage {
       try {
         print('🔄 Starting FULL server sync...');
 
+        // 1. Создаем экземпляр ApiService для нестатических методов
         final apiService = ApiService();
         await apiService.initialize();
 
-        // 1. Синхронизация профиля
+        // 2. Синхронизация профиля
         print('📥 Downloading profile from server...');
         final serverProfile = await apiService.getProfile();
 
@@ -412,7 +354,7 @@ class UserDataStorage {
           print('❌ Failed to get profile from server');
         }
 
-        // 2. Синхронизация прогресса с сервера
+        // 3. Синхронизация прогресса с сервера
         try {
           print('📥 Downloading progress from server...');
           final serverProgressResponse = await ApiService.getUserProgress();
@@ -511,6 +453,7 @@ class UserDataStorage {
       try {
         print('👤 Updating username on server: $newUsername');
 
+        // Используем экземпляр ApiService для нестатического метода
         final apiService = ApiService();
         await apiService.initialize();
 
@@ -538,7 +481,84 @@ class UserDataStorage {
     }
   }
 
-  // === ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ ДЛЯ РАБОТЫ С ID ТЕМ ===
+  // === МЕТОДЫ ДЛЯ XP И ЛИГ ===
+
+  static Future<void> addUserXP(int xp) async {
+    try {
+      final stats = await getUserStats();
+      stats.addXP(xp);
+      await saveUserStats(stats);
+      print('✅ XP added: +$xp XP, Total: ${stats.totalXP}, Weekly: ${stats.weeklyXP}');
+
+      // Пытаемся синхронизировать с сервером
+      if (await isLoggedIn()) {
+        try {
+          await ApiService.addXP(xp, 'test_completion');
+          print('✅ XP synced to server');
+        } catch (e) {
+          print('❌ Failed to sync XP to server: $e');
+        }
+      }
+    } catch (e) {
+      print('❌ Error adding XP: $e');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserLeagueInfo() async {
+    try {
+      final stats = await getUserStats();
+      return stats.getOverallStatistics();
+    } catch (e) {
+      print('❌ Error getting league info: $e');
+      return {
+        'currentLeague': 'Бронза',
+        'leagueProgress': 0.0,
+        'xpToNextLeague': 100,
+        'nextLeague': 'Серебро',
+        'totalXP': 0,
+        'weeklyXP': 0,
+      };
+    }
+  }
+
+  static Future<void> resetWeeklyXP() async {
+    try {
+      final stats = await getUserStats();
+      stats.resetWeeklyXP();
+      await saveUserStats(stats);
+      print('✅ Weekly XP reset');
+    } catch (e) {
+      print('❌ Error resetting weekly XP: $e');
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserStatsOverview() async {
+    try {
+      final stats = await getUserStats();
+      return {
+        'streakDays': stats.streakDays,
+        'totalXP': stats.totalXP,
+        'weeklyXP': stats.weeklyXP,
+        'completedTopics': stats.getCompletedTopicsCount(),
+        'totalCorrectAnswers': stats.getTotalCorrectAnswers(),
+        'currentLeague': stats.getCurrentLeague(),
+        'username': stats.username,
+      };
+    } catch (e) {
+      print('❌ Error getting user stats overview: $e');
+      return {
+        'streakDays': 0,
+        'totalXP': 0,
+        'weeklyXP': 0,
+        'completedTopics': 0,
+        'totalCorrectAnswers': 0,
+        'currentLeague': 'Бронза',
+        'username': '',
+      };
+    }
+  }
+
+  // === МЕТОДЫ ДЛЯ РАБОТЫ С ID ТЕМ ===
 
   static Future<void> saveTopicProgress(String subjectName, String topicId, int correctAnswers) async {
     try {
@@ -561,6 +581,9 @@ class UserDataStorage {
         topicProgress: updatedProgress,
         dailyCompletion: stats.dailyCompletion,
         username: stats.username,
+        totalXP: stats.totalXP,
+        weeklyXP: stats.weeklyXP,
+        lastWeeklyReset: stats.lastWeeklyReset,
       );
 
       await saveUserStats(updatedStats);
@@ -618,6 +641,9 @@ class UserDataStorage {
         topicProgress: newProgress,
         dailyCompletion: stats.dailyCompletion,
         username: stats.username,
+        totalXP: stats.totalXP,
+        weeklyXP: stats.weeklyXP,
+        lastWeeklyReset: stats.lastWeeklyReset,
       );
 
       await saveUserStats(migratedStats);
@@ -627,11 +653,6 @@ class UserDataStorage {
     } catch (e) {
       print('❌ Error during topic IDs migration: $e');
     }
-  }
-
-  // Вспомогательный метод для сохранения статистики (для совместимости)
-  static Future<void> _saveUserStats(UserStats stats) async {
-    await saveUserStats(stats);
   }
 
   // Вспомогательный метод для синхронизации (для совместимости)
@@ -644,6 +665,68 @@ class UserDataStorage {
       } catch (e) {
         print('❌ Error syncing user data: $e');
       }
+    }
+  }
+
+  // === МЕТОДЫ ДЛЯ СИНХРОНИЗАЦИИ ===
+
+  static Future<Map<String, dynamic>> forceSync() async {
+    try {
+      print('🔄 FORCE SYNC REQUESTED');
+
+      if (await isLoggedIn()) {
+        final result = await ApiService.syncAllUserData();
+        return result;
+      } else {
+        return {
+          'success': false,
+          'message': 'Пользователь не авторизован',
+          'synced': false
+        };
+      }
+    } catch (e) {
+      print('❌ Error during force sync: $e');
+      return {
+        'success': false,
+        'message': 'Ошибка синхронизации: $e',
+        'synced': false
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> getSyncStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastSync = prefs.getString('last_sync_time');
+      final lastSyncTime = lastSync != null ? DateTime.parse(lastSync) : null;
+
+      final now = DateTime.now();
+      final timeSinceLastSync = lastSyncTime != null ? now.difference(lastSyncTime) : null;
+
+      return {
+        'lastSync': lastSyncTime,
+        'timeSinceLastSync': timeSinceLastSync,
+        'isRecent': timeSinceLastSync != null && timeSinceLastSync.inMinutes < 10,
+        'needsSync': lastSyncTime == null || now.difference(lastSyncTime).inHours > 1
+      };
+    } catch (e) {
+      print('❌ Error getting sync status: $e');
+      return {
+        'lastSync': null,
+        'timeSinceLastSync': null,
+        'isRecent': false,
+        'needsSync': true
+      };
+    }
+  }
+
+  static Future<void> setLastSyncTime(DateTime time) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_sync_time', time.toIso8601String());
+      print('✅ Last sync time updated: $time');
+    } catch (e) {
+      print('❌ Error setting last sync time: $e');
     }
   }
 }

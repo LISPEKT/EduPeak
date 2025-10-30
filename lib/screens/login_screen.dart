@@ -24,10 +24,37 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  final _scrollController = ScrollController();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+
   @override
   void initState() {
     super.initState();
     _checkServerAvailability();
+
+    // Добавляем слушатели для автоматической прокрутки
+    _emailFocus.addListener(_onFocusChange);
+    _passwordFocus.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    // Прокручиваем к активному полю ввода
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_emailFocus.hasFocus || _passwordFocus.hasFocus) {
+        _scrollToActiveField();
+      }
+    });
+  }
+
+  void _scrollToActiveField() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   Future<void> _checkServerAvailability() async {
@@ -178,6 +205,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context);
 
@@ -207,7 +244,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
+          controller: _scrollController,
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,6 +279,11 @@ class _LoginScreenState extends State<LoginScreen> {
               // Поле email
               TextField(
                 controller: _emailController,
+                focusNode: _emailFocus,
+                textInputAction: TextInputAction.next,
+                onSubmitted: (_) {
+                  FocusScope.of(context).requestFocus(_passwordFocus);
+                },
                 decoration: InputDecoration(
                   labelText: appLocalizations.email,
                   labelStyle: TextStyle(
@@ -282,7 +325,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   fontSize: 16,
                 ),
                 keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
               ),
 
               const SizedBox(height: 16),
@@ -290,7 +332,10 @@ class _LoginScreenState extends State<LoginScreen> {
               // Поле пароля
               TextField(
                 controller: _passwordController,
+                focusNode: _passwordFocus,
                 obscureText: _obscurePassword,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _login(),
                 decoration: InputDecoration(
                   labelText: appLocalizations.password,
                   labelStyle: TextStyle(
@@ -342,32 +387,33 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: Theme.of(context).textTheme.bodyLarge?.color,
                   fontSize: 16,
                 ),
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _login(),
               ),
 
               const SizedBox(height: 24),
 
               // Ссылка на регистрацию
-              RichText(
-                text: TextSpan(
-                  text: '${appLocalizations.noAccount} ',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  children: [
-                    TextSpan(
-                      text: appLocalizations.register,
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        decoration: TextDecoration.underline,
+              GestureDetector(
+                onTap: _navigateToRegister,
+                child: RichText(
+                  text: TextSpan(
+                    text: '${appLocalizations.noAccount} ',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    children: [
+                      TextSpan(
+                        text: appLocalizations.register,
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
-              const Spacer(),
+              const SizedBox(height: 32),
 
               // Кнопка проверки сервера (если недоступен)
               if (!_serverAvailable) ...[
@@ -435,18 +481,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
-              const SizedBox(height: 20),
+              // Добавляем отступ внизу для удобства прокрутки
+              const SizedBox(height: 40),
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
   }
 }

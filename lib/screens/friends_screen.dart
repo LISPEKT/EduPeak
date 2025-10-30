@@ -1,4 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../data/user_data_storage.dart';
+import '../localization.dart';
 
 class FriendsScreen extends StatefulWidget {
   @override
@@ -6,48 +10,205 @@ class FriendsScreen extends StatefulWidget {
 }
 
 class _FriendsScreenState extends State<FriendsScreen> {
-  final List<Friend> _friends = [
-    Friend(
-      name: 'Алексей Иванов',
-      email: 'alex@example.com',
-      streakDays: 7,
-      completedTopics: 12,
-      correctAnswers: 45,
-      avatar: '👨‍🎓',
-      status: FriendStatus.accepted,
-    ),
-    Friend(
-      name: 'Мария Петрова',
-      email: 'maria@example.com',
-      streakDays: 3,
-      completedTopics: 8,
-      correctAnswers: 32,
-      avatar: '👩‍🎓',
-      status: FriendStatus.accepted,
-    ),
-  ];
+  List<Friend> _friends = [];
+  List<FriendRequest> _pendingRequests = [];
+  bool _isLoading = true;
+  final TextEditingController _usernameController = TextEditingController();
+  List<User> _searchResults = [];
+  bool _isSearching = false;
 
-  final List<Friend> _pendingRequests = [
-    Friend(
-      name: 'Дмитрий Сидоров',
-      email: 'dmitry@example.com',
-      streakDays: 15,
-      completedTopics: 25,
-      correctAnswers: 89,
-      avatar: '🧑‍🎓',
-      status: FriendStatus.pending,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadFriends();
+  }
 
-  final TextEditingController _emailController = TextEditingController();
+  Future<void> _loadFriends() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiService.getFriends();
+
+      if (response['success'] == true) {
+        final friendsData = response['friends'] as List;
+        final requestsData = response['pending_requests'] as List;
+
+        setState(() {
+          _friends = friendsData.map((data) => Friend.fromJson(data)).toList();
+          _pendingRequests = requestsData.map((data) => FriendRequest.fromJson(data)).toList();
+        });
+      } else {
+        setState(() {
+          _friends = [];
+          _pendingRequests = [];
+        });
+      }
+    } catch (e) {
+      print('Error loading friends: $e');
+      setState(() {
+        _friends = [];
+        _pendingRequests = [];
+      });
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _searchUsers() async {
+    final username = _usernameController.text.trim();
+    if (username.isEmpty) return;
+
+    setState(() => _isSearching = true);
+
+    try {
+      final response = await ApiService.searchUsers(username);
+
+      if (response['success'] == true) {
+        final usersData = response['users'] as List;
+        setState(() {
+          _searchResults = usersData.map((data) => User.fromJson(data)).toList();
+        });
+      } else {
+        setState(() {
+          _searchResults = [];
+        });
+        _showMessage(AppLocalizations.of(context)!.usersNotFound);
+      }
+    } catch (e) {
+      print('Error searching users: $e');
+      setState(() {
+        _searchResults = [];
+      });
+      _showMessage(AppLocalizations.of(context)!.searchError);
+    } finally {
+      setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _sendFriendRequest(String username) async {
+    final localizations = AppLocalizations.of(context)!;
+
+    try {
+      final response = await ApiService.sendFriendRequest(username);
+
+      if (response['success'] == true) {
+        _showSuccessMessage(localizations.friendRequestSent.replaceFirst('%s', username));
+        _usernameController.clear();
+        _searchResults.clear();
+        await _loadFriends();
+      } else {
+        _showErrorMessage(response['message'] ?? localizations.requestFailed);
+      }
+    } catch (e) {
+      _showErrorMessage('${localizations.error}: $e');
+    }
+  }
+
+  Future<void> _acceptFriendRequest(String requestId) async {
+    final localizations = AppLocalizations.of(context)!;
+
+    try {
+      final response = await ApiService.acceptFriendRequest(requestId);
+
+      if (response['success'] == true) {
+        _showSuccessMessage(localizations.requestAccepted);
+        await _loadFriends();
+      } else {
+        _showErrorMessage(response['message'] ?? localizations.acceptFailed);
+      }
+    } catch (e) {
+      _showErrorMessage('${localizations.error}: $e');
+    }
+  }
+
+  Future<void> _declineFriendRequest(String requestId) async {
+    final localizations = AppLocalizations.of(context)!;
+
+    try {
+      final response = await ApiService.declineFriendRequest(requestId);
+
+      if (response['success'] == true) {
+        _showSuccessMessage(localizations.requestDeclined);
+        await _loadFriends();
+      } else {
+        _showErrorMessage(response['message'] ?? localizations.declineFailed);
+      }
+    } catch (e) {
+      _showErrorMessage('${localizations.error}: $e');
+    }
+  }
+
+  Future<void> _removeFriend(String friendId) async {
+    final localizations = AppLocalizations.of(context)!;
+
+    try {
+      final response = await ApiService.removeFriend(friendId);
+
+      if (response['success'] == true) {
+        _showSuccessMessage(localizations.friendRemoved);
+        await _loadFriends();
+      } else {
+        _showErrorMessage(response['message'] ?? localizations.removeFailed);
+      }
+    } catch (e) {
+      _showErrorMessage('${localizations.error}: $e');
+    }
+  }
+
+  void _showSuccessMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.error, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  void _clearSearch() {
+    _usernameController.clear();
+    _searchResults.clear();
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Друзья'),
+          title: Text(localizations.friends),
           backgroundColor: Theme.of(context).cardColor,
           foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
           elevation: 0,
@@ -56,58 +217,147 @@ class _FriendsScreenState extends State<FriendsScreen> {
             labelColor: Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
             tabs: [
-              Tab(text: 'Друзья (${_friends.length})'),
-              Tab(text: 'Запросы (${_pendingRequests.length})'),
+              Tab(text: '${localizations.friends} (${_friends.length})'),
+              Tab(text: '${localizations.pendingRequests} (${_pendingRequests.length})'),
             ],
           ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: _isLoading ? null : _loadFriends,
+            ),
+          ],
         ),
-        body: TabBarView(
+        body: _isLoading
+            ? Center(child: CircularProgressIndicator())
+            : TabBarView(
           children: [
-            // Вкладка друзей
+            // Friends tab
             Column(
               children: [
-                // Поиск и добавление друга
+                // User search
                 Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Row(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _emailController,
-                          decoration: InputDecoration(
-                            hintText: 'Введите email друга',
-                            prefixIcon: Icon(Icons.search),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _usernameController,
+                              decoration: InputDecoration(
+                                hintText: localizations.enterUsername,
+                                prefixIcon: Icon(Icons.search),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                filled: true,
+                                fillColor: Theme.of(context).cardColor,
+                              ),
+                              onSubmitted: (_) => _searchUsers(),
                             ),
-                            filled: true,
-                            fillColor: Theme.of(context).cardColor,
+                          ),
+                          const SizedBox(width: 8),
+                          if (_searchResults.isNotEmpty || _usernameController.text.isNotEmpty)
+                            IconButton(
+                              icon: Icon(Icons.clear),
+                              onPressed: _clearSearch,
+                            ),
+                          const SizedBox(width: 8),
+                          FloatingActionButton(
+                            onPressed: _searchUsers,
+                            mini: true,
+                            backgroundColor: Theme.of(context).primaryColor,
+                            child: _isSearching
+                                ? SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(Colors.white),
+                              ),
+                            )
+                                : Icon(Icons.search, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      if (_searchResults.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          '${localizations.searchResults}:',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      FloatingActionButton(
-                        onPressed: _sendFriendRequest,
-                        mini: true,
-                        backgroundColor: Theme.of(context).primaryColor,
-                        child: Icon(Icons.person_add, color: Colors.white),
-                      ),
+                      ],
                     ],
                   ),
                 ),
+
+                // Search results or friends list
                 Expanded(
-                  child: ListView.builder(
+                  child: _searchResults.isNotEmpty
+                      ? _searchResults.isEmpty
+                      ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          localizations.usersNotFound,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ],
+                    ),
+                  )
+                      : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _searchResults.length,
+                    itemBuilder: (context, index) {
+                      final user = _searchResults[index];
+                      return _UserSearchCard(
+                        user: user,
+                        onAddFriend: () => _sendFriendRequest(user.username),
+                      );
+                    },
+                  )
+                      : _friends.isEmpty
+                      ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          localizations.noFriends,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          localizations.findUsersAndAdd,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                      : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: _friends.length,
                     itemBuilder: (context, index) {
                       final friend = _friends[index];
-                      return _FriendCard(friend: friend);
+                      return _FriendCard(
+                        friend: friend,
+                        onRemove: () => _removeFriend(friend.id),
+                      );
                     },
                   ),
                 ),
               ],
             ),
-            // Вкладка запросов
+
+            // Requests tab
             _pendingRequests.isEmpty
                 ? Center(
               child: Column(
@@ -116,8 +366,13 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   Icon(Icons.person_outline, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
                   Text(
-                    'Нет pending запросов',
+                    localizations.noRequests,
                     style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    localizations.incomingRequests,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -129,8 +384,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 final request = _pendingRequests[index];
                 return _PendingRequestCard(
                   request: request,
-                  onAccept: () => _acceptFriendRequest(request),
-                  onDecline: () => _declineFriendRequest(request),
+                  onAccept: () => _acceptFriendRequest(request.id),
+                  onDecline: () => _declineFriendRequest(request.id),
                 );
               },
             ),
@@ -139,63 +394,39 @@ class _FriendsScreenState extends State<FriendsScreen> {
       ),
     );
   }
+}
 
-  void _sendFriendRequest() {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) return;
+class _UserSearchCard extends StatelessWidget {
+  final User user;
+  final VoidCallback onAddFriend;
 
-    setState(() {
-      _pendingRequests.add(Friend(
-        name: 'Пользователь',
-        email: email,
-        streakDays: 0,
-        completedTopics: 0,
-        correctAnswers: 0,
-        avatar: '👤',
-        status: FriendStatus.pending,
-      ));
-    });
+  const _UserSearchCard({required this.user, required this.onAddFriend});
 
-    _emailController.clear();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Запрос на дружбу отправлен'),
-        backgroundColor: Theme.of(context).primaryColor,
-      ),
-    );
-  }
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
 
-  void _acceptFriendRequest(Friend request) {
-    setState(() {
-      _pendingRequests.remove(request);
-      _friends.add(Friend(
-        name: request.name,
-        email: request.email,
-        streakDays: request.streakDays,
-        completedTopics: request.completedTopics,
-        correctAnswers: request.correctAnswers,
-        avatar: request.avatar,
-        status: FriendStatus.accepted,
-      ));
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Запрос принят'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _declineFriendRequest(Friend request) {
-    setState(() {
-      _pendingRequests.remove(request);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Запрос отклонен'),
-        backgroundColor: Colors.red,
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: Theme.of(context).cardColor,
+      child: ListTile(
+        leading: _buildUserAvatar(user.avatar, user.username),
+        title: Text(
+          user.name,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Text('@${user.username}'),
+        trailing: ElevatedButton(
+          onPressed: onAddFriend,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          ),
+          child: Text(localizations.addFriend),
+        ),
       ),
     );
   }
@@ -203,19 +434,19 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
 class _FriendCard extends StatelessWidget {
   final Friend friend;
+  final VoidCallback onRemove;
 
-  const _FriendCard({required this.friend});
+  const _FriendCard({required this.friend, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       color: Theme.of(context).cardColor,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-          child: Text(friend.avatar),
-        ),
+        leading: _buildUserAvatar(friend.avatar, friend.username),
         title: Text(
           friend.name,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -225,39 +456,46 @@ class _FriendCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(friend.email),
+            Text('@${friend.username} • ${friend.currentLeague}'),
             const SizedBox(height: 4),
             Row(
               children: [
                 _StatItem(
                   icon: Icons.local_fire_department,
-                  value: '${friend.streakDays}д',
+                  value: '${friend.streakDays}${localizations.daysShort}',
                   color: Colors.orange,
                 ),
                 const SizedBox(width: 12),
                 _StatItem(
                   icon: Icons.check_circle,
-                  value: '${friend.completedTopics}т',
+                  value: '${friend.completedTopics}${localizations.topicsShort}',
                   color: Colors.green,
                 ),
                 const SizedBox(width: 12),
                 _StatItem(
                   icon: Icons.emoji_events,
-                  value: '${friend.correctAnswers}в',
+                  value: '${friend.weeklyXP}XP',
                   color: Theme.of(context).primaryColor,
                 ),
               ],
             ),
           ],
         ),
-        trailing: Icon(Icons.chevron_right, color: Theme.of(context).primaryColor),
+        trailing: PopupMenuButton(
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              child: Text(localizations.removeFriend),
+              onTap: onRemove,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _PendingRequestCard extends StatelessWidget {
-  final Friend request;
+  final FriendRequest request;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
 
@@ -269,39 +507,80 @@ class _PendingRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context)!;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       color: Theme.of(context).cardColor,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-          child: Text(request.avatar),
-        ),
+        leading: _buildUserAvatar(request.avatar, request.username),
         title: Text(
           request.name,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             fontWeight: FontWeight.w600,
           ),
         ),
-        subtitle: Text(request.email),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('@${request.username}'),
+            Text('${request.currentLeague} • ${request.weeklyXP} XP'),
+          ],
+        ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
               onPressed: onAccept,
               icon: Icon(Icons.check, color: Colors.green),
-              tooltip: 'Принять',
+              tooltip: localizations.acceptRequest,
             ),
             IconButton(
               onPressed: onDecline,
               icon: Icon(Icons.close, color: Colors.red),
-              tooltip: 'Отклонить',
+              tooltip: localizations.declineRequest,
             ),
           ],
         ),
       ),
     );
   }
+}
+
+Widget _buildUserAvatar(String avatar, String username) {
+  if (avatar.startsWith('/') || (avatar.contains('.') && !avatar.contains('👤'))) {
+    try {
+      final file = File(avatar);
+      if (file.existsSync()) {
+        return CircleAvatar(
+          backgroundColor: Colors.transparent,
+          backgroundImage: FileImage(file),
+        );
+      }
+    } catch (e) {
+      print('Error loading avatar file: $e');
+    }
+  }
+
+  return CircleAvatar(
+    backgroundColor: _getAvatarColor(username),
+    child: Text(
+      avatar.length > 2 ? avatar.substring(0, 2) : avatar,
+      style: TextStyle(fontSize: 16),
+    ),
+  );
+}
+
+Color _getAvatarColor(String username) {
+  final colors = [
+    Color(0xFFF44336), Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7),
+    Color(0xFF3F51B5), Color(0xFF2196F3), Color(0xFF03A9F4), Color(0xFF00BCD4),
+    Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFFCDDC39),
+    Color(0xFFFFC107), Color(0xFFFF9800), Color(0xFFFF5722),
+  ];
+
+  final index = username.codeUnits.fold(0, (a, b) => a + b) % colors.length;
+  return colors[index];
 }
 
 class _StatItem extends StatelessWidget {
@@ -334,26 +613,106 @@ class _StatItem extends StatelessWidget {
 }
 
 class Friend {
+  final String id;
   final String name;
-  final String email;
+  final String username;
   final int streakDays;
   final int completedTopics;
   final int correctAnswers;
   final String avatar;
-  final FriendStatus status;
+  final String currentLeague;
+  final int weeklyXP;
 
   Friend({
+    required this.id,
     required this.name,
-    required this.email,
+    required this.username,
     required this.streakDays,
     required this.completedTopics,
     required this.correctAnswers,
     required this.avatar,
-    required this.status,
+    required this.currentLeague,
+    required this.weeklyXP,
   });
+
+  factory Friend.fromJson(Map<String, dynamic> json) {
+    return Friend(
+      id: json['id'],
+      name: json['name'],
+      username: json['username'],
+      streakDays: json['streak_days'] ?? 0,
+      completedTopics: json['completed_topics'] ?? 0,
+      correctAnswers: json['correct_answers'] ?? 0,
+      avatar: json['avatar'] ?? '👤',
+      currentLeague: json['current_league'] ?? 'Бронза',
+      weeklyXP: json['weekly_xp'] ?? 0,
+    );
+  }
 }
 
-enum FriendStatus {
-  pending,
-  accepted,
+class FriendRequest {
+  final String id;
+  final String name;
+  final String username;
+  final int streakDays;
+  final int completedTopics;
+  final int correctAnswers;
+  final String avatar;
+  final String currentLeague;
+  final int weeklyXP;
+
+  FriendRequest({
+    required this.id,
+    required this.name,
+    required this.username,
+    required this.streakDays,
+    required this.completedTopics,
+    required this.correctAnswers,
+    required this.avatar,
+    required this.currentLeague,
+    required this.weeklyXP,
+  });
+
+  factory FriendRequest.fromJson(Map<String, dynamic> json) {
+    return FriendRequest(
+      id: json['id'],
+      name: json['name'],
+      username: json['username'],
+      streakDays: json['streak_days'] ?? 0,
+      completedTopics: json['completed_topics'] ?? 0,
+      correctAnswers: json['correct_answers'] ?? 0,
+      avatar: json['avatar'] ?? '👤',
+      currentLeague: json['current_league'] ?? 'Бронза',
+      weeklyXP: json['weekly_xp'] ?? 0,
+    );
+  }
+}
+
+class User {
+  final String id;
+  final String name;
+  final String username;
+  final String avatar;
+  final String currentLeague;
+  final int weeklyXP;
+
+  User({
+    required this.id,
+    required this.name,
+    required this.username,
+    required this.avatar,
+    required this.currentLeague,
+    required this.weeklyXP,
+  });
+
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
+      id: json['id'],
+      name: json['name'],
+      username: json['username'],
+      avatar: json['avatar'] ?? '👤',
+      currentLeague: json['current_league'] ?? 'Бронза',
+      weeklyXP: json['weekly_xp'] ?? 0,
+    );
+  }
 }

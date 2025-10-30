@@ -89,7 +89,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
       if (isLoggedIn) {
         // ПОЛНАЯ синхронизация данных при запуске приложения
         print('🔄 App start - syncing with server...');
-        await UserDataStorage.syncFromServer();
+
+        // Запускаем принудительную синхронизацию
+        final syncResult = await ApiService.syncAllUserData();
+
+        if (syncResult['success'] == true) {
+          print('✅ Sync completed: ${syncResult['message']}');
+        } else {
+          print('⚠️ Sync completed with issues: ${syncResult['message']}');
+        }
       }
 
       setState(() {
