@@ -38,6 +38,7 @@ Map<int, List<Subject>> getSubjectsByGrade(BuildContext context) {
       //...russianSubjects7,
       //...algebraSubjects7,
       //...physicsSubjects7,
+      ...SocialStudiesData.getSocialStudiesSubjects7(context)
       //...HistoryData.getHistorySubjects7(context),
     ],
     8: [

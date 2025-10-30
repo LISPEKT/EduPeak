@@ -18,7 +18,7 @@ class SocialStudiesData {
       4: [],
       5: [],
       6: ru.socialStudiesSubjects6,
-      7: [],
+      7: ru.socialStudiesSubjects7,
       8: [],
       9: [],
       10: [],
