@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import '../screens/achievements_screen.dart';
 import '../data/user_data_storage.dart';
+import 'package:edu_peak/screens/chat_screen.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -62,6 +63,85 @@ class ApiService {
 
   static Future<void> syncAllProgressToServer(Map<String, Map<String, int>> progressData) async {
     await ApiService()._syncAllProgressToServer(progressData);
+  }
+
+  // В api_service.dart добавьте полную реализацию:
+  static Future<Map<String, dynamic>> getChatMessages(String friendId) async {
+    return await ApiService()._getChatMessages(friendId);
+  }
+
+  static Future<Map<String, dynamic>> sendMessage(String friendId, String message) async {
+    return await ApiService()._sendMessage(friendId, message);
+  }
+
+// Добавьте эти методы в класс ApiService:
+  Future<Map<String, dynamic>> _getChatMessages(String friendId) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final response = await _dio.get(
+        '/chat/messages/$friendId',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 400,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {'success': true, 'messages': data['messages'] ?? []};
+          }
+        } catch (e) {
+          print('⚠️ Error parsing chat messages: $e');
+        }
+      }
+
+      // Возвращаем fallback данные вместо null
+      return {'success': false, 'messages': []};
+
+    } catch (e) {
+      print('❌ Error getting chat messages: $e');
+      return {'success': false, 'messages': []};
+    }
+  }
+
+  Future<Map<String, dynamic>> _sendMessage(String friendId, String message) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'friend_id': friendId,
+        'message': message,
+      };
+
+      final response = await _dio.post(
+        '/chat/send',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Сообщение отправлено'};
+      } else {
+        return {'success': false, 'message': 'Ошибка отправки сообщения'};
+      }
+
+    } catch (e) {
+      print('❌ Error sending message: $e');
+      return {'success': false, 'message': 'Ошибка сети'};
+    }
   }
 
   // === НОВЫЕ СТАТИЧЕСКИЕ МЕТОДЫ ДЛЯ ЭКРАНОВ ===

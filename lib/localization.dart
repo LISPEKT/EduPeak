@@ -369,6 +369,21 @@ class AppLocalizations {
       'select_multiple_answers': "Выберите несколько вариантов ответа",
       'questions': 'вопросов',
       'tryDifferentSearch': 'Попробуйте изменить поисковый запрос',
+      'sendMessage': 'Написать сообщение',
+      'noMessages': 'Нет сообщений',
+      'startConversation': 'Начните общение с другом',
+      'typeMessage': 'Введите сообщение...',
+      'viewProfile': 'Посмотреть профиль',
+      'clearChat': 'Очистить чат',
+
+      'reportError': 'Сообщить об ошибке',
+      'reportErrorDescription': 'Если вы нашли ошибку в вопросе или ответах, сообщите нам об этом',
+      'reportErrorHint': 'Опишите ошибку...',
+      'pleaseEnterErrorMessage': 'Пожалуйста, опишите ошибку',
+      'sendingErrorReport': 'Отправка сообщения об ошибке...',
+      'errorReportSent': 'Сообщение об ошибке отправлено!',
+      'errorReportFailed': 'Ошибка отправки. Проверьте интернет соединение.',
+      'send': 'Отправить',
     },
     'en': {
       'app_title': 'EduPeak',
@@ -728,6 +743,20 @@ class AppLocalizations {
       'select_multiple_answers': "Select multiple answers",
       'questions': 'questions',
       'tryDifferentSearch': 'Try changing your search query',
+      'sendMessage': 'Send message',
+      'noMessages': 'No messages',
+      'startConversation': 'Start a conversation with your friend',
+      'typeMessage': 'Type a message...',
+      'viewProfile': 'View profile',
+      'clearChat': 'Clear chat',
+      'reportError': 'Report error',
+      'reportErrorDescription': 'If you found an error in the question or answers, please let us know',
+      'reportErrorHint': 'Describe the error...',
+      'pleaseEnterErrorMessage': 'Please describe the error',
+      'sendingErrorReport': 'Sending error report...',
+      'errorReportSent': 'Error report sent!',
+      'errorReportFailed': 'Sending failed. Check your internet connection.',
+      'send': 'Send',
     },
     'de': {
       'app_title': 'EduPeak',
@@ -1087,6 +1116,20 @@ class AppLocalizations {
       'select_multiple_answers': "Wählen Sie mehrere Antworten aus",
       'questions': 'Fragen',
       'tryDifferentSearch': 'Versuchen Sie, Ihre Suchanfrage zu ändern',
+      'sendMessage': 'Nachricht senden',
+      'noMessages': 'Keine Nachrichten',
+      'startConversation': 'Starten Sie eine Unterhaltung mit Ihrem Freund',
+      'typeMessage': 'Nachricht eingeben...',
+      'viewProfile': 'Profil anzeigen',
+      'clearChat': 'Chat löschen',
+      'reportError': 'Fehler melden',
+      'reportErrorDescription': 'Wenn Sie einen Fehler in der Frage oder den Antworten gefunden haben, teilen Sie uns dies bitte mit',
+      'reportErrorHint': 'Beschreiben Sie den Fehler...',
+      'pleaseEnterErrorMessage': 'Bitte beschreiben Sie den Fehler',
+      'sendingErrorReport': 'Fehlerbericht wird gesendet...',
+      'errorReportSent': 'Fehlerbericht gesendet!',
+      'errorReportFailed': 'Senden fehlgeschlagen. Überprüfen Sie Ihre Internetverbindung.',
+      'send': 'Senden',
     },
   };
 
@@ -1453,6 +1496,21 @@ class AppLocalizations {
   String get noAnswerProvided => _localizedValues[locale.languageCode]?['no_answer_provided'] ?? 'No answer provided';
   String get questions => _localizedValues[locale.languageCode]?['questions'] ?? 'questions';
   String get tryDifferentSearch => _localizedValues[locale.languageCode]?['tryDifferentSearch'] ?? 'Try changing search';
+  String get sendMessage => _localizedValues[locale.languageCode]?['sendMessage'] ?? 'Send message';
+  String get noMessages => _localizedValues[locale.languageCode]?['noMessages'] ?? 'No messages';
+  String get startConversation => _localizedValues[locale.languageCode]?['startConversation'] ?? 'Start a conversation with your friend';
+  String get typeMessage => _localizedValues[locale.languageCode]?['typeMessage'] ?? 'Type a message...';
+  String get viewProfile => _localizedValues[locale.languageCode]?['viewProfile'] ?? 'View profile';
+  String get clearChat => _localizedValues[locale.languageCode]?['clearChat'] ?? 'Clear chat';
+  String get reportError => _localizedValues[locale.languageCode]?['reportError'] ?? 'Report error';
+  String get reportErrorDescription => _localizedValues[locale.languageCode]?['reportErrorDescription'] ?? 'If you found an error in the question or answers, please let us know';
+  String get reportErrorHint => _localizedValues[locale.languageCode]?['reportErrorHint'] ?? 'Describe the error...';
+  String get pleaseEnterErrorMessage => _localizedValues[locale.languageCode]?['pleaseEnterErrorMessage'] ?? 'Please describe the error';
+  String get sendingErrorReport => _localizedValues[locale.languageCode]?['sendingErrorReport'] ?? 'Sending error report...';
+  String get errorReportSent => _localizedValues[locale.languageCode]?['errorReportSent'] ?? 'Error report sent!';
+  String get errorReportFailed => _localizedValues[locale.languageCode]?['errorReportFailed'] ?? 'Sending failed. Check your internet connection.';
+  String get send => _localizedValues[locale.languageCode]?['send'] ?? 'Send';
+
 }
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

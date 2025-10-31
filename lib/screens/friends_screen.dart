@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../data/user_data_storage.dart';
 import '../localization.dart';
+import 'chat_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
   @override
@@ -21,6 +22,106 @@ class _FriendsScreenState extends State<FriendsScreen> {
   void initState() {
     super.initState();
     _loadFriends();
+    _addTestFriends();
+  }
+
+  void _addTestFriends() {
+    final testFriends = [
+      Friend(
+        id: '1',
+        name: 'Алексей Петров',
+        username: 'alexey_p',
+        streakDays: 7,
+        completedTopics: 12,
+        correctAnswers: 45,
+        avatar: '👨‍💻',
+        currentLeague: 'Серебро',
+        weeklyXP: 250,
+      ),
+      Friend(
+        id: '2',
+        name: 'Мария Иванова',
+        username: 'maria_i',
+        streakDays: 3,
+        completedTopics: 8,
+        correctAnswers: 32,
+        avatar: '👩‍🎓',
+        currentLeague: 'Бронза',
+        weeklyXP: 180,
+      ),
+      Friend(
+        id: '3',
+        name: 'Дмитрий Сидоров',
+        username: 'dmitry_s',
+        streakDays: 15,
+        completedTopics: 25,
+        correctAnswers: 89,
+        avatar: '🧑‍🔬',
+        currentLeague: 'Золото',
+        weeklyXP: 420,
+      ),
+      Friend(
+        id: '4',
+        name: 'Екатерина Козлова',
+        username: 'ekaterina_k',
+        streakDays: 5,
+        completedTopics: 10,
+        correctAnswers: 38,
+        avatar: '👩‍🏫',
+        currentLeague: 'Серебро',
+        weeklyXP: 210,
+      ),
+      Friend(
+        id: '5',
+        name: 'Иван Николаев',
+        username: 'ivan_n',
+        streakDays: 21,
+        completedTopics: 30,
+        correctAnswers: 112,
+        avatar: '👨‍🔧',
+        currentLeague: 'Платина',
+        weeklyXP: 580,
+      ),
+    ];
+
+    if (_friends.isEmpty) {
+      setState(() {
+        _friends.addAll(testFriends);
+      });
+    }
+  }
+
+  void _addTestRequests() {
+    final testRequests = [
+      FriendRequest(
+        id: 'req1',
+        name: 'Сергей Волков',
+        username: 'sergey_v',
+        streakDays: 2,
+        completedTopics: 5,
+        correctAnswers: 18,
+        avatar: '👨‍💼',
+        currentLeague: 'Бронза',
+        weeklyXP: 120,
+      ),
+      FriendRequest(
+        id: 'req2',
+        name: 'Ольга Смирнова',
+        username: 'olga_s',
+        streakDays: 8,
+        completedTopics: 15,
+        correctAnswers: 52,
+        avatar: '👩‍💻',
+        currentLeague: 'Серебро',
+        weeklyXP: 280,
+      ),
+    ];
+
+    if (_pendingRequests.isEmpty) {
+      setState(() {
+        _pendingRequests.addAll(testRequests);
+      });
+    }
   }
 
   Future<void> _loadFriends() async {
@@ -37,18 +138,21 @@ class _FriendsScreenState extends State<FriendsScreen> {
           _friends = friendsData.map((data) => Friend.fromJson(data)).toList();
           _pendingRequests = requestsData.map((data) => FriendRequest.fromJson(data)).toList();
         });
+
+        if (_friends.isEmpty) {
+          _addTestFriends();
+        }
+        if (_pendingRequests.isEmpty) {
+          _addTestRequests();
+        }
       } else {
-        setState(() {
-          _friends = [];
-          _pendingRequests = [];
-        });
+        _addTestFriends();
+        _addTestRequests();
       }
     } catch (e) {
       print('Error loading friends: $e');
-      setState(() {
-        _friends = [];
-        _pendingRequests = [];
-      });
+      _addTestFriends();
+      _addTestRequests();
     } finally {
       setState(() => _isLoading = false);
     }
@@ -153,6 +257,19 @@ class _FriendsScreenState extends State<FriendsScreen> {
     } catch (e) {
       _showErrorMessage('${localizations.error}: $e');
     }
+  }
+
+  void _openChat(Friend friend) {
+    // Временно закомментируем навигацию до создания ChatScreen
+     Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ChatScreen(friend: friend),
+        ),
+     );
+
+    // Временно показываем сообщение
+    _showMessage('Чат с ${friend.name} будет доступен после создания экрана чата');
   }
 
   void _showSuccessMessage(String message) {
@@ -350,6 +467,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       return _FriendCard(
                         friend: friend,
                         onRemove: () => _removeFriend(friend.id),
+                        onMessage: () => _openChat(friend),
                       );
                     },
                   ),
@@ -435,8 +553,13 @@ class _UserSearchCard extends StatelessWidget {
 class _FriendCard extends StatelessWidget {
   final Friend friend;
   final VoidCallback onRemove;
+  final VoidCallback onMessage;
 
-  const _FriendCard({required this.friend, required this.onRemove});
+  const _FriendCard({
+    required this.friend,
+    required this.onRemove,
+    required this.onMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -481,11 +604,21 @@ class _FriendCard extends StatelessWidget {
             ),
           ],
         ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              child: Text(localizations.removeFriend),
-              onTap: onRemove,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              onPressed: onMessage,
+              icon: Icon(Icons.message, color: Theme.of(context).primaryColor),
+              tooltip: localizations.sendMessage,
+            ),
+            PopupMenuButton(
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  child: Text(localizations.removeFriend),
+                  onTap: onRemove,
+                ),
+              ],
             ),
           ],
         ),
