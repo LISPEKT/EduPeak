@@ -384,6 +384,8 @@ class AppLocalizations {
       'errorReportSent': 'Сообщение об ошибке отправлено!',
       'errorReportFailed': 'Ошибка отправки. Проверьте интернет соединение.',
       'send': 'Отправить',
+      'guest':'Гость',
+      'subject':'Предмет',
     },
     'en': {
       'app_title': 'EduPeak',
@@ -757,6 +759,8 @@ class AppLocalizations {
       'errorReportSent': 'Error report sent!',
       'errorReportFailed': 'Sending failed. Check your internet connection.',
       'send': 'Send',
+      'guest':'Guest',
+      'subject':'Subject',
     },
     'de': {
       'app_title': 'EduPeak',
@@ -1130,6 +1134,8 @@ class AppLocalizations {
       'errorReportSent': 'Fehlerbericht gesendet!',
       'errorReportFailed': 'Senden fehlgeschlagen. Überprüfen Sie Ihre Internetverbindung.',
       'send': 'Senden',
+      'guest':'Gast',
+      'subject':'Thema',
     },
   };
 
@@ -1510,6 +1516,8 @@ class AppLocalizations {
   String get errorReportSent => _localizedValues[locale.languageCode]?['errorReportSent'] ?? 'Error report sent!';
   String get errorReportFailed => _localizedValues[locale.languageCode]?['errorReportFailed'] ?? 'Sending failed. Check your internet connection.';
   String get send => _localizedValues[locale.languageCode]?['send'] ?? 'Send';
+  String get guest => _localizedValues[locale.languageCode]?['guest'] ?? 'Guest';
+  String get subject => _localizedValues[locale.languageCode]?['subject'] ?? 'Subject';
 
 }
 
@@ -1518,6 +1526,15 @@ class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {
 
   @override
   bool isSupported(Locale locale) => ['ru', 'en', 'de'].contains(locale.languageCode);
+
+  static const List<Locale> supportedLocales = [
+    Locale('ru', 'RU'),
+    Locale('en', 'US'),
+    Locale('de', 'DE'),
+    Locale('lt', 'LT'),
+    Locale('vi', 'VN'),
+    Locale('kz', 'KZ'),
+  ];
 
   @override
   Future<AppLocalizations> load(Locale locale) async {

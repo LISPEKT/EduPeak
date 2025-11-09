@@ -1,4 +1,4 @@
-// subjects_manager.dart
+// lib/data/subjects_manager.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'subjects_data.dart';
@@ -10,7 +10,6 @@ class SubjectsManager with ChangeNotifier {
 
   SubjectsManager();
 
-  // Устанавливаем контекст когда он доступен
   void setContext(BuildContext context) {
     _context = context;
     _loadSubjects();
@@ -25,7 +24,6 @@ class SubjectsManager with ChangeNotifier {
     }
   }
 
-  // Метод для обновления данных при смене языка
   void updateSubjectsForLanguage(BuildContext context) {
     _context = context;
     _loadSubjects();
@@ -37,18 +35,16 @@ class SubjectsManager with ChangeNotifier {
 
   List<String> getSubjectNamesForGrade(int grade) {
     return _subjectsByGrade[grade]?.map((s) {
-      // Получаем локализованное название предмета
       final localizedNames = getLocalizedSubjectNames(_context!);
-      return localizedNames[s.name] ?? s.name;
-    }).toList() ?? [];
+      final localizedName = localizedNames[s.name] ?? s.name;
+      return localizedName;
+    }).where((name) => name.isNotEmpty).toList() ?? [];
   }
 
-  // Получаем предмет по имени (учитывая локализацию)
   Subject? getSubjectByName(String name, int grade) {
     final subjects = getSubjectsForGrade(grade);
     final localizedNames = getLocalizedSubjectNames(_context!);
 
-    // Ищем по локализованному имени
     for (final subject in subjects) {
       final localizedName = localizedNames[subject.name] ?? subject.name;
       if (localizedName == name) {
@@ -56,53 +52,16 @@ class SubjectsManager with ChangeNotifier {
       }
     }
 
-    // Если не нашли по локализованному, ищем по оригинальному
     try {
       return subjects.firstWhere((s) => s.name == name);
     } catch (e) {
-      return null; // Возвращаем null если не нашли
+      return null;
     }
   }
 
-  // Получаем emoji для предмета
-  String getSubjectEmoji(String subjectName) {
-    return subjectEmojis[subjectName] ?? '📚';
-  }
-
-  // Получаем локализованное название конкретного предмета
   String getLocalizedSubjectName(String subjectName) {
     if (_context == null) return subjectName;
     final localizedNames = getLocalizedSubjectNames(_context!);
     return localizedNames[subjectName] ?? subjectName;
   }
 }
-
-// Реактивная функция для получения названий предметов
-List<String> getReactiveSubjectNamesForGrade(BuildContext context, int grade) {
-  final reactiveSubjects = getReactiveSubjectsByGrade(context);
-  final localizedNames = getLocalizedSubjectNames(context);
-
-  return reactiveSubjects[grade]?.map((s) {
-    return localizedNames[s.name] ?? s.name;
-  }).toList() ?? [];
-}
-
-// Emojis для предметов (глобальная переменная)
-final Map<String, String> subjectEmojis = {
-  'Русский язык': '📚',
-  'Математика': '🔢',
-  'Алгебра': '𝑥²',
-  'Геометрия': '△',
-  'Английский язык': '🔤',
-  'Литература': '📖',
-  'Биология': '🌿',
-  'Физика': '⚡',
-  'Химия': '🧪',
-  'География': '🌍',
-  'История': '🏛️',
-  'Обществознание': '👥',
-  'Информатика': '💻',
-  'Статистика и вероятность': '📊',
-};
-
-final List<int> availableGrades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];

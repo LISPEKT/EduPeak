@@ -1172,137 +1172,164 @@ class _TopicCard extends StatelessWidget {
     final topicData = topic is _TopicWithGrade ? topic.topic : topic;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 1,
       color: isCompleted
           ? (Theme.of(context).brightness == Brightness.dark
           ? const Color(0xFF1B5E20)
           : const Color(0xFFE8F5E8))
           : Theme.of(context).cardColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: ListTile(
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: isCompleted
-                ? (Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF4CAF50)
-                : const Color(0xFFC8E6C9))
-                : Theme.of(context).primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Text(
-              topicData.imageAsset,
-              style: TextStyle(
-                fontSize: 20,
-                color: isCompleted ? Colors.white : null,
-              ),
-            ),
-          ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (grade != null)
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              // Иконка темы
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$grade ${AppLocalizations.of(context).grade}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 4),
-            Text(
-              topicData.name,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: isCompleted
-                    ? (Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : Colors.black87)
-                    : null,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              topicData.description,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isCompleted
-                    ? (Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white70
-                    : Colors.black54)
-                    : null,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.quiz,
-                  size: 16,
                   color: isCompleted
                       ? (Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white70
-                      : Colors.black54)
-                      : null,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${topicData.questions.length} ${AppLocalizations.of(context).questions}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      ? const Color(0xFF4CAF50)
+                      : const Color(0xFFC8E6C9))
+                      : Theme.of(context).primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
                     color: isCompleted
                         ? (Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white70
-                        : Colors.black54)
-                        : null,
+                        ? const Color(0xFF4CAF50)
+                        : const Color(0xFFC8E6C9))
+                        : Theme.of(context).primaryColor.withOpacity(0.2),
+                    width: 1.5,
                   ),
                 ),
-                if (isCompleted) ...[
-                  const SizedBox(width: 12),
-                  Icon(
-                    Icons.check_circle,
-                    size: 16,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF4CAF50)
-                        : const Color(0xFF2E7D32),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    AppLocalizations.of(context).completed,
+                child: Center(
+                  child: Text(
+                    topicData.imageAsset,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? const Color(0xFF4CAF50)
-                          : const Color(0xFF2E7D32),
-                      fontWeight: FontWeight.w600,
+                      fontSize: 24,
+                      color: isCompleted
+                          ? (Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : const Color(0xFF2E7D32))
+                          : Theme.of(context).primaryColor,
                     ),
                   ),
-                ],
-              ],
-            ),
-          ],
+                ),
+              ),
+
+              const SizedBox(width: 16),
+
+              // Контент
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Заголовок и статус
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Класс (если есть)
+                              if (grade != null)
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '$grade ${AppLocalizations.of(context).grade}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Theme.of(context).primaryColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+
+                              // Название темы
+                              Text(
+                                topicData.name,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: isCompleted
+                                      ? (Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.white
+                                      : Colors.black87)
+                                      : null,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Иконка статуса выполнения
+                        if (isCompleted)
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFF4CAF50)
+                                  : const Color(0xFF2E7D32),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.check,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Описание
+                    Text(
+                      topicData.description,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: isCompleted
+                            ? (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white70
+                            : Colors.black54)
+                            : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              // Стрелка навигации
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: isCompleted
+                    ? (Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white54
+                    : Colors.black38)
+                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
+              ),
+            ],
+          ),
         ),
-        onTap: onTap,
-        contentPadding: const EdgeInsets.all(16),
       ),
     );
   }

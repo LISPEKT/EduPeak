@@ -1,4 +1,4 @@
-// lib/data/social_studies/social_studies_data_ru.dart
+// lib/data/social_studies/social_studies_ru_ru.dart
 import '../../../models/topic.dart';
 import '../../../models/question.dart';
 import '../../../models/subject.dart';
@@ -10,7 +10,7 @@ final List<Subject> socialStudiesSubjects6 = [
     topicsByGrade: {
       6: [
         Topic(
-          id: "social_studies_class6_topic1",
+          id: "soc_ru_6_1",
           name: 'Биологическое и социальное в человеке',
           imageAsset: '🧬',
           description: 'Соотношение природных и общественных качеств человека',
@@ -186,7 +186,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic2",
+          id: "soc_ru_6_2",
           name: 'Человек — личность',
           imageAsset: '👤',
           description: 'Понятие личности и её формирование',
@@ -370,7 +370,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic3",
+          id: "soc_ru_6_3",
           name: 'Отрочество — особая пора жизни',
           imageAsset: '🌟',
           description: 'Особенности подросткового возраста',
@@ -556,7 +556,7 @@ final List<Subject> socialStudiesSubjects6 = [
 
         // Продолжение для остальных 16 тем в том же формате...
         Topic(
-          id: "social_studies_class6_topic4",
+          id: "soc_ru_6_4",
           name: 'Потребности и способности человека',
           imageAsset: '🎯',
           description: 'Виды потребностей и развитие способностей',
@@ -758,7 +758,7 @@ final List<Subject> socialStudiesSubjects6 = [
         // Тема 19: Развитие общества
 
         Topic(
-          id: "social_studies_class6_topic5",
+          id: "soc_ru_6_5",
           name: 'Если возможности ограниченны',
           imageAsset: '♿',
           description: 'Особые потребности и помощь людям с ограниченными возможностями',
@@ -915,7 +915,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic6",
+          id: "soc_ru_6_6",
           name: 'Деятельность и многообразие её видов',
           imageAsset: '⚙️',
           description: 'Понятие деятельности и её основные виды',
@@ -1072,7 +1072,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic7",
+          id: "soc_ru_6_7",
           name: 'Познание человеком мира и самого себя',
           imageAsset: '🔍',
           description: 'Процесс познания и самопознания',
@@ -1222,7 +1222,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic8",
+          id: "soc_ru_6_8",
           name: 'Общение',
           imageAsset: '💬',
           description: 'Сущность и виды общения',
@@ -1365,7 +1365,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic9",
+          id: "soc_ru_6_9",
           name: 'Конфликты и их разрешение',
           imageAsset: '⚡',
           description: 'Причины конфликтов и пути их разрешения',
@@ -1508,7 +1508,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic10",
+          id: "soc_ru_6_10",
           name: 'Человек в малой группе',
           imageAsset: '👥',
           description: 'Положение человека в группе и групповые отношения',
@@ -1651,7 +1651,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic11",
+          id: "soc_ru_6_11",
           name: 'Семья и семейные отношения',
           imageAsset: '🏠',
           description: 'Семья как малая группа и семейные ценности',
@@ -1794,7 +1794,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic12",
+          id: "soc_ru_6_11",
           name: 'Школьное образование',
           imageAsset: '🎓',
           description: 'Право на образование и школьная жизнь',
@@ -1938,7 +1938,7 @@ final List<Subject> socialStudiesSubjects6 = [
 
         // Продолжение для оставшихся 7 тем...
         Topic(
-          id: "social_studies_class6_topic13",
+          id: "soc_ru_6_13",
           name: 'Как устроено общество',
           imageAsset: '🏛️',
           description: 'Структура общества и общественные отношения',
@@ -2080,7 +2080,7 @@ final List<Subject> socialStudiesSubjects6 = [
           ],
         ),
         Topic(
-          id: "social_studies_class6_topic14",
+          id: "soc_ru_6_14",
           name: 'Наша страна в XXI веке',
           imageAsset: '🇷🇺',
           description: 'Россия как современное государство',
@@ -2223,7 +2223,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic15",
+          id: "soc_ru_6_15",
           name: 'Экономика - основа жизни общества',
           imageAsset: '💰',
           description: 'Экономическая деятельность и её роль',
@@ -2366,7 +2366,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic16",
+          id: "soc_ru_6_16",
           name: 'Социальная сфера жизни общества',
           imageAsset: '👨‍👩‍👧‍👦',
           description: 'Социальные группы и отношения',
@@ -2509,7 +2509,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic17",
+          id: "soc_ru_6_17",
           name: 'Мир политики',
           imageAsset: '⚖️',
           description: 'Политическая система и власть',
@@ -2652,7 +2652,7 @@ final List<Subject> socialStudiesSubjects6 = [
         ),
 
         Topic(
-          id: "social_studies_class6_topic18",
+          id: "soc_ru_6_18",
           name: 'Культура и её достижения',
           imageAsset: '🎨',
           description: 'Материальная и духовная культура',
@@ -2794,7 +2794,7 @@ final List<Subject> socialStudiesSubjects6 = [
           ],
         ),
         Topic(
-          id: "social_studies_class6_topic19",
+          id: "soc_ru_6_19",
           name: 'Развитие общества',
           imageAsset: '📈',
           description: 'Прогресс и глобальные проблемы',
@@ -2948,7 +2948,7 @@ final List<Subject> socialStudiesSubjects7 = [
       7: [
         // ТЕМА 1: Социальные нормы и правила общественной жизни
         Topic(
-          id: "social_studies_class7_topic1",
+          id: "soc_ru_7_1",
           name: 'Социальные нормы и правила',
           imageAsset: '📜',
           description: 'Правила поведения в обществе',
@@ -3089,7 +3089,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 2: Общественные ценности
         Topic(
-          id: "social_studies_class7_topic2",
+          id: "soc_ru_7_2",
           name: 'Общественные ценности',
           imageAsset: '⭐',
           description: 'Ценности общества и личности',
@@ -3230,7 +3230,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 3: Моральные устои общества
         Topic(
-          id: "social_studies_class7_topic3",
+          id: "soc_ru_7_3",
           name: 'Моральные устои общества',
           imageAsset: '⚖️',
           description: 'Мораль и нравственность',
@@ -3371,7 +3371,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 4: Категории морали
         Topic(
-          id: "social_studies_class7_topic4",
+          id: "soc_ru_7_4",
           name: 'Категории морали',
           imageAsset: '🎭',
           description: 'Добро и зло, честь и достоинство',
@@ -3512,7 +3512,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 5: Нравственный закон внутри нас
         Topic(
-          id: "social_studies_class7_topic5",
+          id: "soc_ru_7_5",
           name: 'Нравственный закон',
           imageAsset: '💭',
           description: 'Моральный выбор и ответственность',
@@ -3653,7 +3653,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 6: Право как регулятор общественных отношений
         Topic(
-          id: "social_studies_class7_topic6",
+          id: "soc_ru_7_6",
           name: 'Право в обществе',
           imageAsset: '⚖️',
           description: 'Право и его роль',
@@ -3794,7 +3794,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 7: Правоотношения и их участники
         Topic(
-          id: "social_studies_class7_topic7",
+          id: "soc_ru_7_7",
           name: 'Правоотношения',
           imageAsset: '👥',
           description: 'Участники правоотношений',
@@ -3935,7 +3935,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 8: Конституционные права, свободы и обязанности
         Topic(
-          id: "social_studies_class7_topic8",
+          id: "soc_ru_7_8",
           name: 'Конституционные права',
           imageAsset: '📄',
           description: 'Права и обязанности по Конституции',
@@ -4076,7 +4076,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 9: Правовая культура и правомерное поведение
         Topic(
-          id: "social_studies_class7_topic9",
+          id: "soc_ru_7_9",
           name: 'Правовая культура',
           imageAsset: '🎓',
           description: 'Правовое поведение и культура',
@@ -4217,7 +4217,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 10: Правонарушения и юридическая ответственность
         Topic(
-          id: "social_studies_class7_topic10",
+          id: "soc_ru_7_10",
           name: 'Правонарушения',
           imageAsset: '🚫',
           description: 'Виды правонарушений и ответственность',
@@ -4358,7 +4358,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 11: Система российского права
         Topic(
-          id: "social_studies_class7_topic11",
+          id: "soc_ru_7_11",
           name: 'Система права',
           imageAsset: '🏛️',
           description: 'Отрасли российского права',
@@ -4499,7 +4499,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 12: Гражданские правоотношения
         Topic(
-          id: "social_studies_class7_topic12",
+          id: "soc_ru_7_12",
           name: 'Гражданские правоотношения',
           imageAsset: '🏠',
           description: 'Имущественные и неимущественные отношения',
@@ -4640,7 +4640,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 13: Трудовые правоотношения
         Topic(
-          id: "social_studies_class7_topic13",
+          id: "soc_ru_7_13",
           name: 'Трудовые правоотношения',
           imageAsset: '💼',
           description: 'Трудовой договор и права работников',
@@ -4781,7 +4781,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 14: Семья под защитой закона
         Topic(
-          id: "social_studies_class7_topic14",
+          id: "soc_ru_7_14",
           name: 'Семейное право',
           imageAsset: '👨‍👩‍👧‍👦',
           description: 'Права и обязанности в семье',
@@ -4922,7 +4922,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 15: Административные правоотношения
         Topic(
-          id: "social_studies_class7_topic15",
+          id: "soc_ru_7_15",
           name: 'Административные правоотношения',
           imageAsset: '👮',
           description: 'Государственное управление',
@@ -5063,7 +5063,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 16: Преступления и виды уголовных наказаний
         Topic(
-          id: "social_studies_class7_topic16",
+          id: "soc_ru_7_16",
           name: 'Уголовное право',
           imageAsset: '🔒',
           description: 'Преступления и наказания',
@@ -5204,7 +5204,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 17: Правовое положение несовершеннолетних
         Topic(
-          id: "social_studies_class7_topic17",
+          id: "soc_ru_7_17",
           name: 'Права несовершеннолетних',
           imageAsset: '👦',
           description: 'Особый правовой статус детей',
@@ -5345,7 +5345,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 18: На страже закона
         Topic(
-          id: "social_studies_class7_topic18",
+          id: "soc_ru_7_18",
           name: 'Правоохранительные органы',
           imageAsset: '🛡️',
           description: 'Суды и правоохранительные органы',
@@ -5486,7 +5486,7 @@ final List<Subject> socialStudiesSubjects7 = [
 
         // ТЕМА 19: Готовимся к Всероссийской проверочной работе
         Topic(
-          id: "social_studies_class7_topic19",
+          id: "soc_ru_7_19",
           name: 'Подготовка к ВПР',
           imageAsset: '📚',
           description: 'Повторение и закрепление',

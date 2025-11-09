@@ -12,16 +12,22 @@ class LanguageManager with ChangeNotifier {
 
   // Constants
   static const String _languageKey = 'app_language';
-  static const List<String> supportedLanguages = ['ru', 'en', 'de'];
+  static const List<String> supportedLanguages = ['ru', 'en', 'de', 'lt', 'vi', 'kz'];
   static const Map<String, String> languageNames = {
     'ru': 'Русский',
     'en': 'English',
     'de': 'Deutsch',
+    'lt': 'Lietuvių',
+    'vi': 'Tiếng Việt',
+    'kz': 'Қазақша',
   };
   static const Map<String, String> languageFlags = {
     'ru': '🇷🇺',
     'en': '🇬🇧',
     'de': '🇩🇪',
+    'lt': '🇱🇹',
+    'vi': '🇻🇳',
+    'kz': '🇰🇿',
   };
 
   // State
@@ -102,6 +108,9 @@ class LanguageManager with ChangeNotifier {
   Future<void> setRussian() async => await setLanguage('ru');
   Future<void> setEnglish() async => await setLanguage('en');
   Future<void> setGerman() async => await setLanguage('de');
+  Future<void> setLithuanian() async => await setLanguage('lt');
+  Future<void> setVietnamese() async => await setLanguage('vi');
+  Future<void> setKazakh() async => await setLanguage('kz');
 
   // Utility methods
   String getLanguageName(String languageCode) {
@@ -126,7 +135,7 @@ class LanguageManager with ChangeNotifier {
 
   // Static methods for easy access
   static String get currentLanguage => _instance.currentLanguageCode;
-  static Locale get currentLocaleStatic => _instance.currentLocale; // Изменили имя
+  static Locale get currentLocaleStatic => _instance.currentLocale;
 
   static Future<void> changeLanguage(String languageCode) async {
     await _instance.setLanguage(languageCode);
@@ -135,6 +144,9 @@ class LanguageManager with ChangeNotifier {
   static Future<void> changeToRussian() async => await _instance.setRussian();
   static Future<void> changeToEnglish() async => await _instance.setEnglish();
   static Future<void> changeToGerman() async => await _instance.setGerman();
+  static Future<void> changeToLithuanian() async => await _instance.setLithuanian();
+  static Future<void> changeToVietnamese() async => await _instance.setVietnamese();
+  static Future<void> changeToKazakh() async => await _instance.setKazakh();
 
   // For use in data files without context
   static List<String> get supportedLanguageCodes => supportedLanguages;
@@ -156,11 +168,24 @@ class LanguageManager with ChangeNotifier {
   static bool isLanguageSupported(String languageCode) {
     return supportedLanguages.contains(languageCode);
   }
+
+  // Get supported languages for region
+  static List<String> getSupportedLanguagesForRegion(String regionId) {
+    // Здесь можно добавить логику для разных регионов
+    // Пока возвращаем все поддерживаемые языки
+    return supportedLanguages;
+  }
+
+  // Check if language is supported in region
+  static bool isLanguageSupportedInRegion(String languageCode, String regionId) {
+    final supported = getSupportedLanguagesForRegion(regionId);
+    return supported.contains(languageCode);
+  }
 }
 
 // Extension for easy access in widgets
 extension LanguageManagerExtension on BuildContext {
   LanguageManager get languageManager => LanguageManager();
   String get currentLanguageCode => LanguageManager.currentLanguage;
-  Locale get currentLocale => LanguageManager.currentLocaleStatic; // Используем исправленное имя
+  Locale get currentLocale => LanguageManager.currentLocaleStatic;
 }

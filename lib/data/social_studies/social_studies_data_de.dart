@@ -4,7 +4,7 @@ import '../../../models/question.dart';
 import '../../../models/subject.dart';
 
 // === KLASSE 6 ===
-final List<Subject> socialStudiesSubjects6 = [
+final List<Subject> socialStudiesSubjects6DE = [
   Subject(
     name: 'Sozialkunde',
     topicsByGrade: {

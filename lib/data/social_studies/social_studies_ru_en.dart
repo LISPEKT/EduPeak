@@ -1,4 +1,4 @@
-// lib/data/social_studies/social_studies_data_en.dart
+// lib/data/social_studies/social_studies_ru_en.dart
 import '../../../models/topic.dart';
 import '../../../models/question.dart';
 import '../../../models/subject.dart';

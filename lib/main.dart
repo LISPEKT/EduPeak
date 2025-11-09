@@ -1,3 +1,4 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -10,24 +11,21 @@ import 'services/api_service.dart';
 import 'data/user_data_storage.dart';
 import 'localization.dart';
 import 'language_manager.dart';
-import 'data/subjects_manager.dart'; // Добавляем импорт
+import 'data/subjects_manager.dart';
+import 'services/region_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final languageManager = LanguageManager();
-  await languageManager.initializationComplete;
-
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (context) => ThemeManager()),
-        ChangeNotifierProvider.value(value: languageManager),
-        ChangeNotifierProvider(create: (context) => SubjectsManager()), // Добавляем SubjectsManager
-      ],
-      child: const MyApp(),
-    ),
-  );
+  runApp(MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (_) => ThemeManager()),
+      ChangeNotifierProvider(create: (_) => LanguageManager()),
+      ChangeNotifierProvider(create: (_) => RegionManager()),
+      ChangeNotifierProvider(create: (_) => SubjectsManager()),
+    ],
+    child: const MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
@@ -61,6 +59,9 @@ class MyApp extends StatelessWidget {
         '/auth': (context) => const AuthScreen(),
       },
       debugShowCheckedModeBanner: false,
+      checkerboardOffscreenLayers: false,
+      checkerboardRasterCacheImages: false,
+      showPerformanceOverlay: false,
     );
   }
 }
@@ -87,10 +88,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
       final isLoggedIn = await ApiService.isLoggedIn();
 
       if (isLoggedIn) {
-        // ПОЛНАЯ синхронизация данных при запуске приложения
         print('🔄 App start - syncing with server...');
-
-        // Запускаем принудительную синхронизацию
         final syncResult = await ApiService.syncAllUserData();
 
         if (syncResult['success'] == true) {
@@ -113,7 +111,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 
-  // Метод для выхода
   void _handleLogout() {
     setState(() {
       _isAuthenticated = false;

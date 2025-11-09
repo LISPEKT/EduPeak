@@ -1,3 +1,4 @@
+// auth_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,7 +19,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
-  late Animation<Offset> _slideAnimation;
   bool _isLoading = false;
   bool _showLanguageMenu = false;
 
@@ -27,7 +27,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     super.initState();
 
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
 
@@ -36,23 +36,15 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeIn),
+      curve: Curves.easeInOut,
     ));
 
     _scaleAnimation = Tween<double>(
-      begin: 0.8,
+      begin: 0.9,
       end: 1.0,
     ).animate(CurvedAnimation(
       parent: _animationController,
-      curve: const Interval(0.4, 1.0, curve: Curves.elasticOut),
-    ));
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.5),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+      curve: Curves.easeOutBack,
     ));
 
     _animationController.forward();
@@ -92,24 +84,12 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
     setState(() => _isLoading = true);
 
     try {
-      await Future.delayed(const Duration(milliseconds: 1000));
+      await Future.delayed(const Duration(milliseconds: 800));
 
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const AuthSelectionScreen(),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              const begin = Offset(1.0, 0.0);
-              const end = Offset.zero;
-              const curve = Curves.easeInOut;
-              var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-              var offsetAnimation = animation.drive(tween);
-
-              return SlideTransition(position: offsetAnimation, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
+          MaterialPageRoute(builder: (_) => const AuthSelectionScreen()),
         );
       }
     } catch (e) {
@@ -137,356 +117,306 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final size = MediaQuery.of(context).size;
     final appLocalizations = AppLocalizations.of(context);
     final languageManager = Provider.of<LanguageManager>(context);
 
     return Scaffold(
+      backgroundColor: isDark ? Colors.black : Colors.white,
       body: Stack(
         children: [
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: isDark
-                    ? [
-                  Theme.of(context).primaryColorDark ?? const Color(0xFF1B5E20),
-                  Theme.of(context).primaryColor ?? const Color(0xFF2E7D32),
-                  Theme.of(context).primaryColorLight ?? const Color(0xFF388E3C),
-                ]
-                    : [
-                  Theme.of(context).primaryColorLight ?? const Color(0xFF4CAF50),
-                  const Color(0xFF66BB6A),
-                  const Color(0xFF81C784),
-                ],
-                stops: const [0.0, 0.6, 1.0],
-              ),
-            ),
-            child: Stack(
-              children: [
-                // Анимированные фоновые элементы
-                Positioned(
-                  top: size.height * 0.15,
-                  right: size.width * 0.1,
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Icon(
-                      Icons.eco,
-                      size: 40,
-                      color: Colors.white.withOpacity(0.3),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: size.height * 0.3,
-                  left: size.width * 0.05,
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Icon(
-                      Icons.park,
-                      size: 30,
-                      color: Colors.white.withOpacity(0.2),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: size.height * 0.3,
-                  right: size.width * 0.15,
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Icon(
-                      Icons.psychology,
-                      size: 35,
-                      color: Colors.white.withOpacity(0.25),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: size.height * 0.2,
-                  left: size.width * 0.1,
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Icon(
-                      Icons.auto_stories,
-                      size: 25,
-                      color: Colors.white.withOpacity(0.2),
-                    ),
-                  ),
-                ),
+          // Основной контент
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 40),
 
-                // Основной контент
-                SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                  // Заголовок с анимацией
+                  ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4CAF50),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.school_outlined,
+                              size: 32,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            appLocalizations.appTitle,
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w700,
+                              color: isDark ? Colors.white : Colors.black,
+                              fontFamily: 'GoogleSans',
+                              height: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            appLocalizations.conquerKnowledge,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                              fontFamily: 'Roboto',
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const Spacer(),
+
+                  // Статистика с анимацией
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[900] : Colors.grey[50],
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _StatItem(
+                            value: '1+',
+                            label: appLocalizations.students,
+                            isDark: isDark,
+                          ),
+                          _StatItem(
+                            value: '50+',
+                            label: appLocalizations.topics,
+                            isDark: isDark,
+                          ),
+                          _StatItem(
+                            value: '95%',
+                            label: appLocalizations.success,
+                            isDark: isDark,
+                          ),
+                          _StatItem(
+                            value: '14+',
+                            label: appLocalizations.subjects,
+                            isDark: isDark,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Описание с анимацией
+                  FadeTransition(
+                    opacity: _fadeAnimation,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Spacer(flex: 2),
-
-                        // Логотип и заголовок
-                        ScaleTransition(
-                          scale: _scaleAnimation,
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 120,
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.3),
-                                    width: 3,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.white.withOpacity(0.2),
-                                      blurRadius: 20,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.school,
-                                  size: 60,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 40),
-                              Text(
-                                appLocalizations.appTitle,
-                                style: TextStyle(
-                                  fontSize: 52,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  fontFamily: 'Inter',
-                                  letterSpacing: 1.5,
-                                  shadows: [
-                                    Shadow(
-                                      blurRadius: 10,
-                                      color: Colors.black.withOpacity(0.3),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                appLocalizations.conquerKnowledge,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          appLocalizations.joinAndImprove,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDark ? Colors.white70 : Colors.black54,
+                            fontFamily: 'Roboto',
+                            height: 1.5,
                           ),
                         ),
-
-                        const Spacer(),
-
-                        // Статистика и описание
-                        SlideTransition(
-                          position: _slideAnimation,
-                          child: FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                    children: [
-                                      _StatItem(
-                                        value: '1+',
-                                        label: appLocalizations.students,
-                                      ),
-                                      _StatItem(
-                                        value: '50+',
-                                        label: appLocalizations.topics,
-                                      ),
-                                      _StatItem(
-                                        value: '95%',
-                                        label: appLocalizations.success,
-                                      ),
-                                      _StatItem(
-                                        value: '14+',
-                                        label: appLocalizations.subjects,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                                Text(
-                                  appLocalizations.joinAndImprove,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white.withOpacity(0.8),
-                                    fontFamily: 'Inter',
-                                    height: 1.5,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  appLocalizations.examPreparation,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withOpacity(0.6),
-                                    fontFamily: 'Inter',
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
+                        const SizedBox(height: 8),
+                        Text(
+                          appLocalizations.examPreparation,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? Colors.white54 : Colors.black45,
+                            fontFamily: 'Roboto',
                           ),
                         ),
-
-                        const Spacer(),
-
-                        // Кнопка начать обучение
-                        SlideTransition(
-                          position: _slideAnimation,
-                          child: FadeTransition(
-                            opacity: _fadeAnimation,
-                            child: Column(
-                              children: [
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: _isLoading ? null : _startLearning,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: const Color(0xFF2E7D32),
-                                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(25),
-                                      ),
-                                      elevation: 8,
-                                      shadowColor: Colors.black.withOpacity(0.3),
-                                    ),
-                                    child: _isLoading
-                                        ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation(
-                                          Color(0xFF2E7D32),
-                                        ),
-                                      ),
-                                    )
-                                        : Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.rocket_launch, size: 20),
-                                        const SizedBox(width: 12),
-                                        Text(
-                                          appLocalizations.startLearning,
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  '',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white.withOpacity(0.7),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 40),
                       ],
                     ),
                   ),
-                ),
-              ],
+
+                  const Spacer(),
+
+                  // Кнопка начать обучение с анимацией
+                  FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _startLearning,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4CAF50),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                              shadowColor: Colors.transparent,
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(Colors.white),
+                              ),
+                            )
+                                : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.arrow_forward_rounded, size: 20),
+                                const SizedBox(width: 12),
+                                Text(
+                                  appLocalizations.startLearning,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
-          // Выпадающее меню языков (позиционируется абсолютно)
-          if (_showLanguageMenu)
-            Positioned(
-              bottom: 80, // Располагаем над кнопкой
-              right: 20,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _LanguageMenuItem(
-                      language: appLocalizations.russian,
-                      isSelected: languageManager.currentLocale.languageCode == 'ru',
-                      onTap: () => _changeLanguage('ru'),
-                    ),
-                    _buildDivider(),
-                    _LanguageMenuItem(
-                      language: appLocalizations.english,
-                      isSelected: languageManager.currentLocale.languageCode == 'en',
-                      onTap: () => _changeLanguage('en'),
-                    ),
-                    _buildDivider(),
-                    _LanguageMenuItem(
-                      language: appLocalizations.german,
-                      isSelected: languageManager.currentLocale.languageCode == 'de',
-                      onTap: () => _changeLanguage('de'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Кнопка переключения языка (фиксированная позиция)
+          // Кнопка языка, которая раздвигается в список
           Positioned(
             bottom: 20,
             right: 20,
+            child: _ExpandingLanguageButton(
+              isExpanded: _showLanguageMenu,
+              currentLanguage: languageManager.currentLocale.languageCode,
+              onToggle: _toggleLanguageMenu,
+              onChangeLanguage: _changeLanguage,
+              isDark: isDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExpandingLanguageButton extends StatelessWidget {
+  final bool isExpanded;
+  final String currentLanguage;
+  final VoidCallback onToggle;
+  final Function(String) onChangeLanguage;
+  final bool isDark;
+
+  const _ExpandingLanguageButton({
+    required this.isExpanded,
+    required this.currentLanguage,
+    required this.onToggle,
+    required this.onChangeLanguage,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      height: 48,
+      width: isExpanded ? 160 : 48, // Увеличил ширину для развернутого состояния
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[900] : Colors.grey[100],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: isExpanded ? _buildExpandedMenu() : _buildCollapsedButton(),
+    );
+  }
+
+  Widget _buildCollapsedButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onToggle,
+        child: Center(
+          child: Icon(
+            Icons.language_outlined,
+            color: isDark ? Colors.white : Colors.black87,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandedMenu() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _LanguageItem(
+            code: 'ru',
+            label: 'RU',
+            isSelected: currentLanguage == 'ru',
+            onTap: () => onChangeLanguage('ru'),
+            isDark: isDark,
+          ),
+          _LanguageItem(
+            code: 'en',
+            label: 'EN',
+            isSelected: currentLanguage == 'en',
+            onTap: () => onChangeLanguage('en'),
+            isDark: isDark,
+          ),
+          _LanguageItem(
+            code: 'de',
+            label: 'DE',
+            isSelected: currentLanguage == 'de',
+            onTap: () => onChangeLanguage('de'),
+            isDark: isDark,
+          ),
+          // Кнопка закрытия
+          GestureDetector(
+            onTap: onToggle,
             child: Container(
-              width: 50,
-              height: 50,
+              width: 24,
+              height: 24,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: isDark ? Colors.grey[800] : Colors.grey[200],
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 2,
-                ),
               ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.language,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                onPressed: _toggleLanguageMenu,
+              child: Icon(
+                Icons.close_rounded,
+                size: 14,
+                color: isDark ? Colors.white : Colors.black87,
               ),
             ),
           ),
@@ -494,12 +424,43 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       ),
     );
   }
+}
 
-  Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      thickness: 0.5,
-      color: Colors.grey.withOpacity(0.3),
+class _LanguageItem extends StatelessWidget {
+  final String code;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final bool isDark;
+
+  const _LanguageItem({
+    required this.code,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF4CAF50) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black54),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -507,10 +468,12 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
 class _StatItem extends StatelessWidget {
   final String value;
   final String label;
+  final bool isDark;
 
   const _StatItem({
     required this.value,
     required this.label,
+    required this.isDark,
   });
 
   @override
@@ -519,69 +482,23 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 20,
+          style: TextStyle(
+            fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontFamily: 'Inter',
+            color: isDark ? Colors.white : Colors.black,
+            fontFamily: 'GoogleSans',
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
-            color: Colors.white.withOpacity(0.7),
-            fontFamily: 'Inter',
+            fontSize: 10,
+            color: isDark ? Colors.white60 : Colors.black45,
+            fontFamily: 'Roboto',
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LanguageMenuItem extends StatelessWidget {
-  final String language;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _LanguageMenuItem({
-    required this.language,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 150,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                Icons.check,
-                size: 16,
-                color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  language,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).textTheme.bodyMedium?.color,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -10,6 +10,8 @@ import 'auth_screen.dart';
 import '../services/api_service.dart';
 import '../localization.dart';
 import '../language_manager.dart';
+import '../services/region_manager.dart'; // Добавляем импорт
+import '../models/region.dart'; // Добавляем импорт
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -32,6 +34,260 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const String _botToken = '8326804174:AAE0KfB3X1MIuW4YE9mT2zbl7eAnw4OHDJ4';
   static const String _chatId = '1236849662';
 
+  @override
+  Widget build(BuildContext context) {
+    final themeManager = Provider.of<ThemeManager>(context);
+    final languageManager = Provider.of<LanguageManager>(context);
+    final regionManager = Provider.of<RegionManager>(context);
+    final appLocalizations = AppLocalizations.of(context);
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(appLocalizations.settings),
+        backgroundColor: Theme.of(context).cardColor,
+        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
+        elevation: 0,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildRegionSection(regionManager, appLocalizations),
+
+          const SizedBox(height: 20),
+
+          _buildThemeSection(themeManager, appLocalizations),
+
+          const SizedBox(height: 20),
+
+          _buildLanguageSection(languageManager, appLocalizations, regionManager), // Добавляем regionManager
+
+          const SizedBox(height: 20),
+
+          _buildResetProgressSection(appLocalizations),
+
+          const SizedBox(height: 20),
+
+          _buildFeedbackSection(appLocalizations),
+
+          const SizedBox(height: 20),
+
+          _buildAppInfoSection(appLocalizations),
+
+          const SizedBox(height: 20),
+
+          _buildLogoutSection(appLocalizations),
+        ],
+      ),
+    );
+  }
+
+  // Секция выбора региона (такая же как на регистрации)
+  Widget _buildRegionSection(RegionManager regionManager, AppLocalizations appLocalizations) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Card(
+      color: Theme.of(context).cardColor,
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.public,
+                  color: Theme.of(context).primaryColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Регион обучения',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontSize: 18,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Выберите страну для соответствующей учебной программы',
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey[900] : Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Страна обучения',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // В методе _buildRegionSection замените onChanged в DropdownButtonFormField:
+                    DropdownButtonFormField<String>(
+                      value: regionManager.currentRegion.id,
+                      decoration: InputDecoration(
+                        labelText: 'Выберите страну',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      items: regionManager.availableRegions.map((region) {
+                        return DropdownMenuItem<String>(
+                          value: region.id,
+                          child: Row(
+                            children: [
+                              Text(region.flag),
+                              const SizedBox(width: 8),
+                              Text(region.name),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) async {
+                        if (newValue != null && newValue != regionManager.currentRegion.id) {
+                          final languageManager = Provider.of<LanguageManager>(context, listen: false);
+                          final currentLanguage = languageManager.currentLanguageCode;
+
+                          final message = await regionManager.setCurrentRegion(newValue, currentLanguage: currentLanguage);
+
+                          // Проверяем, нужно ли сменить язык
+                          final newRegion = regionManager.getRegionById(newValue);
+                          if (!newRegion.supportedLanguages.contains(currentLanguage)) {
+                            // Текущий язык не поддерживается в новом регионе
+                            final defaultLanguage = newRegion.defaultLanguage;
+                            await languageManager.setLanguage(defaultLanguage);
+
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(message ?? 'Язык изменен на $defaultLanguage для региона ${newRegion.name}'),
+                                  backgroundColor: Colors.orange,
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            }
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${regionManager.currentRegion.totalGrades} классов, ${regionManager.currentRegion.curriculum.length} предметов',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.green[200] : Colors.green[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegionOption({
+    required Region region,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool isLoading,
+    required RegionManager regionManager, // Добавляем параметр
+  }) {
+    return IgnorePointer(
+      ignoring: isLoading,
+      child: Opacity(
+        opacity: isLoading ? 0.6 : 1.0,
+        child: Column(
+          children: [
+            ListTile(
+              leading: Text(
+                region.flag,
+                style: const TextStyle(fontSize: 24),
+              ),
+              title: Text(
+                region.name,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                '${region.totalGrades} классов',
+                style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                ),
+              ),
+              trailing: isLoading && isSelected
+                  ? SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(
+                    Theme.of(context).primaryColor,
+                  ),
+                ),
+              )
+                  : Radio(
+                value: true,
+                groupValue: isSelected,
+                onChanged: isLoading ? null : (bool? value) {
+                  if (value == true) {
+                    onTap();
+                  }
+                },
+                activeColor: Theme.of(context).primaryColor,
+              ),
+              onTap: onTap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            if (isLoading && isSelected) ...[
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 2,
+                child: LinearProgressIndicator(
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation(
+                    Theme.of(context).primaryColor.withOpacity(0.3),
+                  ),
+                ),
+              ),
+            ],
+            if (region.id != regionManager.availableRegions.last.id) // Теперь regionManager доступен
+              const Divider(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Остальные методы остаются без изменений...
   Future<void> _sendFeedback() async {
     final feedback = _feedbackController.text.trim();
     if (feedback.isEmpty) {
@@ -404,49 +660,6 @@ $feedback
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final themeManager = Provider.of<ThemeManager>(context);
-    final languageManager = Provider.of<LanguageManager>(context);
-    final appLocalizations = AppLocalizations.of(context);
-
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(appLocalizations.settings),
-        backgroundColor: Theme.of(context).cardColor,
-        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-        elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildThemeSection(themeManager, appLocalizations),
-
-          const SizedBox(height: 20),
-
-          _buildLanguageSection(languageManager, appLocalizations),
-
-          const SizedBox(height: 20),
-
-          _buildResetProgressSection(appLocalizations),
-
-          const SizedBox(height: 20),
-
-          _buildFeedbackSection(appLocalizations),
-
-          const SizedBox(height: 20),
-
-          _buildAppInfoSection(appLocalizations),
-
-          const SizedBox(height: 20),
-
-          _buildLogoutSection(appLocalizations),
-        ],
-      ),
-    );
-  }
-
   Widget _buildThemeSection(ThemeManager themeManager, AppLocalizations appLocalizations) {
     final isLightTheme = !themeManager.useSystemTheme && !themeManager.useDarkTheme;
 
@@ -534,7 +747,10 @@ $feedback
     );
   }
 
-  Widget _buildLanguageSection(LanguageManager languageManager, AppLocalizations appLocalizations) {
+  Widget _buildLanguageSection(LanguageManager languageManager, AppLocalizations appLocalizations, RegionManager regionManager) {
+    // Получаем поддерживаемые языки для текущего региона
+    final supportedLanguages = regionManager.currentRegion.supportedLanguages;
+
     return Card(
       color: Theme.of(context).cardColor,
       elevation: 2,
@@ -557,40 +773,110 @@ $feedback
                 Text(
                   appLocalizations.languageSettings,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontSize: 18,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              appLocalizations.selectAppLanguage,
+              'Доступные языки для региона ${regionManager.currentRegion.name}',
               style: TextStyle(
                 color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                 fontSize: 12,
               ),
             ),
             const SizedBox(height: 20),
-            _buildLanguageOption(
-              title: appLocalizations.russian,
-              value: languageManager.currentLocale.languageCode == 'ru',
-              onChanged: () => languageManager.setRussian(),
-              isLoading: languageManager.isLoading,
-            ),
-            const Divider(height: 24),
-            _buildLanguageOption(
-              title: appLocalizations.english,
-              value: languageManager.currentLocale.languageCode == 'en',
-              onChanged: () => languageManager.setEnglish(),
-              isLoading: languageManager.isLoading,
-            ),
-            const Divider(height: 24),
-            _buildLanguageOption(
-              title: appLocalizations.german,
-              value: languageManager.currentLocale.languageCode == 'de',
-              onChanged: () => languageManager.setGerman(),
-              isLoading: languageManager.isLoading,
-            ),
+
+            // Русский язык
+            if (supportedLanguages.contains('ru'))
+              _buildLanguageOption(
+                title: appLocalizations.russian,
+                value: languageManager.currentLocale.languageCode == 'ru',
+                onChanged: () => languageManager.setRussian(),
+                isLoading: languageManager.isLoading,
+                isAvailable: true,
+              ),
+            if (supportedLanguages.contains('ru')) const Divider(height: 24),
+
+            // Английский язык
+            if (supportedLanguages.contains('en'))
+              _buildLanguageOption(
+                title: appLocalizations.english,
+                value: languageManager.currentLocale.languageCode == 'en',
+                onChanged: () => languageManager.setEnglish(),
+                isLoading: languageManager.isLoading,
+                isAvailable: true,
+              ),
+            if (supportedLanguages.contains('en')) const Divider(height: 24),
+
+            // Немецкий язык
+            if (supportedLanguages.contains('de'))
+              _buildLanguageOption(
+                title: appLocalizations.german,
+                value: languageManager.currentLocale.languageCode == 'de',
+                onChanged: () => languageManager.setGerman(),
+                isLoading: languageManager.isLoading,
+                isAvailable: true,
+              ),
+
+            // Литовский язык
+            if (supportedLanguages.contains('lt'))
+              _buildLanguageOption(
+                title: 'Литовский',
+                value: languageManager.currentLocale.languageCode == 'lt',
+                onChanged: () => languageManager.setLanguage('lt'),
+                isLoading: languageManager.isLoading,
+                isAvailable: true,
+              ),
+            if (supportedLanguages.contains('lt')) const Divider(height: 24),
+
+            // Вьетнамский язык
+            if (supportedLanguages.contains('vi'))
+              _buildLanguageOption(
+                title: 'Вьетнамский',
+                value: languageManager.currentLocale.languageCode == 'vi',
+                onChanged: () => languageManager.setLanguage('vi'),
+                isLoading: languageManager.isLoading,
+                isAvailable: true,
+              ),
+            if (supportedLanguages.contains('vi')) const Divider(height: 24),
+
+            // Казахский язык
+            if (supportedLanguages.contains('kz'))
+              _buildLanguageOption(
+                title: 'Казахский',
+                value: languageManager.currentLocale.languageCode == 'kz',
+                onChanged: () => languageManager.setLanguage('kz'),
+                isLoading: languageManager.isLoading,
+                isAvailable: true,
+              ),
+
+            // Сообщение если язык недоступен в текущем регионе
+            if (!supportedLanguages.contains(languageManager.currentLocale.languageCode))
+              Container(
+                margin: const EdgeInsets.only(top: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Текущий язык не поддерживается в регионе ${regionManager.currentRegion.name}',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -602,11 +888,12 @@ $feedback
     required bool value,
     required VoidCallback onChanged,
     required bool isLoading,
+    required bool isAvailable,
   }) {
     return IgnorePointer(
-      ignoring: isLoading,
+      ignoring: isLoading || !isAvailable,
       child: Opacity(
-        opacity: isLoading ? 0.6 : 1.0,
+        opacity: (!isAvailable || isLoading) ? 0.6 : 1.0,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -620,6 +907,16 @@ $feedback
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                  if (!isAvailable) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Недоступно в текущем регионе',
+                      style: TextStyle(
+                        color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.4),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
                   if (isLoading && value) ...[
                     const SizedBox(height: 4),
                     SizedBox(
@@ -638,12 +935,14 @@ $feedback
             Radio(
               value: true,
               groupValue: value,
-              onChanged: isLoading ? null : (bool? newValue) {
+              onChanged: (isLoading || !isAvailable) ? null : (bool? newValue) {
                 if (newValue == true) {
                   onChanged();
                 }
               },
-              activeColor: Theme.of(context).primaryColor,
+              activeColor: isAvailable
+                  ? Theme.of(context).primaryColor
+                  : Theme.of(context).disabledColor,
             ),
           ],
         ),

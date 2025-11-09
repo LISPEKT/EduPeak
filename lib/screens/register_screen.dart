@@ -1,10 +1,11 @@
-// lib/screens/register_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'main_screen.dart';
 import '../data/user_data_storage.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../localization.dart';
+import '../services/region_manager.dart'; // Добавляем импорт
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -167,19 +168,97 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // Виджет выбора региона
+  Widget _buildRegionSelection() {
+    final regionManager = Provider.of<RegionManager>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Card(
+      color: isDark ? Colors.grey[900] : Colors.grey[50],
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Регион обучения',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Выберите страну для соответствующей учебной программы',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: regionManager.currentRegion.id,
+              decoration: InputDecoration(
+                labelText: 'Страна',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              items: regionManager.availableRegions.map((region) {
+                return DropdownMenuItem<String>(
+                  value: region.id,
+                  child: Row(
+                    children: [
+                      Text(region.flag),
+                      const SizedBox(width: 8),
+                      Text(region.name),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (String? newValue) async {
+                if (newValue != null) {
+                  await regionManager.setCurrentRegion(newValue);
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${regionManager.currentRegion.totalGrades} классов, ${regionManager.currentRegion.curriculum.length} предметов',
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.green[200] : Colors.green[700],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
         title: Text(appLocalizations.createAccount),
-        backgroundColor: Theme.of(context).cardColor,
-        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
+        backgroundColor: Colors.transparent,
+        foregroundColor: isDark ? Colors.white : Colors.black87,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -207,7 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.warning, color: Colors.orange),
+                      const Icon(Icons.warning_amber_rounded, color: Colors.orange),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -223,16 +302,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 20),
               Text(
                 appLocalizations.createAccount,
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : Colors.black,
+                  fontFamily: 'GoogleSans',
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 appLocalizations.enterEmailAndPassword,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.white70 : Colors.black54,
+                  fontFamily: 'Roboto',
+                ),
               ),
               const SizedBox(height: 32),
+
+              // Секция выбора региона
+              _buildRegionSelection(),
+
+              const SizedBox(height: 24),
 
               // Поле имени пользователя
               TextField(
@@ -245,33 +336,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   labelText: appLocalizations.username,
                   labelStyle: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                    fontFamily: 'Roboto',
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: Theme.of(context).dividerColor,
+                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).primaryColor,
+                    borderSide: const BorderSide(
+                      color: Color(0xFF4CAF50),
                       width: 2,
                     ),
                   ),
                   prefixIcon: Icon(
-                    Icons.person,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    Icons.person_outlined,
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
                   filled: true,
-                  fillColor: Theme.of(context).cardColor,
+                  fillColor: isDark ? Colors.grey[900] : Colors.grey[50],
                 ),
                 style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontFamily: 'Roboto',
+                  fontSize: 16,
                 ),
               ),
               const SizedBox(height: 16),
@@ -287,33 +384,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   labelText: 'Email',
                   labelStyle: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                    fontFamily: 'Roboto',
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: Theme.of(context).dividerColor,
+                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).primaryColor,
+                    borderSide: const BorderSide(
+                      color: Color(0xFF4CAF50),
                       width: 2,
                     ),
                   ),
                   prefixIcon: Icon(
-                    Icons.email,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    Icons.email_outlined,
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
                   filled: true,
-                  fillColor: Theme.of(context).cardColor,
+                  fillColor: isDark ? Colors.grey[900] : Colors.grey[50],
                 ),
                 style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontFamily: 'Roboto',
+                  fontSize: 16,
                 ),
                 keyboardType: TextInputType.emailAddress,
               ),
@@ -331,32 +434,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   labelText: appLocalizations.password,
                   labelStyle: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                    fontFamily: 'Roboto',
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: Theme.of(context).dividerColor,
+                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).primaryColor,
+                    borderSide: const BorderSide(
+                      color: Color(0xFF4CAF50),
                       width: 2,
                     ),
                   ),
                   prefixIcon: Icon(
-                    Icons.lock,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    Icons.lock_outlined,
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      color: isDark ? Colors.white70 : Colors.black54,
                     ),
                     onPressed: () {
                       setState(() {
@@ -365,10 +472,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   filled: true,
-                  fillColor: Theme.of(context).cardColor,
+                  fillColor: isDark ? Colors.grey[900] : Colors.grey[50],
                 ),
                 style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontFamily: 'Roboto',
+                  fontSize: 16,
                 ),
               ),
               const SizedBox(height: 16),
@@ -385,32 +494,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 decoration: InputDecoration(
                   labelText: appLocalizations.confirmPassword,
                   labelStyle: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                    fontFamily: 'Roboto',
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: Theme.of(context).dividerColor,
+                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).primaryColor,
+                    borderSide: const BorderSide(
+                      color: Color(0xFF4CAF50),
                       width: 2,
                     ),
                   ),
                   prefixIcon: Icon(
-                    Icons.lock_outline,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                    Icons.lock_outline_rounded,
+                    color: isDark ? Colors.white70 : Colors.black54,
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
-                      color: Theme.of(context).textTheme.bodyMedium?.color,
+                      _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      color: isDark ? Colors.white70 : Colors.black54,
                     ),
                     onPressed: () {
                       setState(() {
@@ -419,10 +532,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                   filled: true,
-                  fillColor: Theme.of(context).cardColor,
+                  fillColor: isDark ? Colors.grey[900] : Colors.grey[50],
                 ),
                 style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontFamily: 'Roboto',
+                  fontSize: 16,
                 ),
               ),
 
@@ -430,8 +545,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Text(
                 appLocalizations.passwordMinLength,
                 style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                  color: isDark ? Colors.white54 : Colors.black45,
                   fontSize: 12,
+                  fontFamily: 'Roboto',
                 ),
               ),
 
@@ -443,12 +559,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _register,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
+                    backgroundColor: const Color(0xFF4CAF50),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 0,
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -461,7 +578,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   )
                       : Text(
                     appLocalizations.createAccount,
-                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
