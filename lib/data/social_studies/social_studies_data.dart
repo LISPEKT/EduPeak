@@ -10,7 +10,7 @@ import '../../language_manager.dart';
 // Импорты для каждого региона и языка
 import 'social_studies_ru_ru.dart' as ru_ru;
 import 'social_studies_ru_en.dart' as ru_en;
-import 'social_studies_ru_de.dart' as ru_de;
+//import 'social_studies_ru_de.dart' as ru_de;
 //import 'social_studies_lt_lt.dart' as lt_lt;
 //import 'social_studies_lt_en.dart' as lt_en;
 //import 'social_studies_de_de.dart' as de_de;
@@ -42,7 +42,7 @@ class SocialStudiesData {
       //11: ru_en.socialStudiesSubjects11,
     },
     'ru_de': {
-      6: ru_de.socialStudiesSubjects6,
+      //6: ru_de.socialStudiesSubjects6,
       //7: ru_de.socialStudiesSubjects7,
       //8: ru_de.socialStudiesSubjects8,
       //9: ru_de.socialStudiesSubjects9,

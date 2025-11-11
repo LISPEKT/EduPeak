@@ -386,6 +386,9 @@ class AppLocalizations {
       'send': 'Отправить',
       'guest':'Гость',
       'subject':'Предмет',
+      'review':'Повторение',
+      'dictionary':'Словарь',
+      'home':'Главная',
     },
     'en': {
       'app_title': 'EduPeak',
@@ -761,6 +764,9 @@ class AppLocalizations {
       'send': 'Send',
       'guest':'Guest',
       'subject':'Subject',
+      'review':'Review',
+      'dictionary':'Dictionary',
+      'home':'Home',
     },
     'de': {
       'app_title': 'EduPeak',
@@ -1136,6 +1142,10 @@ class AppLocalizations {
       'send': 'Senden',
       'guest':'Gast',
       'subject':'Thema',
+      'review':'Rezension',
+      'dictionary':'Wörterbuch',
+      'home':'Heim',
+      '':'',
     },
   };
 
@@ -1518,6 +1528,9 @@ class AppLocalizations {
   String get send => _localizedValues[locale.languageCode]?['send'] ?? 'Send';
   String get guest => _localizedValues[locale.languageCode]?['guest'] ?? 'Guest';
   String get subject => _localizedValues[locale.languageCode]?['subject'] ?? 'Subject';
+  String get review => _localizedValues[locale.languageCode]?['review'] ?? 'Review';
+  String get dictionary => _localizedValues[locale.languageCode]?['dictionary'] ?? 'Dictionary';
+  String get home => _localizedValues[locale.languageCode]?['home'] ?? 'Home';
 
 }
 

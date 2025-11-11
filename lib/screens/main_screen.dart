@@ -19,6 +19,8 @@ import 'xp_screen.dart';
 import 'friends_screen.dart';
 import 'achievements_screen.dart';
 import 'eduleague_screen.dart';
+import 'review_screen.dart';
+import 'dictionary_screen.dart';
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -30,6 +32,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  int _currentBottomNavIndex = 0;
   int? _selectedGrade;
   String _selectedSubject = 'История';
   String _searchQuery = '';
@@ -47,20 +50,17 @@ class _MainScreenState extends State<MainScreen> {
   final GlobalKey<_OptimizedTopicsListViewState> _topicsListKey = GlobalKey();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // Получаем данные предметов через контекст
   Map<int, List<Subject>> get _subjectsData {
     try {
       return getSubjectsByGrade(context);
     } catch (e) {
       print('❌ Error getting subjects data: $e');
-      // Возвращаем данные по умолчанию
       return {
         5: [Subject(name: 'История', topicsByGrade: {5: []})],
       };
     }
   }
 
-  // Добавьте методы для навигации в класс _MainScreenState:
   void _openAchievements() {
     Navigator.push(
       context,
@@ -87,14 +87,12 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _checkAuthStatus();
     _loadLastSelected();
-    // _loadUserData() и _debugCheckTopics() будут вызваны после построения
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Загружаем данные когда контекст готов для Provider
-    if (_username.isEmpty) { // Загружаем только один раз
+    if (_username.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadUserData();
         _debugCheckTopics();
@@ -102,7 +100,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // Загружаем последние выбранные класс и предмет
   Future<void> _loadLastSelected() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -111,8 +108,8 @@ class _MainScreenState extends State<MainScreen> {
 
       if (mounted) {
         setState(() {
-          _selectedGrade = lastGrade ?? 5; // По умолчанию 5 класс
-          _selectedSubject = lastSubject ?? 'История'; // По умолчанию История
+          _selectedGrade = lastGrade ?? 5;
+          _selectedSubject = lastSubject ?? 'История';
         });
       }
 
@@ -128,7 +125,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // Сохраняем выбранные класс и предмет
   Future<void> _saveLastSelected() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -177,7 +173,6 @@ class _MainScreenState extends State<MainScreen> {
           _avatar = avatar;
           _dailyCompleted = stats.dailyCompletion[DateTime.now().toIso8601String().split('T')[0]] ?? false;
 
-          // Автоматически выбираем первый доступный предмет если текущий не доступен
           final subjects = _availableSubjects;
           if (subjects.isNotEmpty && !subjects.contains(_selectedSubject)) {
             _selectedSubject = subjects.first;
@@ -187,7 +182,6 @@ class _MainScreenState extends State<MainScreen> {
       }
 
       print('👤 User data loaded - Username: $username, Streak: ${stats.streakDays} days');
-      print('📊 User progress: ${stats.topicProgress}');
     } catch (e) {
       print('❌ Error loading user data: $e');
     }
@@ -220,8 +214,6 @@ class _MainScreenState extends State<MainScreen> {
     if (_selectedGrade != null) {
       final subjects = _subjectsData[_selectedGrade] ?? [];
       final subjectNames = subjects.map((s) => s.name).toList();
-
-      // Убираем дубликаты
       final uniqueSubjects = subjectNames.toSet().toList();
       print('📖 Subjects for grade $_selectedGrade: $uniqueSubjects');
       return uniqueSubjects;
@@ -365,7 +357,7 @@ class _MainScreenState extends State<MainScreen> {
         _selectedSubject = subjects.first;
       }
       _topicsListKey.currentState?._clearCache();
-      _saveLastSelected(); // Сохраняем выбор
+      _saveLastSelected();
       print('🎓 Grade changed to: $value, subjects: $subjects');
     });
   }
@@ -375,7 +367,7 @@ class _MainScreenState extends State<MainScreen> {
       setState(() {
         _selectedSubject = value;
         _topicsListKey.currentState?._clearCache();
-        _saveLastSelected(); // Сохраняем выбор
+        _saveLastSelected();
         print('📖 Subject changed to: $value');
       });
     }
@@ -446,56 +438,168 @@ class _MainScreenState extends State<MainScreen> {
     _scaffoldKey.currentState?.openDrawer();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  void _onBottomNavTap(int index) {
+    setState(() {
+      _currentBottomNavIndex = index;
+    });
+  }
+
+  Widget _getCurrentScreen() {
+    switch (_currentBottomNavIndex) {
+      case 0:
+        return _buildHomeScreen();
+      case 1:
+        return ReviewScreen();
+      case 2:
+        return DictionaryScreen();
+      default:
+        return _buildHomeScreen();
+    }
+  }
+
+  Widget _buildHomeScreen() {
     final appLocalizations = AppLocalizations.of(context);
 
+    return Column(
+      children: [
+        _ProfileHeader(
+          avatar: _avatar,
+          isPhotoAvatar: _isPhotoAvatar(),
+          username: _username,
+          dailyCompleted: _dailyCompleted,
+          streakDays: _userStats.streakDays,
+          onAvatarPressed: _openDrawer,
+          appLocalizations: appLocalizations,
+        ),
+        _GradeSubjectSelector(
+          selectedGrade: _selectedGrade,
+          selectedSubject: _selectedSubject,
+          availableSubjects: _availableSubjects,
+          onGradeChanged: _onGradeChanged,
+          onSubjectChanged: _onSubjectChanged,
+          appLocalizations: appLocalizations,
+        ),
+        _SearchField(
+          onChanged: _onSearchChanged,
+          appLocalizations: appLocalizations,
+        ),
+        Expanded(
+          child: _OptimizedTopicsList(
+            filteredTopics: _filteredTopics,
+            isTopicCompleted: _isTopicCompleted,
+            onTopicTap: (topic) => _showTopicPopup(context, topic),
+            onRefresh: _refreshData,
+            listKey: _topicsListKey,
+            appLocalizations: appLocalizations,
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      drawer: _buildDrawer(appLocalizations),
+      drawer: _currentBottomNavIndex == 0 ? _buildDrawer(AppLocalizations.of(context)) : null,
       body: SafeArea(
-        child: Column(
-          children: [
-            _ProfileHeader(
-              avatar: _avatar,
-              isPhotoAvatar: _isPhotoAvatar(),
-              username: _username,
-              dailyCompleted: _dailyCompleted,
-              streakDays: _userStats.streakDays,
-              onAvatarPressed: _openDrawer,
-              appLocalizations: appLocalizations,
-            ),
-            _GradeSubjectSelector(
-              selectedGrade: _selectedGrade,
-              selectedSubject: _selectedSubject,
-              availableSubjects: _availableSubjects,
-              onGradeChanged: _onGradeChanged,
-              onSubjectChanged: _onSubjectChanged,
-              appLocalizations: appLocalizations,
-            ),
-            _SearchField(
-              onChanged: _onSearchChanged,
-              appLocalizations: appLocalizations,
-            ),
-            Expanded(
-              child: _OptimizedTopicsList(
-                filteredTopics: _filteredTopics,
-                isTopicCompleted: _isTopicCompleted,
-                onTopicTap: (topic) => _showTopicPopup(context, topic),
-                onRefresh: _refreshData,
-                listKey: _topicsListKey,
-                appLocalizations: appLocalizations,
+        child: _getCurrentScreen(),
+      ),
+      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  Widget _buildBottomNavigationBar() {
+    final appLocalizations = AppLocalizations.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+      ),
+      child: ClipRRect(
+        child: Container(
+          height: 80,
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+          ),
+          child: Stack(
+            children: [
+              // Полностью прозрачный фон
+              Container(
+                color: Colors.transparent,
               ),
-            ),
-          ],
+
+              // Анимированный индикатор
+              AnimatedPositioned(
+                duration: Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                left: MediaQuery.of(context).size.width / 3 * _currentBottomNavIndex + MediaQuery.of(context).size.width / 6 - 20,
+                bottom: 8,
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Theme.of(context).primaryColor.withOpacity(0.3),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Контент панели с легким градиентом для читаемости
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Theme.of(context).scaffoldBackgroundColor.withOpacity(0.1),
+                      Theme.of(context).scaffoldBackgroundColor.withOpacity(0.2),
+                    ],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    _BottomNavItem(
+                      index: 0,
+                      currentIndex: _currentBottomNavIndex,
+                      icon: Icons.home,
+                      label: appLocalizations.home,
+                      onTap: () => _onBottomNavTap(0),
+                    ),
+                    _BottomNavItem(
+                      index: 1,
+                      currentIndex: _currentBottomNavIndex,
+                      icon: Icons.refresh,
+                      label: appLocalizations.review,
+                      onTap: () => _onBottomNavTap(1),
+                    ),
+                    _BottomNavItem(
+                      index: 2,
+                      currentIndex: _currentBottomNavIndex,
+                      icon: Icons.book,
+                      label: appLocalizations.dictionary,
+                      onTap: () => _onBottomNavTap(2),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // В методе _buildDrawer замените существующий код после Statistics на:
-  _buildDrawer(AppLocalizations appLocalizations) {
+  Widget _buildDrawer(AppLocalizations appLocalizations) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final profileColor = isDark
         ? const Color(0xFF2D4A2D)
@@ -619,6 +723,79 @@ class _MainScreenState extends State<MainScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BottomNavItem extends StatelessWidget {
+  final int index;
+  final int currentIndex;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _BottomNavItem({
+    required this.index,
+    required this.currentIndex,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = index == currentIndex;
+
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          splashColor: Theme.of(context).primaryColor.withOpacity(0.1),
+          highlightColor: Theme.of(context).primaryColor.withOpacity(0.05),
+          child: Container(
+            height: 80,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: Duration(milliseconds: 200),
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Theme.of(context).primaryColor.withOpacity(0.1)
+                        : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 24,
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                  ),
+                ),
+                SizedBox(height: 4),
+                AnimatedDefaultTextStyle(
+                  duration: Duration(milliseconds: 200),
+                  style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                    color: isSelected
+                        ? Theme.of(context).primaryColor
+                        : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: isSelected ? 12 : 11,
+                  ),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -804,9 +981,8 @@ class _GradeSubjectSelector extends StatelessWidget {
       color: Theme.of(context).cardColor,
       child: Row(
         children: [
-          // Классы - уже
           Container(
-            width: MediaQuery.of(context).size.width * 0.35, // 35% ширины
+            width: MediaQuery.of(context).size.width * 0.35,
             child: _GradeDropdown(
               selectedGrade: selectedGrade,
               onChanged: onGradeChanged,
@@ -814,7 +990,6 @@ class _GradeSubjectSelector extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          // Предметы - шире
           Expanded(
             child: _SubjectDropdown(
               selectedSubject: selectedSubject,
@@ -926,10 +1101,7 @@ class _SubjectDropdown extends StatelessWidget {
       'Статистика и вероятность': '📊',
     };
 
-    // Убедимся, что нет дублирующихся предметов
     final uniqueSubjects = availableSubjects.toSet().toList();
-
-    // Если выбранный предмет не в списке, выберем первый доступный
     final currentSubject = uniqueSubjects.contains(selectedSubject)
         ? selectedSubject
         : (uniqueSubjects.isNotEmpty ? uniqueSubjects.first : '');
@@ -1189,7 +1361,6 @@ class _TopicCard extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              // Иконка темы
               Container(
                 width: 56,
                 height: 56,
@@ -1223,15 +1394,11 @@ class _TopicCard extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(width: 16),
-
-              // Контент
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Заголовок и статус
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1239,7 +1406,6 @@ class _TopicCard extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Класс (если есть)
                               if (grade != null)
                                 Container(
                                   margin: const EdgeInsets.only(bottom: 4),
@@ -1257,8 +1423,6 @@ class _TopicCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-
-                              // Название темы
                               Text(
                                 topicData.name,
                                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1275,8 +1439,6 @@ class _TopicCard extends StatelessWidget {
                             ],
                           ),
                         ),
-
-                        // Иконка статуса выполнения
                         if (isCompleted)
                           Container(
                             width: 24,
@@ -1295,10 +1457,7 @@ class _TopicCard extends StatelessWidget {
                           ),
                       ],
                     ),
-
                     const SizedBox(height: 8),
-
-                    // Описание
                     Text(
                       topicData.description,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1315,8 +1474,6 @@ class _TopicCard extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // Стрелка навигации
               const SizedBox(width: 8),
               Icon(
                 Icons.arrow_forward_ios_rounded,

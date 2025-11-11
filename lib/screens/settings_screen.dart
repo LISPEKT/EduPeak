@@ -1215,7 +1215,7 @@ $feedback
             const SizedBox(height: 16),
             _buildInfoRow(
               title: appLocalizations.version,
-              value: 'alpha 0.33.3',
+              value: 'alpha 0.34.0',
             ),
             _buildInfoRow(
               title: appLocalizations.developer,
