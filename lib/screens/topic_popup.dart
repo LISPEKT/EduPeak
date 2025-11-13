@@ -1,3 +1,4 @@
+// topic_popup.dart - РЕДИЗАЙН В MD3
 import 'package:flutter/material.dart';
 import 'lesson_screen.dart';
 import '../localization.dart';
@@ -55,9 +56,8 @@ class _TopicPopupState extends State<TopicPopup> {
     }
   }
 
-  // Проверка завершённости темы
   bool get _isTopicCompleted {
-    final topicName = widget.topic.name; // Временно используем имя, пока нет ID
+    final topicName = widget.topic.name;
     for (final subjectName in _userStats.topicProgress.keys) {
       final subjectProgress = _userStats.topicProgress[subjectName];
       if (subjectProgress != null && subjectProgress.containsKey(topicName)) {
@@ -69,9 +69,8 @@ class _TopicPopupState extends State<TopicPopup> {
     return false;
   }
 
-  // Получение прогресса по теме
   int get _topicProgress {
-    final topicName = widget.topic.name; // Временно используем имя, пока нет ID
+    final topicName = widget.topic.name;
     for (final subjectName in _userStats.topicProgress.keys) {
       final subjectProgress = _userStats.topicProgress[subjectName];
       if (subjectProgress != null && subjectProgress.containsKey(topicName)) {
@@ -81,7 +80,6 @@ class _TopicPopupState extends State<TopicPopup> {
     return 0;
   }
 
-  // Получение процента выполнения
   double get _completionPercentage {
     final totalQuestions = widget.topic.questions.length;
     if (totalQuestions == 0) return 0.0;
@@ -100,7 +98,6 @@ class _TopicPopupState extends State<TopicPopup> {
         ),
       ),
     ).then((_) {
-      // Обновляем статистику после возвращения с урока
       _loadUserStats();
     });
   }
@@ -108,53 +105,78 @@ class _TopicPopupState extends State<TopicPopup> {
   @override
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context);
+    final isSmallScreen = MediaQuery.of(context).size.height < 600;
 
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: EdgeInsets.all(isSmallScreen ? 12 : 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Заголовок с иконкой и названием
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 50,
-                  height: 50,
+                  width: isSmallScreen ? 50 : 60,
+                  height: isSmallScreen ? 50 : 60,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Center(
                     child: Text(
                       widget.topic.imageAsset,
-                      style: const TextStyle(fontSize: 20),
+                      style: TextStyle(fontSize: isSmallScreen ? 20 : 24),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: isSmallScreen ? 12 : 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.topic.name,
-                        style: Theme.of(context).textTheme.headlineLarge,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: isSmallScreen ? 50 : 60,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Text(
+                              widget.topic.name,
+                              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: isSmallScreen ? 18 : 20,
+                                height: 1.2,
+                              ),
+                              maxLines: 3,
+                              overflow: TextOverflow.visible,
+                            ),
+                          ),
+                        ),
                       ),
                       if (widget.currentGrade != null) ...[
-                        const SizedBox(height: 4),
+                        SizedBox(height: isSmallScreen ? 4 : 6),
                         Text(
                           '${widget.currentGrade} ${appLocalizations.gradeClass}',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: isSmallScreen ? 12 : null,
                           ),
                         ),
                       ],
@@ -164,147 +186,161 @@ class _TopicPopupState extends State<TopicPopup> {
               ],
             ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: isSmallScreen ? 16 : 20),
 
-            // Прогресс выполнения (если есть прогресс)
+            // Прогресс выполнения
             if (_topicProgress > 0 && !_isLoading) ...[
-              _buildProgressSection(appLocalizations),
-              const SizedBox(height: 16),
+              _buildProgressSection(appLocalizations, isSmallScreen),
+              SizedBox(height: isSmallScreen ? 16 : 20),
             ],
 
             // Описание темы
             Text(
               appLocalizations.topicDescription,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontSize: 18,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: isSmallScreen ? 16 : null,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: isSmallScreen ? 6 : 8),
             Text(
               widget.topic.description,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.4,
+                fontSize: isSmallScreen ? 14 : null,
+              ),
             ),
 
-            const SizedBox(height: 16),
+            SizedBox(height: isSmallScreen ? 16 : 20),
 
             // Статистика темы
-            _buildTopicStats(appLocalizations),
+            _buildTopicStats(appLocalizations, isSmallScreen),
 
-            const SizedBox(height: 24),
+            SizedBox(height: isSmallScreen ? 20 : 24),
 
             // Кнопка действия
-            _buildActionButton(appLocalizations),
+            _buildActionButton(appLocalizations, isSmallScreen),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildProgressSection(AppLocalizations appLocalizations) {
+  Widget _buildProgressSection(AppLocalizations appLocalizations, bool isSmallScreen) {
     final totalQuestions = widget.topic.questions.length;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _isTopicCompleted
-                  ? '🎉 ${_getLocalizedCompletionText(appLocalizations)}'
-                  : '${_getLocalizedProgressText(appLocalizations)}:',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: _isTopicCompleted
-                    ? Colors.green
-                    : Theme.of(context).colorScheme.onSurface,
+    return Container(
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  _isTopicCompleted
+                      ? '🎉 ${_getLocalizedCompletionText(appLocalizations)}'
+                      : '${_getLocalizedProgressText(appLocalizations)}:',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: _isTopicCompleted
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurface,
+                    fontSize: isSmallScreen ? 14 : null,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
+              SizedBox(width: 8),
+              Text(
+                '$_topicProgress/$totalQuestions',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: _isTopicCompleted
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.primary,
+                  fontSize: isSmallScreen ? 14 : null,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isSmallScreen ? 8 : 12),
+          LinearProgressIndicator(
+            value: _completionPercentage / 100,
+            backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+            color: _isTopicCompleted
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(8),
+            minHeight: isSmallScreen ? 6 : 8,
+          ),
+          if (_completionPercentage > 0 && _completionPercentage < 100) ...[
+            SizedBox(height: isSmallScreen ? 6 : 8),
             Text(
-              '$_topicProgress/$totalQuestions',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: _isTopicCompleted
-                    ? Colors.green
-                    : Theme.of(context).primaryColor,
+              '${_completionPercentage.toStringAsFixed(1)}%',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: isSmallScreen ? 11 : null,
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: _completionPercentage / 100,
-          backgroundColor: Theme.of(context).colorScheme.surface.withOpacity(0.5),
-          color: _isTopicCompleted
-              ? Colors.green
-              : Theme.of(context).primaryColor,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        if (_completionPercentage > 0 && _completionPercentage < 100) ...[
-          const SizedBox(height: 4),
-          Text(
-            '${_completionPercentage.toStringAsFixed(1)}%',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-            ),
-          ),
         ],
-      ],
+      ),
     );
   }
 
   String _getLocalizedCompletionText(AppLocalizations appLocalizations) {
-    // Временное решение - добавим эти тексты вручную
     switch (appLocalizations.locale.languageCode) {
-      case 'ru':
-        return 'Тема завершена';
-      case 'en':
-        return 'Topic completed';
-      case 'de':
-        return 'Thema abgeschlossen';
-      default:
-        return 'Topic completed';
+      case 'ru': return 'Тема завершена';
+      case 'en': return 'Topic completed';
+      case 'de': return 'Thema abgeschlossen';
+      default: return 'Topic completed';
     }
   }
 
   String _getLocalizedProgressText(AppLocalizations appLocalizations) {
-    // Временное решение
     switch (appLocalizations.locale.languageCode) {
-      case 'ru':
-        return 'Прогресс';
-      case 'en':
-        return 'Progress';
-      case 'de':
-        return 'Fortschritt';
-      default:
-        return 'Progress';
+      case 'ru': return 'Прогресс';
+      case 'en': return 'Progress';
+      case 'de': return 'Fortschritt';
+      default: return 'Progress';
     }
   }
 
-  Widget _buildTopicStats(AppLocalizations appLocalizations) {
+  Widget _buildTopicStats(AppLocalizations appLocalizations, bool isSmallScreen) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatItem(
-            Icons.question_answer,
+            Icons.quiz_rounded,
             '${widget.topic.questions.length}',
             _getLocalizedQuestionsText(appLocalizations),
+            isSmallScreen,
           ),
           _buildStatItem(
-            Icons.timer,
+            Icons.schedule_rounded,
             '${widget.topic.questions.length}',
             _getLocalizedMinutesText(appLocalizations),
+            isSmallScreen,
           ),
           _buildStatItem(
-            Icons.emoji_events,
+            Icons.emoji_events_rounded,
             _isTopicCompleted ? '100%' : '${_completionPercentage.toStringAsFixed(0)}%',
             appLocalizations.success,
+            isSmallScreen,
           ),
         ],
       ),
@@ -313,75 +349,80 @@ class _TopicPopupState extends State<TopicPopup> {
 
   String _getLocalizedQuestionsText(AppLocalizations appLocalizations) {
     switch (appLocalizations.locale.languageCode) {
-      case 'ru':
-        return 'вопросов';
-      case 'en':
-        return 'questions';
-      case 'de':
-        return 'Fragen';
-      default:
-        return 'questions';
+      case 'ru': return 'вопросов';
+      case 'en': return 'questions';
+      case 'de': return 'Fragen';
+      default: return 'questions';
     }
   }
 
   String _getLocalizedMinutesText(AppLocalizations appLocalizations) {
     switch (appLocalizations.locale.languageCode) {
-      case 'ru':
-        return 'минут';
-      case 'en':
-        return 'minutes';
-      case 'de':
-        return 'Minuten';
-      default:
-        return 'minutes';
+      case 'ru': return 'минут';
+      case 'en': return 'minutes';
+      case 'de': return 'Minuten';
+      default: return 'minutes';
     }
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label) {
+  Widget _buildStatItem(IconData icon, String value, String label, bool isSmallScreen) {
     return Column(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Theme.of(context).primaryColor,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.bold,
+        Container(
+          width: isSmallScreen ? 36 : 40,
+          height: isSmallScreen ? 36 : 40,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            size: isSmallScreen ? 18 : 20,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
           ),
         ),
-        const SizedBox(height: 2),
+        SizedBox(height: isSmallScreen ? 6 : 8),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            fontSize: isSmallScreen ? 14 : null,
+          ),
+        ),
+        SizedBox(height: isSmallScreen ? 2 : 4),
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: isSmallScreen ? 10 : null,
           ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
   }
 
-  Widget _buildActionButton(AppLocalizations appLocalizations) {
+  Widget _buildActionButton(AppLocalizations appLocalizations, bool isSmallScreen) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      child: FilledButton(
         onPressed: _startLesson,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).primaryColor,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+        style: FilledButton.styleFrom(
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 14 : 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
         child: Text(
           _isTopicCompleted
               ? appLocalizations.startTestButton
               : appLocalizations.startLessonButton,
-          style: const TextStyle(
-            fontSize: 16,
-            color: Colors.white,
+          style: TextStyle(
+            fontSize: isSmallScreen ? 14 : 16,
             fontWeight: FontWeight.w600,
           ),
         ),

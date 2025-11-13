@@ -1,3 +1,4 @@
+// test_screen.dart - ИСПРАВЛЕННАЯ ВЕРСИЯ
 import 'package:flutter/material.dart';
 import 'result_screen.dart';
 import '../widgets/answer_popup.dart';
@@ -37,19 +38,13 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
   late TextEditingController _textController;
+  bool _testCompleted = false; // Флаг завершения теста
 
   @override
   void initState() {
     super.initState();
-
-    print('🎯 TestScreen initialized:');
-    print('   Topic: ${widget.topic.name} (ID: ${widget.topic.id})');
-    print('   Grade: ${widget.currentGrade}');
-    print('   Subject: ${widget.currentSubject}');
-    print('   Questions: ${widget.topic.questions.length}');
-
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
     _progressAnimation = CurvedAnimation(
@@ -70,7 +65,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
 
   void _shuffleQuestions() {
     final questions = <Question>[];
-
     for (final originalQuestion in widget.topic.questions) {
       if (originalQuestion.isSingleChoice) {
         final shuffledQuestion = _shuffleQuestionOptions(originalQuestion);
@@ -85,9 +79,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
         ));
       }
     }
-
     questions.shuffle();
-
     setState(() {
       _shuffledQuestions = questions;
     });
@@ -97,9 +89,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     final correctAnswer = originalQuestion.options[originalQuestion.correctIndex];
     final options = List<String>.from(originalQuestion.options);
     options.shuffle();
-
     final newCorrectIndex = options.indexOf(correctAnswer);
-
     return Question(
       text: originalQuestion.text,
       options: options,
@@ -121,17 +111,18 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   double get _progressValue => _hasMoreQuestions ? (_currentQuestionIndex / totalQuestions) : 1.0;
 
   void _checkAnswer() {
-    if (_isSubmitting) return;
+    if (_isSubmitting || _testCompleted) return;
 
     final question = _currentQuestion;
     if (question == null) return;
 
-    // Валидация в зависимости от типа вопроса
+    // Валидация
     if (question.isTextAnswer && _textAnswer.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context).pleaseEnterAnswer),
-          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.fixed,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
       return;
@@ -141,7 +132,8 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context).pleaseSelectAnswer),
-          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.fixed,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
       return;
@@ -151,14 +143,14 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context).pleaseSelectAtLeastOneAnswer),
-          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.fixed,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
       return;
     }
 
     setState(() => _isSubmitting = true);
-
     bool isCorrect = _checkAnswerCorrectness(question);
 
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -192,18 +184,15 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     try {
       if (question.isTextAnswer) {
         final correctIndex = _getCorrectIndex(question.correctIndex);
-        return _textAnswer.trim().toLowerCase() ==
-            question.options[correctIndex].toLowerCase();
+        return _textAnswer.trim().toLowerCase() == question.options[correctIndex].toLowerCase();
       } else if (question.isSingleChoice) {
         final correctIndex = _getCorrectIndex(question.correctIndex);
         return _selectedAnswerIndex == correctIndex;
       } else if (question.isMultipleChoice) {
         final correctAnswers = _getCorrectAnswers(question.correctIndex);
         if (_selectedMultipleAnswers.length != correctAnswers.length) return false;
-
         _selectedMultipleAnswers.sort();
         final sortedCorrect = List<int>.from(correctAnswers)..sort();
-
         for (int i = 0; i < _selectedMultipleAnswers.length; i++) {
           if (_selectedMultipleAnswers[i] != sortedCorrect[i]) return false;
         }
@@ -212,32 +201,21 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       return false;
     } catch (e) {
       print('❌ Error in _checkAnswerCorrectness: $e');
-      print('❌ Question: ${question.text}');
-      print('❌ Correct index type: ${question.correctIndex.runtimeType}');
-      print('❌ Correct index value: ${question.correctIndex}');
       return false;
     }
   }
 
   int _getCorrectIndex(dynamic correctIndex) {
-    if (correctIndex is int) {
-      return correctIndex;
-    } else if (correctIndex is List<int>) {
-      return correctIndex.isNotEmpty ? correctIndex[0] : -1;
-    } else if (correctIndex is List) {
-      return correctIndex.isNotEmpty ? (correctIndex[0] as int) : -1;
-    }
+    if (correctIndex is int) return correctIndex;
+    else if (correctIndex is List<int>) return correctIndex.isNotEmpty ? correctIndex[0] : -1;
+    else if (correctIndex is List) return correctIndex.isNotEmpty ? (correctIndex[0] as int) : -1;
     return -1;
   }
 
   List<int> _getCorrectAnswers(dynamic correctIndex) {
-    if (correctIndex is List<int>) {
-      return correctIndex;
-    } else if (correctIndex is List) {
-      return correctIndex.cast<int>();
-    } else if (correctIndex is int) {
-      return [correctIndex];
-    }
+    if (correctIndex is List<int>) return correctIndex;
+    else if (correctIndex is List) return correctIndex.cast<int>();
+    else if (correctIndex is int) return [correctIndex];
     return [];
   }
 
@@ -252,6 +230,8 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   }
 
   void _nextQuestion() {
+    if (_testCompleted) return;
+
     _animationController.reset();
 
     setState(() {
@@ -259,18 +239,25 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       _selectedAnswerIndex = -1;
       _selectedMultipleAnswers.clear();
       _textAnswer = '';
-      _textController.clear(); // Очищаем контроллер
+      _textController.clear();
       _currentQuestionIndex++;
     });
 
     _animationController.forward();
 
+    // Проверяем, завершился ли тест
     if (!_hasMoreQuestions) {
       _completeTest();
     }
   }
 
   void _completeTest() async {
+    if (_testCompleted) return;
+
+    setState(() {
+      _testCompleted = true;
+    });
+
     print('🎯 START _completeTest');
     print('📊 Test results - Correct: $_correctAnswersCount/$totalQuestions');
 
@@ -289,12 +276,14 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       print('2. Topic info - Subject: $subjectName, Topic ID: $topicId, Topic Name: ${widget.topic.name}');
 
       print('3. Calling updateTopicProgress...');
+// Передаем актуальное количество правильных ответов
+      final actualCorrectAnswers = _correctAnswersCount;
       await UserDataStorage.updateTopicProgress(
           subjectName,
           topicId,
-          _correctAnswersCount
+          actualCorrectAnswers
       );
-      print('✅ updateTopicProgress completed');
+      print('✅ updateTopicProgress completed with $actualCorrectAnswers correct answers');
 
     } catch (e) {
       print('❌ ERROR in _completeTest: $e');
@@ -304,10 +293,11 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     print('🎯 END _completeTest');
 
     if (mounted) {
-      Navigator.pushReplacement(
+      // Используем обычный push для перехода на ResultScreen
+      Navigator.push(
         context,
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) => ResultScreen(
+        MaterialPageRoute(
+          builder: (context) => ResultScreen(
             topic: widget.topic,
             userAnswers: _userAnswers,
             textAnswers: _textAnswers,
@@ -315,16 +305,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
             currentGrade: widget.currentGrade,
             currentSubject: widget.currentSubject,
           ),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(1.0, 0.0);
-            const end = Offset.zero;
-            const curve = Curves.easeInOut;
-            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-            var offsetAnimation = animation.drive(tween);
-
-            return SlideTransition(position: offsetAnimation, child: child);
-          },
-          transitionDuration: const Duration(milliseconds: 400),
         ),
       );
     }
@@ -351,10 +331,14 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     final percentage = _correctAnswersCount / totalQuestions;
     if (percentage >= 0.8) return Colors.green;
     if (percentage >= 0.6) return Colors.orange;
-    return Theme.of(context).primaryColor;
+    return Theme.of(context).colorScheme.primary;
   }
 
   bool _isAnswerCorrectAtIndex(int questionIndex) {
+    if (questionIndex >= _shuffledQuestions.length || questionIndex >= _userAnswers.length) {
+      return false;
+    }
+
     final question = _shuffledQuestions[questionIndex];
     final userAnswer = _userAnswers[questionIndex];
 
@@ -385,31 +369,26 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       return false;
     } catch (e) {
       print('❌ Error in _isAnswerCorrectAtIndex: $e');
-      print('❌ Question: ${question.text}');
-      print('❌ Correct index type: ${question.correctIndex.runtimeType}');
-      print('❌ Correct index value: ${question.correctIndex}');
-      print('❌ User answer type: ${userAnswer.runtimeType}');
-      print('❌ User answer value: $userAnswer');
       return false;
     }
   }
 
   Widget _buildQuestionIndicator() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: List.generate(totalQuestions, (index) {
         final isActive = index == _currentQuestionIndex;
         final isCompleted = index < _currentQuestionIndex;
         final isCorrect = index < _userAnswers.length ? _isAnswerCorrectAtIndex(index) : false;
 
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
           width: isActive ? 12 : 8,
           height: isActive ? 12 : 8,
           decoration: BoxDecoration(
             color: isCompleted
-                ? (isCorrect ? Colors.green : Colors.red)
-                : (isActive ? Theme.of(context).primaryColor : Colors.grey[300]),
+                ? (isCorrect ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error)
+                : (isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline.withOpacity(0.3)),
             shape: BoxShape.circle,
           ),
         );
@@ -424,58 +403,50 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
         onChanged: (value) => setState(() => _textAnswer = value),
         decoration: InputDecoration(
           hintText: AppLocalizations.of(context).enterAnswer,
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surfaceVariant,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.withOpacity(0.5)),
-          ),
-          filled: true,
-          fillColor: Theme.of(context).cardColor,
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
+            borderSide: BorderSide.none,
           ),
           contentPadding: const EdgeInsets.all(16),
         ),
         maxLines: 3,
-        style: TextStyle(
-          color: Theme.of(context).textTheme.bodyLarge?.color,
-          fontSize: 16,
-        ),
+        style: Theme.of(context).textTheme.bodyLarge,
       );
     } else if (question.isSingleChoice) {
       return Column(
         children: List.generate(question.options.length, (index) {
           final isSelected = _selectedAnswerIndex == index;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.only(bottom: 12),
-            child: ElevatedButton(
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: FilledButton.tonal(
               onPressed: _showResult ? null : () {
                 setState(() => _selectedAnswerIndex = index);
               },
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 backgroundColor: isSelected
-                    ? Theme.of(context).primaryColor.withOpacity(0.15)
-                    : Theme.of(context).cardColor,
-                foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-                minimumSize: const Size(double.infinity, 64),
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : Theme.of(context).colorScheme.surfaceVariant,
+                foregroundColor: isSelected
+                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                minimumSize: const Size(double.infinity, 56),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
                     color: isSelected
-                        ? Theme.of(context).primaryColor
-                        : Colors.grey.withOpacity(0.3),
-                    width: isSelected ? 2 : 1,
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.transparent,
+                    width: 2,
                   ),
                 ),
-                elevation: isSelected ? 2 : 0,
               ),
               child: Text(
                 question.options[index],
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                  fontSize: 15,
                 ),
               ),
             ),
@@ -485,24 +456,22 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     } else if (question.isMultipleChoice) {
       return Column(
         children: [
-          // Подсказка для множественного выбора
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              border: Border.all(color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.blue, size: 16),
+                Icon(Icons.info_rounded, color: Theme.of(context).colorScheme.primary, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     AppLocalizations.of(context).selectMultipleAnswers,
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 14,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
@@ -512,27 +481,27 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           const SizedBox(height: 16),
           ...List.generate(question.options.length, (index) {
             final isSelected = _selectedMultipleAnswers.contains(index);
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ElevatedButton(
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: FilledButton.tonal(
                 onPressed: _showResult ? null : () => _toggleMultipleAnswer(index),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: isSelected
-                      ? Theme.of(context).primaryColor.withOpacity(0.15)
-                      : Theme.of(context).cardColor,
-                  foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-                  minimumSize: const Size(double.infinity, 64),
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surfaceVariant,
+                  foregroundColor: isSelected
+                      ? Theme.of(context).colorScheme.onPrimaryContainer
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                  minimumSize: const Size(double.infinity, 56),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                     side: BorderSide(
                       color: isSelected
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey.withOpacity(0.3),
-                      width: isSelected ? 2 : 1,
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.transparent,
+                      width: 2,
                     ),
                   ),
-                  elevation: isSelected ? 2 : 0,
                 ),
                 child: Row(
                   children: [
@@ -543,23 +512,22 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isSelected
-                              ? Theme.of(context).primaryColor
-                              : Colors.grey,
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outline,
                           width: 2,
                         ),
-                        color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
+                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
                       ),
                       child: isSelected
-                          ? Icon(Icons.check, color: Colors.white, size: 16)
+                          ? Icon(Icons.check_rounded, color: Colors.white, size: 16)
                           : null,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         question.options[index],
-                        style: TextStyle(
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          fontSize: 15,
                         ),
                       ),
                     ),
@@ -571,7 +539,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
         ],
       );
     }
-
     return Container();
   }
 
@@ -579,14 +546,14 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context);
 
-    if (!_hasMoreQuestions) {
+    if (!_hasMoreQuestions && _testCompleted) {
       return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Theme.of(context).colorScheme.background,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Theme.of(context).primaryColor),
+              CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 20),
               Text(
                 appLocalizations.completingTest,
@@ -598,18 +565,37 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       );
     }
 
+    if (!_hasMoreQuestions) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 20),
+              Text(
+                'Завершение теста...',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final question = _currentQuestion!;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         title: Text(
           widget.topic.name,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
-        backgroundColor: Theme.of(context).cardColor,
-        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-        elevation: 1,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
         centerTitle: true,
         actions: [
           Container(
@@ -646,7 +632,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                       builder: (context, child) {
                         return LinearProgressIndicator(
                           value: _progressAnimation.value * _progressValue,
-                          backgroundColor: Colors.grey[300],
+                          backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
                           color: _getProgressColor(),
                           minHeight: 6,
                           borderRadius: BorderRadius.circular(3),
@@ -663,13 +649,13 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.1),
+                    color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     '${appLocalizations.question} ${_currentQuestionIndex + 1}/$totalQuestions',
                     style: TextStyle(
-                      color: Theme.of(context).primaryColor,
+                      color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -691,8 +677,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                           ),
                         ),
                         const SizedBox(height: 32),
-
-                        // Варианты ответов
                         _buildAnswerOptions(question),
                       ],
                     ),
@@ -705,14 +689,13 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 if (!_showResult) ...[
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: FilledButton(
                       onPressed: _isSubmitting ? null : _checkAnswer,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 2,
                       ),
                       child: _isSubmitting
                           ? const SizedBox(

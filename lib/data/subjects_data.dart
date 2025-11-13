@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'social_studies/social_studies_data.dart';
+import 'history/history_data.dart';
 import '../models/subject.dart';
 import '../services/region_manager.dart';
 import '../language_manager.dart';
@@ -57,7 +58,17 @@ List<Subject> _getGrade4Subjects(BuildContext context, String regionId) {
 }
 
 List<Subject> _getGrade5Subjects(BuildContext context, String regionId) {
-  return [];
+  final List<Subject> subjects = [];
+
+  // Добавляем обществознание если оно доступно в регионе
+  if (HistoryData.isAvailableInRegion(context)) {
+    subjects.addAll(HistoryData.getHistorySubjects5(context));
+  }
+
+  // Добавляем региональные предметы
+  _addRegionalSubjects(subjects, context, regionId, 6);
+
+  return subjects;
 }
 
 List<Subject> _getGrade6Subjects(BuildContext context, String regionId) {

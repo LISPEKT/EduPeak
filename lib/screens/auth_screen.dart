@@ -1,4 +1,3 @@
-// auth_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -97,7 +96,9 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${AppLocalizations.of(context).error}: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -116,12 +117,11 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final appLocalizations = AppLocalizations.of(context);
+    final appLocalizations = AppLocalizations.of(context)!;
     final languageManager = Provider.of<LanguageManager>(context);
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: Stack(
         children: [
           // Основной контент
@@ -145,34 +145,28 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                             width: 64,
                             height: 64,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF4CAF50),
+                              color: Theme.of(context).colorScheme.primary,
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Icon(
-                              Icons.school_outlined,
+                            child: Icon(
+                              Icons.school_rounded,
                               size: 32,
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.onPrimary,
                             ),
                           ),
                           const SizedBox(height: 24),
                           Text(
                             appLocalizations.appTitle,
-                            style: TextStyle(
-                              fontSize: 32,
+                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : Colors.black,
-                              fontFamily: 'GoogleSans',
-                              height: 1.2,
+                              color: Theme.of(context).colorScheme.onBackground,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             appLocalizations.conquerKnowledge,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: isDark ? Colors.white70 : Colors.black54,
-                              fontFamily: 'Roboto',
-                              fontWeight: FontWeight.w400,
+                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
                             ),
                           ),
                         ],
@@ -188,7 +182,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     child: Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.grey[900] : Colors.grey[50],
+                        color: Theme.of(context).colorScheme.surfaceVariant,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
@@ -197,22 +191,18 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                           _StatItem(
                             value: '1+',
                             label: appLocalizations.students,
-                            isDark: isDark,
                           ),
                           _StatItem(
                             value: '50+',
                             label: appLocalizations.topics,
-                            isDark: isDark,
                           ),
                           _StatItem(
                             value: '95%',
                             label: appLocalizations.success,
-                            isDark: isDark,
                           ),
                           _StatItem(
                             value: '14+',
                             label: appLocalizations.subjects,
-                            isDark: isDark,
                           ),
                         ],
                       ),
@@ -229,20 +219,16 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                       children: [
                         Text(
                           appLocalizations.joinAndImprove,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isDark ? Colors.white70 : Colors.black54,
-                            fontFamily: 'Roboto',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
                             height: 1.5,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           appLocalizations.examPreparation,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? Colors.white54 : Colors.black45,
-                            fontFamily: 'Roboto',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onBackground.withOpacity(0.5),
                           ),
                         ),
                       ],
@@ -256,43 +242,37 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
                     opacity: _fadeAnimation,
                     child: Column(
                       children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _isLoading ? null : _startLearning,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF4CAF50),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                              shadowColor: Colors.transparent,
+                        FilledButton(
+                          onPressed: _isLoading ? null : _startLearning,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            minimumSize: const Size(double.infinity, 56),
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
                             ),
-                            child: _isLoading
-                                ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(Colors.white),
-                              ),
-                            )
-                                : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.arrow_forward_rounded, size: 20),
-                                const SizedBox(width: 12),
-                                Text(
-                                  appLocalizations.startLearning,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          )
+                              : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.arrow_forward_rounded, size: 20),
+                              const SizedBox(width: 12),
+                              Text(
+                                appLocalizations.startLearning,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -304,7 +284,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
             ),
           ),
 
-          // Кнопка языка, которая раздвигается в список
+          // Кнопка языка
           Positioned(
             bottom: 20,
             right: 20,
@@ -313,7 +293,6 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
               currentLanguage: languageManager.currentLocale.languageCode,
               onToggle: _toggleLanguageMenu,
               onChangeLanguage: _changeLanguage,
-              isDark: isDark,
             ),
           ),
         ],
@@ -327,14 +306,12 @@ class _ExpandingLanguageButton extends StatelessWidget {
   final String currentLanguage;
   final VoidCallback onToggle;
   final Function(String) onChangeLanguage;
-  final bool isDark;
 
   const _ExpandingLanguageButton({
     required this.isExpanded,
     required this.currentLanguage,
     required this.onToggle,
     required this.onChangeLanguage,
-    required this.isDark,
   });
 
   @override
@@ -343,9 +320,9 @@ class _ExpandingLanguageButton extends StatelessWidget {
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
       height: 48,
-      width: isExpanded ? 160 : 48, // Увеличил ширину для развернутого состояния
+      width: isExpanded ? 160 : 48,
       decoration: BoxDecoration(
-        color: isDark ? Colors.grey[900] : Colors.grey[100],
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -355,11 +332,11 @@ class _ExpandingLanguageButton extends StatelessWidget {
           ),
         ],
       ),
-      child: isExpanded ? _buildExpandedMenu() : _buildCollapsedButton(),
+      child: isExpanded ? _buildExpandedMenu(context) : _buildCollapsedButton(context),
     );
   }
 
-  Widget _buildCollapsedButton() {
+  Widget _buildCollapsedButton(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -367,8 +344,8 @@ class _ExpandingLanguageButton extends StatelessWidget {
         onTap: onToggle,
         child: Center(
           child: Icon(
-            Icons.language_outlined,
-            color: isDark ? Colors.white : Colors.black87,
+            Icons.language_rounded,
+            color: Theme.of(context).colorScheme.onSurface,
             size: 20,
           ),
         ),
@@ -376,7 +353,7 @@ class _ExpandingLanguageButton extends StatelessWidget {
     );
   }
 
-  Widget _buildExpandedMenu() {
+  Widget _buildExpandedMenu(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -387,36 +364,32 @@ class _ExpandingLanguageButton extends StatelessWidget {
             label: 'RU',
             isSelected: currentLanguage == 'ru',
             onTap: () => onChangeLanguage('ru'),
-            isDark: isDark,
           ),
           _LanguageItem(
             code: 'en',
             label: 'EN',
             isSelected: currentLanguage == 'en',
             onTap: () => onChangeLanguage('en'),
-            isDark: isDark,
           ),
           _LanguageItem(
             code: 'de',
             label: 'DE',
             isSelected: currentLanguage == 'de',
             onTap: () => onChangeLanguage('de'),
-            isDark: isDark,
           ),
-          // Кнопка закрытия
           GestureDetector(
             onTap: onToggle,
             child: Container(
               width: 24,
               height: 24,
               decoration: BoxDecoration(
-                color: isDark ? Colors.grey[800] : Colors.grey[200],
+                color: Theme.of(context).colorScheme.surfaceVariant,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.close_rounded,
                 size: 14,
-                color: isDark ? Colors.white : Colors.black87,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -431,14 +404,12 @@ class _LanguageItem extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-  final bool isDark;
 
   const _LanguageItem({
     required this.code,
     required this.label,
     required this.isSelected,
     required this.onTap,
-    required this.isDark,
   });
 
   @override
@@ -449,7 +420,7 @@ class _LanguageItem extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF4CAF50) : Colors.transparent,
+          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -457,7 +428,9 @@ class _LanguageItem extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black54),
+            color: isSelected
+                ? Theme.of(context).colorScheme.onPrimary
+                : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
           ),
         ),
       ),
@@ -468,12 +441,10 @@ class _LanguageItem extends StatelessWidget {
 class _StatItem extends StatelessWidget {
   final String value;
   final String label;
-  final bool isDark;
 
   const _StatItem({
     required this.value,
     required this.label,
-    required this.isDark,
   });
 
   @override
@@ -482,20 +453,16 @@ class _StatItem extends StatelessWidget {
       children: [
         Text(
           value,
-          style: TextStyle(
-            fontSize: 16,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black,
-            fontFamily: 'GoogleSans',
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
-            fontSize: 10,
-            color: isDark ? Colors.white60 : Colors.black45,
-            fontFamily: 'Roboto',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
           ),
         ),
       ],

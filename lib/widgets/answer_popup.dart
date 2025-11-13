@@ -1,3 +1,4 @@
+// answer_popup.dart - РЕДИЗАЙН В MD3 + ФИКС СОХРАНЕНИЯ ПРОГРЕССА
 import 'package:flutter/material.dart';
 import '../localization.dart';
 import 'dart:convert';
@@ -60,12 +61,11 @@ class AnswerPopup extends StatelessWidget {
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
         title: Text(
           localizations.reportError,
-          style: TextStyle(
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -73,9 +73,8 @@ class AnswerPopup extends StatelessWidget {
           children: [
             Text(
               localizations.reportErrorDescription,
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodyMedium?.color,
-                fontSize: 14,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 16),
@@ -85,9 +84,9 @@ class AnswerPopup extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: localizations.reportErrorHint,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                contentPadding: const EdgeInsets.all(12),
+                contentPadding: const EdgeInsets.all(16),
               ),
             ),
           ],
@@ -95,20 +94,17 @@ class AnswerPopup extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
-              localizations.cancel,
-              style: TextStyle(
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
+            child: Text(localizations.cancel),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () async {
               if (messageController.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(localizations.pleaseEnterErrorMessage),
-                    backgroundColor: Colors.orange,
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    behavior: SnackBarBehavior.fixed,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                 );
                 return;
@@ -117,12 +113,7 @@ class AnswerPopup extends StatelessWidget {
               Navigator.pop(context);
               await _sendErrorToTelegram(context, messageController.text.trim());
             },
-            child: Text(
-              localizations.send,
-              style: const TextStyle(
-                color: Colors.blue,
-              ),
-            ),
+            child: Text(localizations.send),
           ),
         ],
       ),
@@ -135,7 +126,9 @@ class AnswerPopup extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(localizations.sendingErrorReport),
-        backgroundColor: Colors.blue,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.fixed,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
 
@@ -165,6 +158,8 @@ $userMessage
           SnackBar(
             content: Text(localizations.errorReportSent),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.fixed,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         );
       } else {
@@ -174,7 +169,9 @@ $userMessage
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(localizations.errorReportFailed),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.fixed,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     }
@@ -234,7 +231,6 @@ $userMessage
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Логика получения правильного ответа
     String getCorrectAnswerText() {
@@ -259,25 +255,15 @@ $userMessage
       }
     }
 
-    Color backgroundColor;
-    Color accentColor;
-    IconData icon;
-    String title;
-
-    if (isCorrect) {
-      backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
-      accentColor = isDark ? const Color(0xFF4CAF50) : Colors.green;
-      icon = Icons.check_circle;
-      title = localizations.correct;
-    } else {
-      backgroundColor = isDark ? const Color(0xFF121212) : Colors.white;
-      accentColor = isDark ? const Color(0xFFF44336) : Colors.red;
-      icon = Icons.error;
-      title = localizations.incorrect;
-    }
+    Color backgroundColor = Theme.of(context).colorScheme.surface;
+    Color accentColor = isCorrect
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.error;
+    IconData icon = isCorrect ? Icons.check_circle_rounded : Icons.error_rounded;
+    String title = isCorrect ? localizations.correct : localizations.incorrect;
 
     return Container(
-      color: Colors.black54,
+      color: Theme.of(context).colorScheme.scrim.withOpacity(0.5),
       child: DraggableScrollableSheet(
         initialChildSize: 0.7,
         minChildSize: 0.5,
@@ -287,8 +273,8 @@ $userMessage
             decoration: BoxDecoration(
               color: backgroundColor,
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
+                topLeft: Radius.circular(28),
+                topRight: Radius.circular(28),
               ),
             ),
             child: Padding(
@@ -296,17 +282,29 @@ $userMessage
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Заголовок с иконкой
                   Center(
                     child: Column(
                       children: [
-                        Icon(icon, color: accentColor, size: 48),
-                        const SizedBox(height: 8),
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: accentColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: accentColor.withOpacity(0.3),
+                              width: 2,
+                            ),
+                          ),
+                          child: Icon(icon, color: accentColor, size: 40),
+                        ),
+                        const SizedBox(height: 16),
                         Text(
                           title,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                             color: accentColor,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -314,28 +312,28 @@ $userMessage
                   ),
                   const SizedBox(height: 24),
 
-                  // Кнопка сообщить об ошибке - ПЕРЕМЕЩЕНА ВВЕРХ
+                  // Кнопка сообщить об ошибке
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton(
+                    child: FilledButton.tonal(
                       onPressed: () => _reportError(context),
-                      style: OutlinedButton.styleFrom(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
                         foregroundColor: Colors.orange,
-                        side: const BorderSide(color: Colors.orange),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.report_problem, size: 20),
+                          Icon(Icons.report_problem_rounded, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             localizations.reportError,
-                            style: TextStyle(
-                              fontSize: 15,
+                            style: const TextStyle(
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -343,7 +341,7 @@ $userMessage
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
                   Expanded(
                     child: SingleChildScrollView(
@@ -354,99 +352,103 @@ $userMessage
                           // Вопрос
                           Text(
                             '${localizations.question}:',
-                            style: TextStyle(
-                              fontSize: 16,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            question.text ?? localizations.questionNotFound,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark ? Colors.white70 : Colors.black54,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Ответ пользователя
-                          Text(
-                            '${localizations.yourAnswer}:',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.black26 : Colors.grey[50],
-                              borderRadius: BorderRadius.circular(8),
+                              color: Theme.of(context).colorScheme.surfaceVariant,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              question.text ?? localizations.questionNotFound,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Ответ пользователя
+                          Text(
+                            '${localizations.yourAnswer}:',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: accentColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: accentColor.withOpacity(0.3)),
                             ),
                             child: Text(
                               selectedAnswer.isEmpty ? localizations.noAnswer : selectedAnswer,
-                              style: TextStyle(
-                                color: isDark ? Colors.white : Colors.black87,
-                                fontSize: 14,
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: accentColor,
                               ),
                             ),
                           ),
 
                           // Правильный ответ (показываем только если ответ неправильный)
                           if (!isCorrect) ...[
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 20),
                             Text(
                               '${localizations.correctAnswer}:',
-                              style: TextStyle(
-                                fontSize: 16,
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white : Colors.black87,
                               ),
                             ),
                             const SizedBox(height: 8),
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
+                                ),
                               ),
                               child: Text(
                                 getCorrectAnswerText(),
-                                style: TextStyle(
-                                  color: Colors.green,
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                                   fontWeight: FontWeight.w500,
-                                  fontSize: 14,
                                 ),
                               ),
                             ),
                           ],
 
                           // Объяснение
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 20),
                           Text(
                             '${localizations.explanation}:',
-                            style: TextStyle(
-                              fontSize: 16,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            question.explanation?.isNotEmpty == true
-                                ? question.explanation
-                                : localizations.explanationNotFound,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark ? Colors.white70 : Colors.black54,
-                              height: 1.4,
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceVariant,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              question.explanation?.isNotEmpty == true
+                                  ? question.explanation
+                                  : localizations.explanationNotFound,
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                height: 1.4,
+                              ),
                             ),
                           ),
                         ],
@@ -458,18 +460,20 @@ $userMessage
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
+                    child: FilledButton(
                       onPressed: onContinue,
-                      style: ElevatedButton.styleFrom(
+                      style: FilledButton.styleFrom(
                         backgroundColor: accentColor,
-                        foregroundColor: Colors.white,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
                       child: Text(
                         isLastQuestion ? localizations.finishTest : localizations.continueText,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),

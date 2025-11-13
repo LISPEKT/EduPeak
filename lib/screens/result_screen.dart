@@ -1,3 +1,4 @@
+// result_screen.dart - ИСПРАВЛЕННАЯ ВЕРСИЯ
 import 'package:flutter/material.dart';
 import 'lesson_screen.dart';
 import '../localization.dart';
@@ -7,7 +8,7 @@ import '../data/user_data_storage.dart';
 
 class ResultScreen extends StatelessWidget {
   final dynamic topic;
-  final List<dynamic> userAnswers; // Изменено с List<int> на List<dynamic>
+  final List<dynamic> userAnswers;
   final List<String> textAnswers;
   final int? correctAnswersCount;
   final int? currentGrade;
@@ -15,7 +16,7 @@ class ResultScreen extends StatelessWidget {
 
   const ResultScreen({
     required this.topic,
-    required this.userAnswers, // Теперь принимает List<dynamic>
+    required this.userAnswers,
     required this.textAnswers,
     this.correctAnswersCount,
     this.currentGrade,
@@ -39,13 +40,11 @@ class ResultScreen extends StatelessWidget {
           correct++;
         }
       } else if (question.answerType == 'single_choice') {
-        // Для вопросов с одним вариантом ответа
         if (i < userAnswers.length &&
             (userAnswers[i] as int) == question.correctIndex) {
           correct++;
         }
       } else if (question.answerType == 'multiple_choice') {
-        // Для вопросов с несколькими вариантами ответов
         if (i < userAnswers.length) {
           final userAnswersList = (userAnswers[i] as List<int>)..sort();
           final correctAnswers = (question.correctIndex as List<int>)..sort();
@@ -90,8 +89,39 @@ class ResultScreen extends StatelessWidget {
     } else if (percentage >= 0.6) {
       return Colors.orange;
     } else {
-      return Colors.red;
+      return Theme.of(context).colorScheme.error;
     }
+  }
+
+  void _navigateToXPScreen(BuildContext context) {
+    // Используем pushAndRemoveUntil чтобы очистить всю навигационную историю
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => XPScreen(
+          earnedXP: topic.questions.length,
+          questionsCount: topic.questions.length,
+          topicId: topic.id,
+          subjectName: currentSubject,
+        ),
+      ),
+          (route) => false, // Удаляем все предыдущие маршруты
+    );
+  }
+
+  void _retakeTest(BuildContext context) {
+    // Возвращаемся к уроку и очищаем навигационную историю
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LessonScreen(
+          topic: topic,
+          currentGrade: currentGrade,
+          currentSubject: currentSubject,
+        ),
+      ),
+          (route) => false,
+    );
   }
 
   @override
@@ -99,16 +129,18 @@ class ResultScreen extends StatelessWidget {
     final appLocalizations = AppLocalizations.of(context);
     final totalQuestions = topic.questions.length;
     final correctCount = correctAnswers;
+    final percentage = correctCount / totalQuestions;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         title: Text(appLocalizations.testResults),
-        backgroundColor: Theme.of(context).cardColor,
-        foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.close),
+          icon: const Icon(Icons.close_rounded),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -119,48 +151,83 @@ class ResultScreen extends StatelessWidget {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
+              // Уменьшенный заголовок темы
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
                   children: [
-                    Text(
-                      topic.name,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      topic.description,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Center(
+                            child: Text(
+                              topic.imageAsset,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                topic.name,
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                topic.description,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
 
+              // Основной контент с результатами
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    // Круговой индикатор прогресса
                     Stack(
                       alignment: Alignment.center,
                       children: [
                         SizedBox(
-                          width: 180,
-                          height: 180,
+                          width: 200,
+                          height: 200,
                           child: CircularProgressIndicator(
-                            value: correctCount / totalQuestions,
-                            backgroundColor: Colors.grey[300],
+                            value: percentage,
+                            backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
                             color: _getResultColor(correctCount, totalQuestions, context),
                             strokeWidth: 12,
+                            strokeCap: StrokeCap.round,
                           ),
                         ),
                         Column(
@@ -169,13 +236,16 @@ class ResultScreen extends StatelessWidget {
                             Text(
                               '$correctCount/$totalQuestions',
                               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 36,
+                                fontWeight: FontWeight.w800,
+                                color: Theme.of(context).colorScheme.onBackground,
                               ),
                             ),
                             Text(
                               appLocalizations.correctAnswers,
-                              style: Theme.of(context).textTheme.bodyMedium,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
@@ -183,94 +253,97 @@ class ResultScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 32),
 
-                    Text(
-                      _getResultMessage(correctCount, totalQuestions, appLocalizations),
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontSize: 20,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-
+                    // Сообщение о результате
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: _getResultColor(correctCount, totalQuestions, context).withOpacity(0.1),
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        '${((correctCount / totalQuestions) * 100).round()}${appLocalizations.percentageCorrect}',
-                        style: TextStyle(
-                          color: _getResultColor(correctCount, totalQuestions, context),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
+                      child: Column(
+                        children: [
+                          Text(
+                            _getResultMessage(correctCount, totalQuestions, appLocalizations),
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.onBackground,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _getResultColor(correctCount, totalQuestions, context).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${(percentage * 100).round()}${appLocalizations.percentageCorrect}',
+                              style: TextStyle(
+                                color: _getResultColor(correctCount, totalQuestions, context),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
 
+              // Кнопки действий
               Column(
                 children: [
                   SizedBox(
                     width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => XPScreen(
-                              earnedXP: topic.questions.length,
-                              questionsCount: topic.questions.length,
-                              topicId: topic.id, // Передаем ID темы
-                              subjectName: currentSubject, // Передаем название предмета
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        foregroundColor: Colors.white,
+                    child: FilledButton(
+                      onPressed: () => _navigateToXPScreen(context),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                       child: Text(
                         appLocalizations.returnToTopics,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => LessonScreen(
-                              topic: topic,
-                              currentGrade: currentGrade,
-                              currentSubject: currentSubject,
-                            ),
-                          ),
-                              (route) => route.isFirst,
-                        );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).primaryColor,
+                    child: FilledButton.tonal(
+                      onPressed: () => _retakeTest(context),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.surface,
+                        foregroundColor: Theme.of(context).colorScheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        side: BorderSide(color: Theme.of(context).primaryColor),
                       ),
                       child: Text(
                         appLocalizations.retakeTest,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),

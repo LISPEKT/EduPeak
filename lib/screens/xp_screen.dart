@@ -1,3 +1,4 @@
+// xp_screen.dart - РЕДИЗАЙН В MD3
 import 'package:flutter/material.dart';
 import '../data/user_data_storage.dart';
 import '../services/api_service.dart';
@@ -40,7 +41,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
     _displayXP = 0;
     _loadUserData();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 2500),
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
 
@@ -64,7 +65,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
   Future<void> _loadUserData() async {
     try {
       await _checkIfShouldAwardXP();
-
       final response = await ApiService.getUserXPStats();
       if (response['success'] == true) {
         setState(() {
@@ -110,21 +110,16 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
       final userStats = await UserDataStorage.getUserStats();
       final topicProgress = userStats.getTopicProgress(widget.topicId!);
 
-      print('🔍 Checking topic progress for ${widget.topicId}: $topicProgress');
-
       if (topicProgress > 0) {
         setState(() {
           _shouldAwardXP = false;
           _actualEarnedXP = 0;
         });
-        print('ℹ️ Topic already completed, no XP awarded');
       } else {
         setState(() {
           _shouldAwardXP = true;
           _actualEarnedXP = widget.earnedXP;
         });
-        print('✅ First time completing topic, XP will be awarded: ${widget.earnedXP}');
-
         await UserDataStorage.updateTopicProgress(
             widget.subjectName!,
             widget.topicId!,
@@ -170,9 +165,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
 
     for (int i = 0; i <= steps; i++) {
       if (!mounted) break;
-
       await Future.delayed(Duration(milliseconds: durationPerStep.clamp(20, 100)));
-
       if (mounted) {
         setState(() {
           currentValue = _currentXP + (i * xpPerStep);
@@ -192,15 +185,11 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
   }
 
   Future<void> _syncXPWithServer() async {
-    if (!_shouldAwardXP || _actualEarnedXP <= 0) {
-      return;
-    }
-
+    if (!_shouldAwardXP || _actualEarnedXP <= 0) return;
     setState(() => _isSyncing = true);
 
     try {
       final response = await ApiService.addXP(_actualEarnedXP, 'test_completion');
-
       if (response['success'] == true) {
         print('✅ XP synced with server: +${_actualEarnedXP} XP');
       } else {
@@ -224,7 +213,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
       case 'Золото': return Color(0xFFFFD700);
       case 'Платина': return Color(0xFFE5E4E2);
       case 'Бриллиант': return Color(0xFFB9F2FF);
-      default: return Theme.of(context).primaryColor;
+      default: return Theme.of(context).colorScheme.primary;
     }
   }
 
@@ -253,22 +242,12 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
     final currentLeague = (_userStats['currentLeague'] as String?) ?? 'Бронза';
 
     switch (currentLeague) {
-      case 'Бронза':
-        final result = 101 - weeklyXP;
-        return result > 0 ? result : 0;
-      case 'Серебро':
-        final result = 301 - weeklyXP;
-        return result > 0 ? result : 0;
-      case 'Золото':
-        final result = 501 - weeklyXP;
-        return result > 0 ? result : 0;
-      case 'Платина':
-        final result = 1001 - weeklyXP;
-        return result > 0 ? result : 0;
+      case 'Бронза': return (101 - weeklyXP).clamp(0, 101);
+      case 'Серебро': return (301 - weeklyXP).clamp(0, 301);
+      case 'Золото': return (501 - weeklyXP).clamp(0, 501);
+      case 'Платина': return (1001 - weeklyXP).clamp(0, 1001);
       case 'Бриллиант': return 0;
-      default:
-        final result = 101 - weeklyXP;
-        return result > 0 ? result : 0;
+      default: return (101 - weeklyXP).clamp(0, 101);
     }
   }
 
@@ -284,10 +263,10 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Theme.of(context).colorScheme.background,
         body: Center(
           child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation(Theme.of(context).primaryColor),
+            valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
           ),
         ),
       );
@@ -302,13 +281,14 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
     final xpToNext = _getXPToNextLeague();
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Заголовок
               AnimatedBuilder(
                 animation: _animation,
                 builder: (context, child) {
@@ -323,34 +303,36 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                 child: Text(
                   _shouldAwardXP ? localizations.experienceEarned : localizations.testCompleted,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(height: 32),
 
+              // Уведомление о повторном прохождении
               if (!_shouldAwardXP)
                 Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.orange.withOpacity(0.3),
+                      color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
                     ),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: Colors.orange),
-                      SizedBox(width: 12),
+                      Icon(Icons.info_rounded, color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           localizations.testAlreadyCompleted,
-                          style: TextStyle(
-                            color: Colors.orange[800],
-                            fontSize: 14,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -358,18 +340,21 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                   ),
                 ),
 
+              // Основной круг с прогрессом
               Stack(
                 alignment: Alignment.center,
                 children: [
+                  // Фоновый круг
                   Container(
                     width: 220,
                     height: 220,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.grey[100]?.withOpacity(0.5),
+                      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                     ),
                   ),
 
+                  // Прогресс лиги
                   SizedBox(
                     width: 200,
                     height: 200,
@@ -378,15 +363,16 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       builder: (context, child) {
                         return CircularProgressIndicator(
                           value: _progressAnimation.value * leagueProgress,
-                          strokeWidth: 14,
+                          strokeWidth: 8,
                           color: leagueColor,
-                          backgroundColor: Colors.grey[300]?.withOpacity(0.3),
+                          backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
                           strokeCap: StrokeCap.round,
                         );
                       },
                     ),
                   ),
 
+                  // Центральный контент
                   AnimatedBuilder(
                     animation: _animation,
                     builder: (context, child) {
@@ -399,11 +385,11 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       width: 160,
                       height: 160,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
+                        color: Theme.of(context).colorScheme.surface,
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: leagueColor.withOpacity(0.3),
+                            color: leagueColor.withOpacity(0.2),
                             blurRadius: 15,
                             spreadRadius: 2,
                           ),
@@ -416,7 +402,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                             '$_displayXP',
                             style: TextStyle(
                               fontSize: 32,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               color: leagueColor,
                               height: 1.1,
                             ),
@@ -424,13 +410,13 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                           Text(
                             'XP',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Colors.grey[600],
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: leagueColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
@@ -449,6 +435,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                     ),
                   ),
 
+                  // Индикатор синхронизации
                   if (_isSyncing)
                     Positioned.fill(
                       child: Container(
@@ -468,6 +455,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
 
               const SizedBox(height: 32),
 
+              // Статистика
               AnimatedBuilder(
                 animation: _animation,
                 builder: (context, child) {
@@ -480,15 +468,16 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                   );
                 },
                 child: Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(16),
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withOpacity(0.05),
                         blurRadius: 8,
-                        offset: Offset(0, 4),
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -497,40 +486,40 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       _InfoRow(
                         title: '${localizations.questionsCompleted}:',
                         value: '${widget.questionsCount}',
-                        icon: Icons.quiz_outlined,
+                        icon: Icons.quiz_rounded,
                       ),
                       const SizedBox(height: 12),
                       _InfoRow(
                         title: '${localizations.experienceEarned}:',
                         value: _shouldAwardXP ? '+${_actualEarnedXP} XP' : '0 XP (${localizations.alreadyCompleted})',
-                        valueColor: _shouldAwardXP ? leagueColor : Colors.grey,
-                        icon: Icons.bolt_outlined,
+                        valueColor: _shouldAwardXP ? leagueColor : Theme.of(context).colorScheme.onSurfaceVariant,
+                        icon: Icons.bolt_rounded,
                       ),
                       const SizedBox(height: 12),
                       _InfoRow(
                         title: '${localizations.currentLeague}:',
                         value: currentLeague,
                         valueColor: leagueColor,
-                        icon: Icons.emoji_events_outlined,
+                        icon: Icons.emoji_events_rounded,
                       ),
                       const SizedBox(height: 12),
                       _InfoRow(
                         title: '${localizations.totalExperience}:',
                         value: '$totalXP XP',
-                        icon: Icons.star_outline,
+                        icon: Icons.star_rounded,
                       ),
                       const SizedBox(height: 12),
                       _InfoRow(
                         title: '${localizations.weeklyExperience}:',
                         value: '$weeklyXP XP',
-                        icon: Icons.calendar_today_outlined,
+                        icon: Icons.calendar_today_rounded,
                       ),
                       const SizedBox(height: 12),
                       _InfoRow(
                         title: '${localizations.leagueProgress}:',
                         value: '${(leagueProgress * 100).round()}%',
                         valueColor: leagueColor,
-                        icon: Icons.timeline_outlined,
+                        icon: Icons.timeline_rounded,
                       ),
                       if (xpToNext > 0) ...[
                         const SizedBox(height: 12),
@@ -538,7 +527,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                           title: '${localizations.toNextLeague} $nextLeague:',
                           value: '$xpToNext XP',
                           valueColor: leagueColor,
-                          icon: Icons.flag_outlined,
+                          icon: Icons.flag_rounded,
                         ),
                       ],
                     ],
@@ -548,6 +537,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
 
               const SizedBox(height: 24),
 
+              // Уведомление о награде
               if (_shouldAwardXP && _actualEarnedXP > 0)
                 AnimatedBuilder(
                   animation: _animation,
@@ -561,6 +551,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                     );
                   },
                   child: Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: leagueColor.withOpacity(0.1),
@@ -581,7 +572,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                           child: Icon(
                             Icons.emoji_events_rounded,
                             color: leagueColor,
-                            size: 28,
+                            size: 24,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -613,8 +604,9 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                   ),
                 ),
 
-              const SizedBox(height: 32),
+              const Spacer(),
 
+              // Кнопка продолжения
               AnimatedBuilder(
                 animation: _animation,
                 builder: (context, child) {
@@ -628,7 +620,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                 },
                 child: SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: _animationCompleted ? () {
                       Navigator.pushNamedAndRemoveUntil(
                         context,
@@ -636,23 +628,21 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                             (route) => false,
                       );
                     } : null,
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       backgroundColor: _animationCompleted
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey,
-                      foregroundColor: Colors.white,
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.surfaceVariant,
+                      foregroundColor: _animationCompleted
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      elevation: 4,
-                      shadowColor: _animationCompleted
-                          ? Theme.of(context).primaryColor.withOpacity(0.3)
-                          : Colors.grey,
                     ),
                     child: Text(
                       _animationCompleted ? localizations.continueLearning : localizations.animationInProgress,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -690,14 +680,14 @@ class _InfoRow extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 18,
-              color: Colors.grey[600],
+              size: 20,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Text(
               title,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[700],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -706,8 +696,7 @@ class _InfoRow extends StatelessWidget {
           value,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
-            color: valueColor ?? Theme.of(context).textTheme.bodyMedium?.color,
-            fontSize: 15,
+            color: valueColor ?? Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],

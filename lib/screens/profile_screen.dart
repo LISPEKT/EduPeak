@@ -184,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: _isPhotoAvatar()
                             ? null
                             : Icon(
-                          Icons.person,
+                          Icons.person_rounded,
                           size: 50,
                           color: Theme.of(context).primaryColor,
                         ),
@@ -223,7 +223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   child: IconButton(
                     icon: const Icon(
-                      Icons.edit,
+                      Icons.edit_rounded,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -253,7 +253,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.check),
+                  icon: const Icon(Icons.check_rounded),
                   onPressed: _updateUsername,
                 ),
               ),
@@ -299,7 +299,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.info,
+                    Icons.info_rounded,
                     color: Theme.of(context).primaryColor,
                   ),
                   const SizedBox(width: 12),

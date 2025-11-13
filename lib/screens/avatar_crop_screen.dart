@@ -1,3 +1,4 @@
+// avatar_crop_screen.dart - РЕДИЗАЙН В MD3
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -16,8 +17,6 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
   File? _croppedImage;
   final bool _isLoading = false;
   bool _hasError = false;
-
-  final Color _primaryColor = Colors.green;
 
   @override
   void initState() {
@@ -56,110 +55,37 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
     }
   }
 
-  Color _getBackgroundColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? _getDarkThemeBackgroundColor()
-        : Colors.white;
-  }
-
-  Color _getDarkThemeBackgroundColor() {
-    return const Color(0xFF121212);
-  }
-
-  Color _getSurfaceColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF1E1E1E)
-        : Colors.grey[50]!;
-  }
-
-  Color _getTextColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : Colors.black;
-  }
-
-  Color _getSubtitleColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? Colors.white70
-        : Colors.black54;
-  }
-
   @override
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: _getBackgroundColor(context),
-      appBar: null,
-      body: _buildBodyWithCustomHeader(appLocalizations),
-    );
-  }
-
-  Widget _buildBodyWithCustomHeader(AppLocalizations appLocalizations) {
-    return SafeArea(
-      child: Column(
-        children: [
-          _buildCustomHeader(appLocalizations),
-          Expanded(
-            child: _buildPreviewWidget(appLocalizations),
+      backgroundColor: Theme.of(context).colorScheme.background,
+      appBar: AppBar(
+        title: Text(appLocalizations.avatarCropTitle),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: _cancelEditing,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check_rounded),
+            onPressed: _saveImage,
           ),
-          _buildBottomPanel(appLocalizations),
         ],
       ),
-    );
-  }
-
-  Widget _buildCustomHeader(AppLocalizations appLocalizations) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.black.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: _buildPreviewWidget(appLocalizations),
             ),
-            child: IconButton(
-              icon: Icon(
-                Icons.close,
-                size: 20,
-                color: _getTextColor(context),
-              ),
-              onPressed: _cancelEditing,
-              padding: EdgeInsets.zero,
-            ),
-          ),
-          Text(
-            appLocalizations.avatarCropTitle,
-            style: TextStyle(
-              color: _getTextColor(context),
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _primaryColor,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: IconButton(
-              icon: const Icon(
-                Icons.check,
-                size: 20,
-                color: Colors.white,
-              ),
-              onPressed: _saveImage,
-              padding: EdgeInsets.zero,
-            ),
-          ),
-        ],
+            _buildBottomPanel(appLocalizations),
+          ],
+        ),
       ),
     );
   }
@@ -169,7 +95,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
       child: _croppedImage != null
           ? Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -177,17 +103,17 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
               width: MediaQuery.of(context).size.width * 0.8,
               height: MediaQuery.of(context).size.width * 0.8,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: _getTextColor(context).withOpacity(0.1),
-                    blurRadius: 10,
+                    color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                    blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 child: Image.file(
                   _croppedImage!,
                   fit: BoxFit.cover,
@@ -199,7 +125,7 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
           ],
         ),
       )
@@ -215,15 +141,14 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
         children: [
           Icon(
             Icons.photo_library_rounded,
-            color: _getSubtitleColor(context),
-            size: 60,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            size: 64,
           ),
           const SizedBox(height: 16),
           Text(
             appLocalizations.errorSelectingImage,
-            style: TextStyle(
-              color: _getSubtitleColor(context),
-              fontSize: 16,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -236,14 +161,14 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: _getSurfaceColor(context),
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
         boxShadow: [
           BoxShadow(
-            color: _getTextColor(context).withOpacity(0.1),
+            color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -254,35 +179,32 @@ class _AvatarCropScreenState extends State<AvatarCropScreen> {
         children: [
           Text(
             appLocalizations.squareAvatar,
-            style: TextStyle(
-              color: _getTextColor(context),
-              fontSize: 18,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             appLocalizations.avatarCropSubtitle,
-            style: TextStyle(
-              color: _getSubtitleColor(context),
-              fontSize: 14,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
+            child: FilledButton.icon(
               onPressed: _openCropManually,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryColor,
-                foregroundColor: Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              icon: const Icon(Icons.edit, size: 20),
+              icon: const Icon(Icons.edit_rounded, size: 20),
               label: Text(
                 appLocalizations.editButton,
                 style: const TextStyle(
@@ -311,20 +233,6 @@ class _CustomCropScreenState extends State<CustomCropScreen> {
   File? _croppedImage;
   bool _isLoading = false;
 
-  final Color _primaryColor = Colors.green;
-
-  Color _getBackgroundColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF121212)
-        : Colors.white;
-  }
-
-  Color _getTextColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? Colors.white
-        : Colors.black;
-  }
-
   Future<void> _cropImage() async {
     setState(() {
       _isLoading = true;
@@ -339,18 +247,18 @@ class _CustomCropScreenState extends State<CustomCropScreen> {
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: AppLocalizations.of(context).cropTitle,
-            toolbarColor: _getBackgroundColor(context),
-            toolbarWidgetColor: _primaryColor,
+            toolbarColor: Theme.of(context).colorScheme.surface,
+            toolbarWidgetColor: Theme.of(context).colorScheme.primary,
             initAspectRatio: CropAspectRatioPreset.square,
             lockAspectRatio: true,
             hideBottomControls: true,
             showCropGrid: false,
-            activeControlsWidgetColor: _primaryColor,
-            statusBarColor: _getBackgroundColor(context),
-            backgroundColor: _getBackgroundColor(context),
-            cropFrameColor: _getTextColor(context),
+            activeControlsWidgetColor: Theme.of(context).colorScheme.primary,
+            statusBarColor: Theme.of(context).colorScheme.surface,
+            backgroundColor: Theme.of(context).colorScheme.background,
+            cropFrameColor: Theme.of(context).colorScheme.onSurface,
             cropGridColor: Colors.transparent,
-            dimmedLayerColor: _getBackgroundColor(context).withOpacity(0.8),
+            dimmedLayerColor: Theme.of(context).colorScheme.background.withOpacity(0.8),
           ),
           IOSUiSettings(
             title: AppLocalizations.of(context).cropTitle,
@@ -391,90 +299,46 @@ class _CustomCropScreenState extends State<CustomCropScreen> {
     final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: _getBackgroundColor(context),
-      appBar: null,
+      backgroundColor: Theme.of(context).colorScheme.background,
+      appBar: AppBar(
+        title: Text(appLocalizations.avatarCropTitle),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: _cancelCrop,
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check_rounded),
+            onPressed: _cropImage,
+          ),
+        ],
+      ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white.withOpacity(0.1)
-                          : Colors.black.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        size: 20,
-                        color: _getTextColor(context),
-                      ),
-                      onPressed: _cancelCrop,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                  Text(
-                    appLocalizations.avatarCropTitle,
-                    style: TextStyle(
-                      color: _getTextColor(context),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: _primaryColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.check,
-                        size: 20,
-                        color: Colors.white,
-                      ),
-                      onPressed: _cropImage,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
+        child: _isLoading
+            ? Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+                strokeWidth: 3,
               ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      color: _primaryColor,
-                      strokeWidth: 3,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      appLocalizations.saving,
-                      style: TextStyle(
-                        color: _getTextColor(context).withOpacity(0.7),
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 20),
+              Text(
+                appLocalizations.saving,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-              )
-                  : Image.file(
-                File(widget.imagePath),
-                fit: BoxFit.contain,
               ),
-            ),
-          ],
+            ],
+          ),
+        )
+            : Image.file(
+          File(widget.imagePath),
+          fit: BoxFit.contain,
         ),
       ),
     );

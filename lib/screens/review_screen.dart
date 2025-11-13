@@ -3,7 +3,7 @@ import '../data/user_data_storage.dart';
 import '../data/subjects_data.dart';
 import '../models/subject.dart';
 import '../models/topic.dart';
-import '../models/review_item.dart'; // Импортируем общий класс
+import '../models/review_item.dart';
 import '../localization.dart';
 import 'topic_popup.dart';
 import 'test_review_screen.dart';
@@ -15,7 +15,7 @@ class ReviewScreen extends StatefulWidget {
 
 class _ReviewScreenState extends State<ReviewScreen> {
   List<ReviewItem> _reviewItems = [];
-  List<ReviewItem> _incorrectQuestions = [];
+  List<ReviewItem> _startedTopicsItems = [];
   bool _isLoading = true;
 
   @override
@@ -29,34 +29,29 @@ class _ReviewScreenState extends State<ReviewScreen> {
       final stats = await UserDataStorage.getUserStats();
       final subjectsData = getSubjectsByGrade(context);
 
-      List<ReviewItem> allItems = [];
-      List<ReviewItem> incorrectItems = [];
+      List<ReviewItem> startedTopicsItems = [];
 
-      // Анализируем прогресс пользователя для поиска тем с ошибками
+      // Собираем все темы, которые пользователь начинал проходить
       for (final grade in subjectsData.keys) {
         final subjects = subjectsData[grade] ?? [];
         for (final subject in subjects) {
           final topics = subject.topicsByGrade[grade] ?? [];
           for (final topic in topics) {
             final topicProgress = stats.topicProgress[subject.name]?[topic.id] ?? 0;
-            final totalQuestions = topic.questions.length;
 
-            // Собираем все вопросы для повторения
-            if (topicProgress < totalQuestions && topic.questions.isNotEmpty) {
-              for (int i = 0; i < topic.questions.length; i++) {
-                final question = topic.questions[i];
-                final item = ReviewItem(
-                  question: question,
-                  topic: topic,
-                  subject: subject.name,
-                  grade: grade,
-                  questionIndex: i,
-                );
-                allItems.add(item);
-
-                // Вопросы с ошибками - где прогресс меньше индекса вопроса
-                if (i >= topicProgress) {
-                  incorrectItems.add(item);
+            // Показываем только те темы, которые пользователь начинал проходить
+            if (topicProgress > 0) {
+              // Добавляем вопросы из начатой темы (ограничиваем количеством)
+              final questionsToAdd = topicProgress > 5 ? 5 : topicProgress;
+              for (int i = 0; i < questionsToAdd; i++) {
+                if (i < topic.questions.length) {
+                  startedTopicsItems.add(ReviewItem(
+                    question: topic.questions[i],
+                    topic: topic,
+                    subject: subject.name,
+                    grade: grade,
+                    questionIndex: i,
+                  ));
                 }
               }
             }
@@ -64,13 +59,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
         }
       }
 
-      // Перемешиваем вопросы
-      allItems.shuffle();
-      incorrectItems.shuffle();
-
       setState(() {
-        _reviewItems = allItems;
-        _incorrectQuestions = incorrectItems;
+        _reviewItems = startedTopicsItems;
+        _startedTopicsItems = startedTopicsItems;
         _isLoading = false;
       });
 
@@ -83,19 +74,19 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   void _startReviewTest() {
-    if (_incorrectQuestions.isEmpty) return;
+    if (_startedTopicsItems.isEmpty) return;
 
-    // Берем до 10 случайных неправильных вопросов
-    final testQuestions = _incorrectQuestions.length > 10
-        ? _incorrectQuestions.sublist(0, 10)
-        : List<ReviewItem>.from(_incorrectQuestions);
+    // Берем до 10 случайных вопросов из начатых тем
+    final testQuestions = _startedTopicsItems.length > 10
+        ? _startedTopicsItems.sublist(0, 10)
+        : List<ReviewItem>.from(_startedTopicsItems);
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => TestReviewScreen(
           reviewItems: testQuestions,
-          testTitle: 'Повторение ошибок',
+          testTitle: 'Повторение тем',
         ),
       ),
     );
@@ -119,7 +110,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
       if (question is Map<String, dynamic>) {
         return question['text'] ?? 'Вопрос';
       } else {
-        // Для объекта Question используем toString или другие доступные методы
         return 'Вопрос из темы';
       }
     } catch (e) {
@@ -132,87 +122,135 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final appLocalizations = AppLocalizations.of(context);
 
     if (_isLoading) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Загружаем вопросы для повторения...'),
-          ],
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text(
+                'Загружаем темы для повторения...',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Повторение'),
+        title: Text(
+          appLocalizations.review,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: Column(
         children: [
           // Статистика и кнопка запуска теста
           Container(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
               borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+                bottomLeft: Radius.circular(24),
+                bottomRight: Radius.circular(24),
               ),
             ),
             child: Column(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _StatCard(
-                      title: 'Всего вопросов',
-                      value: _reviewItems.length,
-                      color: Colors.blue,
-                    ),
-                    _StatCard(
-                      title: 'С ошибками',
-                      value: _incorrectQuestions.length,
-                      color: Colors.orange,
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-                if (_incorrectQuestions.isNotEmpty)
-                  ElevatedButton.icon(
-                    onPressed: _startReviewTest,
-                    icon: Icon(Icons.refresh),
-                    label: Text(
-                      'Повторить ошибки (${_incorrectQuestions.length > 10 ? 10 : _incorrectQuestions.length} вопросов)',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                // Статистика
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: Offset(0, 2),
                       ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _StatCard(
+                        title: 'Всего вопросов',
+                        value: _reviewItems.length,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      _StatCard(
+                        title: 'Начатые темы',
+                        value: _startedTopicsItems.length,
+                        color: Theme.of(context).colorScheme.secondary,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+
+                // Кнопка повторения
+                if (_startedTopicsItems.isNotEmpty)
+                  FilledButton(
+                    onPressed: _startReviewTest,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 2,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh_rounded, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Повторить темы (${_startedTopicsItems.length > 10 ? 10 : _startedTopicsItems.length} вопросов)',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   )
                 else
                   Container(
                     padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green),
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.check_circle, color: Colors.green),
-                        SizedBox(width: 8),
-                        Text(
-                          'Все вопросы пройдены правильно!',
-                          style: TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w500,
+                        Icon(
+                          Icons.school_rounded,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Начните изучать темы для повторения!',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -222,9 +260,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
             ),
           ),
 
-          // Список вопросов с ошибками
+          // Список начатых тем
           Expanded(
-            child: _incorrectQuestions.isEmpty
+            child: _startedTopicsItems.isEmpty
                 ? _buildEmptyState()
                 : _buildQuestionsList(),
           ),
@@ -234,27 +272,47 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    return Padding(
+      padding: EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.auto_awesome,
-            size: 64,
-            color: Theme.of(context).primaryColor.withOpacity(0.5),
+            Icons.school_rounded,
+            size: 80,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
           ),
-          SizedBox(height: 16),
+          SizedBox(height: 24),
           Text(
-            'Пока нет вопросов с ошибками',
-            style: Theme.of(context).textTheme.headlineSmall,
+            'Пока нет начатых тем',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 12),
           Text(
-            'Продолжайте изучать темы, и здесь появятся вопросы, в которых вы ошиблись',
+            'Начните изучать темы, и они появятся здесь для повторения',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
             ),
+          ),
+          SizedBox(height: 32),
+          FilledButton(
+            onPressed: () {
+              // Навигация на главный экран для выбора тем
+              Navigator.pop(context);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text('Начать изучение'),
           ),
         ],
       ),
@@ -266,9 +324,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
           child: Text(
-            'Вопросы с ошибками:',
+            'Начатые темы для повторения:',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -276,10 +334,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
         ),
         Expanded(
           child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _incorrectQuestions.length,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemCount: _startedTopicsItems.length,
             itemBuilder: (context, index) {
-              final item = _incorrectQuestions[index];
+              final item = _startedTopicsItems[index];
               return _QuestionCard(
                 item: item,
                 onTap: () => _openTopic(item),
@@ -306,32 +364,36 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value.toString(),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.bold,
+    return Column(
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.2), width: 2),
+          ),
+          child: Center(
+            child: Text(
+              value.toString(),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          SizedBox(height: 4),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color,
-            ),
-            textAlign: TextAlign.center,
+        ),
+        SizedBox(height: 8),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }
@@ -351,52 +413,63 @@ class _QuestionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.only(bottom: 12),
-      elevation: 2,
+      elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: ListTile(
-        contentPadding: EdgeInsets.all(16),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.orange),
-          ),
-          child: Icon(
-            Icons.error_outline,
-            color: Colors.orange,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          questionText,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 4),
-            Text(
-              '${item.subject} • ${item.topic.name}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
-              ),
-            ),
-          ],
-        ),
-        trailing: Icon(
-          Icons.arrow_forward_ios_rounded,
-          size: 16,
-          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-        ),
+      color: Theme.of(context).colorScheme.surface,
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.school_rounded,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  size: 20,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      questionText,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      '${item.subject} • ${item.topic.name}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

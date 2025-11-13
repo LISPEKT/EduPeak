@@ -211,7 +211,7 @@ class AppLocalizations {
       'achievementUnlocked': 'Достижение разблокировано!',
       'achievementDetails': 'Детали достижения',
       'unlocked': 'Разблокировано',
-      'locked': 'Заблокировано',
+      'locked': 'Не получено',
       'progress': 'Прогресс',
       'totalAchievements': 'Всего достижений',
       'completedAchievements': 'Получено',

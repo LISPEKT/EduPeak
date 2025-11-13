@@ -1,4 +1,3 @@
-// login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'main_screen.dart';
@@ -59,8 +58,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(available ? '✅ Сервер доступен' : '❌ Сервер недоступен'),
-          backgroundColor: available ? Colors.green : Colors.red,
-          duration: const Duration(seconds: 3),
+          backgroundColor: available ? Colors.green : Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } catch (e) {
@@ -68,8 +68,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Ошибка проверки: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } finally {
@@ -87,10 +88,11 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('🎉 Секретная функция разблокирована!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -144,8 +146,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Ошибка создания аккаунта: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } finally {
@@ -156,14 +159,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    final appLocalizations = AppLocalizations.of(context);
+    final appLocalizations = AppLocalizations.of(context)!;
 
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(appLocalizations.pleaseFillAllFields),
           backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
@@ -175,7 +179,8 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Text(appLocalizations.enterValidEmail),
           backgroundColor: Colors.orange,
-          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
@@ -185,8 +190,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(appLocalizations.serverUnavailableCheckConnection),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
@@ -230,8 +236,9 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(response['message'] ?? appLocalizations.loginError),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -240,8 +247,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${appLocalizations.connectionError}: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     } finally {
@@ -267,29 +275,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final appLocalizations = AppLocalizations.of(context);
+    final appLocalizations = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         title: Text(appLocalizations.login),
-        backgroundColor: Colors.transparent,
-        foregroundColor: isDark ? Colors.white : Colors.black87,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           IconButton(
             icon: _testingConnection
-                ? const SizedBox(
+                ? SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-                : const Icon(Icons.wifi_find_rounded),
+                : Icon(Icons.wifi_find_rounded),
             onPressed: () {
               _handleWifiTap();
               _testServerConnection();
@@ -309,11 +316,9 @@ class _LoginScreenState extends State<LoginScreen> {
               // Заголовок
               Text(
                 appLocalizations.enterYourAccount,
-                style: TextStyle(
-                  fontSize: 28,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : Colors.black,
-                  fontFamily: 'GoogleSans',
+                  color: Theme.of(context).colorScheme.onBackground,
                 ),
               ),
 
@@ -324,12 +329,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 _serverAvailable
                     ? appLocalizations.enterCredentials
                     : appLocalizations.serverUnavailableCheckConnection,
-                style: TextStyle(
-                  fontSize: 14,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: _serverAvailable
-                      ? (isDark ? Colors.white70 : Colors.black54)
+                      ? Theme.of(context).colorScheme.onBackground.withOpacity(0.7)
                       : Colors.orange,
-                  fontFamily: 'Roboto',
                 ),
               ),
 
@@ -342,21 +345,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.all(16),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withOpacity(0.1),
-                    border: Border.all(color: const Color(0xFF4CAF50)),
+                    color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.rocket_launch_rounded, color: const Color(0xFF4CAF50)),
-                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Секретный режим разблокирован!',
+                              'Локальный режим разблокирован',
                               style: TextStyle(
-                                color: const Color(0xFF4CAF50),
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
                               ),
@@ -365,41 +365,37 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _createLocalAccount,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4CAF50),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                      FilledButton(
+                        onPressed: _isLoading ? null : _createLocalAccount,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          minimumSize: const Size(double.infinity, 44),
+                        ),
+                        child: _isLoading
+                            ? SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.onPrimary),
                           ),
-                          child: _isLoading
-                              ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(Colors.white),
-                            ),
-                          )
-                              : const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.play_arrow_rounded, size: 18),
-                              SizedBox(width: 8),
-                              Text(
-                                'Создать локальный аккаунт',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                        )
+                            : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.play_arrow_rounded, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Создать локальный аккаунт',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -413,46 +409,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   labelText: appLocalizations.email,
-                  labelStyle: TextStyle(
-                    color: isDark ? Colors.white70 : Colors.black54,
-                    fontFamily: 'Roboto',
-                  ),
-                  hintText: appLocalizations.enterEmail,
-                  hintStyle: TextStyle(
-                    color: isDark ? Colors.white54 : Colors.black45,
-                    fontFamily: 'Roboto',
-                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
-                    ),
+                    borderSide: BorderSide.none,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF4CAF50),
-                      width: 2,
-                    ),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.email_outlined,
-                    color: isDark ? Colors.white70 : Colors.black54,
-                  ),
-                  filled: true,
-                  fillColor: isDark ? Colors.grey[900] : Colors.grey[50],
+                  prefixIcon: Icon(Icons.email_rounded),
                 ),
-                style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87,
-                  fontFamily: 'Roboto',
-                  fontSize: 16,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium,
                 keyboardType: TextInputType.emailAddress,
               ),
 
@@ -466,42 +431,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 onSubmitted: (_) => _login(),
                 decoration: InputDecoration(
                   labelText: appLocalizations.password,
-                  labelStyle: TextStyle(
-                    color: isDark ? Colors.white70 : Colors.black54,
-                    fontFamily: 'Roboto',
-                  ),
-                  hintText: appLocalizations.enterPassword,
-                  hintStyle: TextStyle(
-                    color: isDark ? Colors.white54 : Colors.black45,
-                    fontFamily: 'Roboto',
-                  ),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
-                    ),
+                    borderSide: BorderSide.none,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark ? Colors.grey[700]! : Colors.grey[400]!,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF4CAF50),
-                      width: 2,
-                    ),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.lock_outlined,
-                    color: isDark ? Colors.white70 : Colors.black54,
-                  ),
+                  prefixIcon: Icon(Icons.lock_rounded),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      color: isDark ? Colors.white70 : Colors.black54,
+                      _obscurePassword ? Icons.visibility_rounded : Icons.visibility_off_rounded,
                     ),
                     onPressed: () {
                       setState(() {
@@ -509,14 +448,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       });
                     },
                   ),
-                  filled: true,
-                  fillColor: isDark ? Colors.grey[900] : Colors.grey[50],
                 ),
-                style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87,
-                  fontFamily: 'Roboto',
-                  fontSize: 16,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
 
               const SizedBox(height: 24),
@@ -527,18 +460,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: RichText(
                   text: TextSpan(
                     text: '${appLocalizations.noAccount} ',
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black54,
-                      fontFamily: 'Roboto',
-                      fontSize: 14,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onBackground.withOpacity(0.6),
                     ),
                     children: [
                       TextSpan(
                         text: appLocalizations.register,
-                        style: const TextStyle(
-                          color: Color(0xFF4CAF50),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
                         ),
                       ),
                     ],
@@ -550,66 +480,57 @@ class _LoginScreenState extends State<LoginScreen> {
 
               // Кнопка проверки сервера (если недоступен)
               if (!_serverAvailable) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _testingConnection ? null : _testServerConnection,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4CAF50),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      side: const BorderSide(color: Color(0xFF4CAF50)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _testingConnection
-                            ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                            : const Icon(Icons.refresh_rounded),
-                        const SizedBox(width: 8),
-                        Text(_testingConnection ? 'Проверка...' : 'Проверить подключение'),
-                      ],
-                    ),
+                OutlinedButton(
+                  onPressed: _testingConnection ? null : _testServerConnection,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: BorderSide(color: Theme.of(context).colorScheme.primary),
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _testingConnection
+                          ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                          : Icon(Icons.refresh_rounded),
+                      const SizedBox(width: 8),
+                      Text(_testingConnection ? 'Проверка...' : 'Проверить подключение'),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
               ],
 
               // Кнопка входа
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading || !_serverAvailable ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
+              FilledButton(
+                onPressed: _isLoading || !_serverAvailable ? null : _login,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                child: _isLoading
+                    ? SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.onPrimary),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Colors.white),
-                    ),
-                  )
-                      : Text(
-                    appLocalizations.login,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                )
+                    : Text(
+                  appLocalizations.login,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),

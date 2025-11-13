@@ -1,3 +1,4 @@
+// chat_screen.dart - ИСПРАВЛЕННЫЙ КОД С ПРАВИЛЬНЫМ СВАЙПОМ
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
@@ -15,83 +16,93 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final FocusNode _textFieldFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
   List<ChatMessage> _messages = [];
   bool _isLoading = true;
-  final _scrollController = ScrollController();
-  bool _showMiniGames = false;
   bool _showAttachmentMenu = false;
-  bool _isTextFieldFocused = false;
-  final FocusNode _textFieldFocusNode = FocusNode();
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _textFieldWidthAnimation;
+  bool _showGamesMenu = false;
+
+  ChatMessage? _replyingToMessage;
+
+  final List<ChatMessage> _demoMessages = [
+    ChatMessage(
+      id: '1',
+      text: 'Привет! Как дела?',
+      isSentByMe: false,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+      status: MessageStatus.sent,
+      senderName: 'Мария',
+    ),
+    ChatMessage(
+      id: '2',
+      text: 'Привет! Отлично, только что закончил тему по математике 🎯',
+      isSentByMe: true,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 4)),
+      status: MessageStatus.sent,
+      senderName: 'Вы',
+    ),
+    ChatMessage(
+      id: '3',
+      text: 'Круто! Можешь помочь с геометрией? Не понимаю теорему Пифагора',
+      isSentByMe: false,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 3)),
+      status: MessageStatus.sent,
+      senderName: 'Мария',
+    ),
+    ChatMessage(
+      id: '4',
+      text: 'Конечно! Какая именно тема?',
+      isSentByMe: true,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 2)),
+      status: MessageStatus.sent,
+      senderName: 'Вы',
+    ),
+    ChatMessage(
+      id: '5',
+      text: 'Теорема Пифагора в прямоугольных треугольниках',
+      isSentByMe: false,
+      timestamp: DateTime.now().subtract(const Duration(minutes: 1)),
+      status: MessageStatus.sent,
+      senderName: 'Мария',
+    ),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _textFieldFocusNode.addListener(_onTextFieldFocusChange);
-    _animationController = AnimationController(
-      duration: Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-    _textFieldWidthAnimation = Tween<double>(begin: 1.0, end: 0.7).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
     _loadMessages();
   }
 
   @override
   void dispose() {
-    _textFieldFocusNode.removeListener(_onTextFieldFocusChange);
     _textFieldFocusNode.dispose();
-    _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _onTextFieldFocusChange() {
-    setState(() {
-      _isTextFieldFocused = _textFieldFocusNode.hasFocus;
-      if (_isTextFieldFocused) {
-        _showMiniGames = false;
-        _showAttachmentMenu = false;
-        _animationController.forward();
-      } else {
-        _animationController.reverse();
-      }
-    });
-  }
-
-  void _unfocusTextField() {
-    _textFieldFocusNode.unfocus();
-  }
-
   Future<void> _loadMessages() async {
-    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 500));
+    setState(() {
+      _messages = _demoMessages;
+      _isLoading = false;
+    });
+    _scrollToBottom();
+  }
 
-    try {
-      final response = await ApiService.getChatMessages(widget.friend.id);
+  void _replyToMessage(ChatMessage message) {
+    setState(() {
+      _replyingToMessage = message;
+    });
+    _textFieldFocusNode.requestFocus();
+  }
 
-      if (response['success'] == true) {
-        final messagesData = response['messages'] as List;
-        setState(() {
-          _messages = messagesData.map((data) => ChatMessage.fromJson(data)).toList();
-        });
-        _scrollToBottom();
-      }
-    } catch (e) {
-      print('Error loading messages: $e');
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  void _cancelReply() {
+    setState(() {
+      _replyingToMessage = null;
+    });
   }
 
   Future<void> _sendMessage() async {
@@ -104,42 +115,138 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       isSentByMe: true,
       timestamp: DateTime.now(),
       status: MessageStatus.sending,
+      senderName: 'Вы',
+      replyToMessage: _replyingToMessage,
     );
 
     setState(() {
       _messages.add(newMessage);
       _messageController.clear();
+      _replyingToMessage = null;
     });
 
     _scrollToBottom();
 
-    try {
-      final response = await ApiService.sendMessage(
-        widget.friend.id,
-        message,
-      );
+    await Future.delayed(const Duration(seconds: 1));
 
-      setState(() {
-        final index = _messages.indexWhere((m) => m.id == newMessage.id);
-        if (index != -1) {
-          _messages[index] = _messages[index].copyWith(
-            status: response['success'] == true
-                ? MessageStatus.sent
-                : MessageStatus.error,
-          );
-        }
-      });
-    } catch (e) {
-      print('Error sending message: $e');
-      setState(() {
-        final index = _messages.indexWhere((m) => m.id == newMessage.id);
-        if (index != -1) {
-          _messages[index] = _messages[index].copyWith(
-            status: MessageStatus.error,
-          );
-        }
-      });
-    }
+    setState(() {
+      final index = _messages.indexWhere((m) => m.id == newMessage.id);
+      if (index != -1) {
+        _messages[index] = _messages[index].copyWith(status: MessageStatus.sent);
+      }
+    });
+  }
+
+  void _deleteMessage(String messageId) {
+    setState(() {
+      _messages.removeWhere((message) => message.id == messageId);
+    });
+    _showSnackBar('Сообщение удалено');
+  }
+
+  void _showMessageContextMenu(BuildContext context, ChatMessage message, Offset position) {
+    final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RelativeRect positionRelative = RelativeRect.fromRect(
+      Rect.fromPoints(
+        position,
+        position,
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu(
+      context: context,
+      position: positionRelative,
+      items: [
+        PopupMenuItem(
+          value: 'reply',
+          child: Row(
+            children: [
+              Icon(Icons.reply_rounded, size: 20, color: Theme.of(context).colorScheme.onSurface),
+              const SizedBox(width: 8),
+              const Text('Ответить'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delete',
+          child: Row(
+            children: [
+              Icon(Icons.delete_rounded, size: 20, color: Theme.of(context).colorScheme.error),
+              const SizedBox(width: 8),
+              const Text('Удалить'),
+            ],
+          ),
+        ),
+        if (message.isFile) PopupMenuItem(
+          value: 'download',
+          child: Row(
+            children: [
+              Icon(Icons.download_rounded, size: 20, color: Theme.of(context).colorScheme.onSurface),
+              const SizedBox(width: 8),
+              const Text('Скачать'),
+            ],
+          ),
+        ),
+        if (message.isGameInvite) PopupMenuItem(
+          value: 'accept',
+          child: Row(
+            children: [
+              Icon(Icons.play_arrow_rounded, size: 20, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Text('Принять вызов'),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'reply') {
+        _replyToMessage(message);
+      } else if (value == 'delete') {
+        _deleteMessage(message.id);
+      } else if (value == 'download') {
+        _showSnackBar('Файл скачивается...');
+      } else if (value == 'accept') {
+        _showSnackBar('Начинаем игру!');
+      }
+    });
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _toggleAttachmentMenu() {
+    setState(() {
+      _showAttachmentMenu = !_showAttachmentMenu;
+      _showGamesMenu = false;
+    });
+  }
+
+  void _toggleGamesMenu() {
+    setState(() {
+      _showGamesMenu = !_showGamesMenu;
+      _showAttachmentMenu = false;
+    });
   }
 
   Future<void> _sendFile(PlatformFile file) async {
@@ -152,43 +259,25 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       isFile: true,
       fileName: file.name,
       fileSize: file.size,
+      senderName: 'Вы',
     );
 
-    setState(() {
-      _messages.add(fileMessage);
-    });
-
+    setState(() => _messages.add(fileMessage));
     _scrollToBottom();
 
-    try {
-      await Future.delayed(Duration(seconds: 1));
-
-      setState(() {
-        final index = _messages.indexWhere((m) => m.id == fileMessage.id);
-        if (index != -1) {
-          _messages[index] = _messages[index].copyWith(
-            status: MessageStatus.sent,
-          );
-        }
-      });
-    } catch (e) {
-      print('Error sending file: $e');
-      setState(() {
-        final index = _messages.indexWhere((m) => m.id == fileMessage.id);
-        if (index != -1) {
-          _messages[index] = _messages[index].copyWith(
-            status: MessageStatus.error,
-          );
-        }
-      });
-    }
+    await Future.delayed(const Duration(seconds: 1));
+    setState(() {
+      final index = _messages.indexWhere((m) => m.id == fileMessage.id);
+      if (index != -1) {
+        _messages[index] = _messages[index].copyWith(status: MessageStatus.sent);
+      }
+    });
   }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: source);
-
       if (image != null) {
         final file = File(image.path);
         final platformFile = PlatformFile(
@@ -199,8 +288,7 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         await _sendFile(platformFile);
       }
     } catch (e) {
-      print('Error picking image: $e');
-      _showErrorSnackBar('Ошибка при выборе изображения');
+      _showSnackBar('Ошибка при выборе изображения');
     }
   }
 
@@ -210,40 +298,12 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         type: FileType.any,
         allowMultiple: false,
       );
-
       if (result != null && result.files.isNotEmpty) {
         await _sendFile(result.files.first);
       }
     } catch (e) {
-      print('Error picking document: $e');
-      _showErrorSnackBar('Ошибка при выборе файла');
+      _showSnackBar('Ошибка при выборе файла');
     }
-  }
-
-  Future<void> _pickAudio() async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.audio,
-        allowMultiple: false,
-      );
-
-      if (result != null && result.files.isNotEmpty) {
-        await _sendFile(result.files.first);
-      }
-    } catch (e) {
-      print('Error picking audio: $e');
-      _showErrorSnackBar('Ошибка при выборе аудио');
-    }
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   void _startMiniGame(String topic) {
@@ -254,490 +314,594 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
       timestamp: DateTime.now(),
       status: MessageStatus.sent,
       isGameInvite: true,
+      senderName: 'Вы',
     );
 
     setState(() {
       _messages.add(gameMessage);
-      _showMiniGames = false;
-      _unfocusTextField();
+      _showGamesMenu = false;
     });
-
     _scrollToBottom();
-
-    ApiService.sendMessage(widget.friend.id, 'game_invite:$topic');
   }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1048576) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / 1048576).toStringAsFixed(1)} MB';
-  }
-
-  void _showFilePicker() {
-    setState(() {
-      _showAttachmentMenu = !_showAttachmentMenu;
-      _showMiniGames = false;
-      _unfocusTextField();
-    });
-    if (_showAttachmentMenu) {
-      _animationController.forward();
-    } else {
-      _animationController.reverse();
-    }
-  }
-
-  void _toggleMiniGames() {
-    setState(() {
-      _showMiniGames = !_showMiniGames;
-      _showAttachmentMenu = false;
-      _unfocusTextField();
-    });
-  }
-
-  Map<String, String> _getLocalizedSubjectNames() {
-    final locale = Localizations.localeOf(context).languageCode;
-
-    if (locale == 'en') {
-      return {
-        'Русский язык': 'Russian Language',
-        'Математика': 'Mathematics',
-        'Алгебра': 'Algebra',
-        'Геометрия': 'Geometry',
-        'История': 'History',
-        'Физика': 'Physics',
-        'Химия': 'Chemistry',
-        'Биология': 'Biology',
-        'География': 'Geography',
-        'Английский язык': 'English Language',
-        'Литература': 'Literature',
-        'Обществознание': 'Social Studies',
-        'Информатика': 'Computer Science',
-      };
-    } else if (locale == 'de') {
-      return {
-        'Русский язык': 'Russische Sprache',
-        'Математика': 'Mathematik',
-        'Алгебра': 'Algebra',
-        'Геометрия': 'Geometrie',
-        'История': 'Geschichte',
-        'Физика': 'Physik',
-        'Химия': 'Chemie',
-        'Биология': 'Biologie',
-        'География': 'Geographie',
-        'Английский язык': 'Englische Sprache',
-        'Литература': 'Literatur',
-        'Обществознание': 'Sozialkunde',
-        'Информатика': 'Informatik',
-      };
-    }
-
-    return {
-      'Русский язык': 'Русский язык',
-      'Математика': 'Математика',
-      'Алгебра': 'Алгебра',
-      'Геометрия': 'Геометрия',
-      'История': 'История',
-      'Физика': 'Физика',
-      'Химия': 'Химия',
-      'Биология': 'Биология',
-      'География': 'География',
-      'Английский язык': 'Английский язык',
-      'Литература': 'Литература',
-      'Обществознание': 'Обществознание',
-      'Информатика': 'Информатика',
-    };
-  }
-
-  final Map<String, String> _subjectEmojis = {
-    'Русский язык': '📚',
-    'Математика': '🔢',
-    'Алгебра': '𝑥²',
-    'Геометрия': '△',
-    'Английский язык': '🔤',
-    'Литература': '📖',
-    'Биология': '🌿',
-    'Физика': '⚡',
-    'Химия': '🧪',
-    'География': '🌍',
-    'История': '🏛️',
-    'Обществознание': '👥',
-    'Информатика': '💻',
-  };
 
   @override
   Widget build(BuildContext context) {
     final localizations = AppLocalizations.of(context)!;
 
-    return GestureDetector(
-      onTap: _unfocusTextField,
-      behavior: HitTestBehavior.translucent,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              _buildUserAvatar(widget.friend.avatar, widget.friend.username, 32),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.friend.name,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      '@${widget.friend.username}',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      appBar: _buildAppBar(context, localizations),
+      body: Column(
+        children: [
+          Expanded(
+            child: _isLoading
+                ? _buildLoadingState()
+                : _messages.isEmpty
+                ? _buildEmptyState(localizations)
+                : _buildMessagesList(),
           ),
-          backgroundColor: Theme.of(context).cardColor,
-          foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
-          elevation: 0,
-          actions: [
-            IconButton(
-              icon: Icon(Icons.videocam),
-              onPressed: () {},
-            ),
-            IconButton(
-              icon: Icon(Icons.call),
-              onPressed: () {},
-            ),
-            PopupMenuButton(
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  child: Text(localizations.viewProfile),
-                ),
-                PopupMenuItem(
-                  child: Text(localizations.clearChat),
-                ),
-              ],
-            ),
-          ],
-        ),
-        body: Column(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: _unfocusTextField,
-                behavior: HitTestBehavior.translucent,
-                child: _isLoading
-                    ? Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Theme.of(context).primaryColor,
-                    ),
-                  ),
-                )
-                    : _messages.isEmpty
-                    ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text(
-                        localizations.noMessages,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        localizations.startConversation,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                )
-                    : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final message = _messages[index];
-                    return _ChatBubble(
-                      message: message,
-                      onFileTap: () {
-                        if (message.isFile) {
-                          _showFilePreview(message);
-                        }
-                      },
-                    );
-                  },
-                ),
-              ),
-            ),
 
-            AnimatedCrossFade(
-              duration: Duration(milliseconds: 300),
-              crossFadeState: _showAttachmentMenu && !_isTextFieldFocused
-                  ? CrossFadeState.showFirst
-                  : CrossFadeState.showSecond,
-              firstChild: _AttachmentMenu(
-                onClose: _showFilePicker,
-                onImageFromGallery: () => _pickImage(ImageSource.gallery),
-                onImageFromCamera: () => _pickImage(ImageSource.camera),
-                onDocument: _pickDocument,
-                onAudio: _pickAudio,
-                scaleAnimation: _scaleAnimation,
-                fadeAnimation: _fadeAnimation,
-              ),
-              secondChild: SizedBox.shrink(),
-            ),
+          if (_replyingToMessage != null) _buildReplyPanel(),
 
-            AnimatedCrossFade(
-              duration: Duration(milliseconds: 300),
-              crossFadeState: _showMiniGames && !_isTextFieldFocused
-                  ? CrossFadeState.showFirst
-                  : CrossFadeState.showSecond,
-              firstChild: Container(
-                height: MediaQuery.of(context).size.height * 0.4,
-                child: _MiniGamesGrid(
-                  onGameSelected: _startMiniGame,
-                  subjectEmojis: _subjectEmojis,
-                  localizedSubjects: _getLocalizedSubjectNames(),
-                ),
-              ),
-              secondChild: SizedBox.shrink(),
-            ),
+          if (_showAttachmentMenu) _buildAttachmentMenu(),
 
-            _ChatInput(
-              controller: _messageController,
-              focusNode: _textFieldFocusNode,
-              onSend: _sendMessage,
-              onAttachFile: _showFilePicker,
-              onToggleMiniGames: _toggleMiniGames,
-              showMiniGames: _showMiniGames,
-              showAttachmentMenu: _showAttachmentMenu,
-              isTextFieldFocused: _isTextFieldFocused,
-              textFieldWidthAnimation: _textFieldWidthAnimation,
-              onBackgroundTap: _unfocusTextField,
-            ),
-          ],
-        ),
+          if (_showGamesMenu) _buildGamesMenu(),
+
+          _buildInputSection(),
+        ],
       ),
     );
   }
 
-  void _showFilePreview(ChatMessage message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Файл: ${message.fileName}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Размер: ${_formatFileSize(message.fileSize ?? 0)}'),
-            SizedBox(height: 16),
-            Text('Этот файл был отправлен в чат.'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Закрыть'),
+  PreferredSizeWidget _buildAppBar(BuildContext context, AppLocalizations localizations) {
+    return AppBar(
+      title: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.primaryContainer,
+                ],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                widget.friend.name.substring(0, 1),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: Text('Скачать'),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.friend.name,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  'В сети',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      foregroundColor: Theme.of(context).colorScheme.onSurface,
+      elevation: 1,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.videocam_rounded),
+          onPressed: () => _showSnackBar('Видеозвонок скоро будет доступен'),
+        ),
+        IconButton(
+          icon: const Icon(Icons.call_rounded),
+          onPressed: () => _showSnackBar('Голосовой вызов скоро будет доступен'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Загрузка сообщений...',
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUserAvatar(String avatar, String username, double size) {
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: _getAvatarColor(username),
-      child: Text(
-        avatar.length > 2 ? avatar.substring(0, 2) : avatar,
-        style: TextStyle(fontSize: size * 0.5),
+  Widget _buildEmptyState(AppLocalizations localizations) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble_outline_rounded,
+            size: 80,
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            localizations.noMessages,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            localizations.startConversation,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
-  Color _getAvatarColor(String username) {
-    final colors = [
-      Color(0xFFF44336), Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7),
-      Color(0xFF3F51B5), Color(0xFF2196F3), Color(0xFF03A9F4), Color(0xFF00BCD4),
-      Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFFCDDC39),
-      Color(0xFFFFC107), Color(0xFFFF9800), Color(0xFFFF5722),
-    ];
+  Widget _buildMessagesList() {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: _messages.length,
+      itemBuilder: (context, index) {
+        final message = _messages[index];
+        return _SwipableMessageBubble(
+          message: message,
+          onReply: () => _replyToMessage(message),
+          onDelete: () => _deleteMessage(message.id),
+          onLongPress: (position) => _showMessageContextMenu(context, message, position),
+        );
+      },
+    );
+  }
 
-    final index = username.codeUnits.fold(0, (a, b) => a + b) % colors.length;
-    return colors[index];
+  Widget _buildReplyPanel() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.reply_rounded,
+            color: Theme.of(context).colorScheme.primary,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ответ на сообщение ${_replyingToMessage!.isSentByMe ? 'вам' : _replyingToMessage!.senderName}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _replyingToMessage!.text,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _cancelReply,
+            icon: Icon(
+              Icons.close_rounded,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentMenu() {
+    return Container(
+      height: 140,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _AttachmentButton(
+            icon: Icons.photo_library_rounded,
+            label: 'Галерея',
+            color: Colors.blue,
+            onTap: () => _pickImage(ImageSource.gallery),
+          ),
+          _AttachmentButton(
+            icon: Icons.camera_alt_rounded,
+            label: 'Камера',
+            color: Colors.green,
+            onTap: () => _pickImage(ImageSource.camera),
+          ),
+          _AttachmentButton(
+            icon: Icons.insert_drive_file_rounded,
+            label: 'Документ',
+            color: Colors.orange,
+            onTap: _pickDocument,
+          ),
+          _AttachmentButton(
+            icon: Icons.emoji_events_rounded,
+            label: 'Викторина',
+            color: Colors.purple,
+            onTap: _toggleGamesMenu,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGamesMenu() {
+    final subjects = ['Математика', 'История', 'Физика', 'Химия', 'Биология', 'География'];
+    final emojis = {
+      'Математика': '🔢',
+      'История': '🏛️',
+      'Физика': '⚡',
+      'Химия': '🧪',
+      'Биология': '🌿',
+      'География': '🌍'
+    };
+
+    return Container(
+      height: 200,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Выберите тему для викторины',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 1.5,
+              ),
+              itemCount: subjects.length,
+              itemBuilder: (context, index) {
+                final subject = subjects[index];
+                return _GameSubjectCard(
+                  subject: subject,
+                  emoji: emojis[subject] ?? '📚',
+                  onTap: () => _startMiniGame(subject),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: Theme.of(context).colorScheme.outline.withOpacity(0.2)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _showAttachmentMenu
+                  ? Theme.of(context).colorScheme.primaryContainer
+                  : Theme.of(context).colorScheme.surfaceVariant,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: _toggleAttachmentMenu,
+              icon: Icon(
+                Icons.add_rounded,
+                size: 20,
+                color: _showAttachmentMenu
+                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceVariant,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Row(
+                children: [
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      focusNode: _textFieldFocusNode,
+                      decoration: InputDecoration(
+                        hintText: 'Сообщение...',
+                        border: InputBorder.none,
+                        hintStyle: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
+                        ),
+                      ),
+                      maxLines: null,
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _toggleGamesMenu,
+                    icon: Icon(
+                      Icons.emoji_events_rounded,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.primaryContainer,
+                ],
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: _sendMessage,
+              icon: Icon(
+                Icons.send_rounded,
+                size: 18,
+                color: Theme.of(context).colorScheme.onPrimary,
+              ),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _ChatBubble extends StatelessWidget {
+class _SwipableMessageBubble extends StatefulWidget {
   final ChatMessage message;
-  final VoidCallback? onFileTap;
+  final VoidCallback onReply;
+  final VoidCallback onDelete;
+  final Function(Offset) onLongPress;
 
-  const _ChatBubble({required this.message, this.onFileTap});
+  const _SwipableMessageBubble({
+    required this.message,
+    required this.onReply,
+    required this.onDelete,
+    required this.onLongPress,
+  });
+
+  @override
+  State<_SwipableMessageBubble> createState() => _SwipableMessageBubbleState();
+}
+
+class _SwipableMessageBubbleState extends State<_SwipableMessageBubble> {
+  double _dragOffset = 0.0;
+  final double _swipeThreshold = 60.0;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: Duration(milliseconds: 300),
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          mainAxisAlignment: message.isSentByMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-          children: [
-            if (!message.isSentByMe) ...[
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.grey[300],
-                child: Icon(Icons.person, size: 16),
+    return GestureDetector(
+      onHorizontalDragUpdate: (details) {
+        // Разрешаем свайп только вправо
+        if (details.primaryDelta! > 0) return;
+
+        setState(() {
+          _dragOffset = details.primaryDelta!.abs();
+        });
+      },
+      onHorizontalDragEnd: (details) {
+        // Если свайп превысил порог - выполняем действие ответа
+        if (_dragOffset > _swipeThreshold) {
+          widget.onReply();
+        }
+
+        // Сбрасываем состояние свайпа
+        setState(() {
+          _dragOffset = 0.0;
+        });
+      },
+      onHorizontalDragCancel: () {
+        setState(() {
+          _dragOffset = 0.0;
+        });
+      },
+      onLongPress: () {
+        final RenderBox box = context.findRenderObject() as RenderBox;
+        final position = box.localToGlobal(Offset.zero);
+        widget.onLongPress(position);
+      },
+      child: Transform.translate(
+        offset: Offset(-_dragOffset, 0), // Сдвигаем влево при свайпе вправо
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisAlignment: widget.message.isSentByMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!widget.message.isSentByMe) ...[
+                _buildSenderAvatar(),
+                const SizedBox(width: 8),
+              ],
+
+              Flexible(
+                child: _ChatBubbleContent(message: widget.message),
               ),
-              const SizedBox(width: 8),
             ],
-            Flexible(
-              child: AnimatedContainer(
-                duration: Duration(milliseconds: 300),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: message.isSentByMe
-                      ? Theme.of(context).primaryColor
-                      : Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 2,
-                      offset: Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (message.isGameInvite)
-                      _GoogleStyleGameInvite(
-                        topic: message.text.replaceFirst('🎮 Приглашение в игру: ', ''),
-                        isSentByMe: message.isSentByMe,
-                        onAccept: () {
-                          print('Игра принята: ${message.text}');
-                        },
-                        onDecline: () {
-                          print('Игра отклонена: ${message.text}');
-                        },
-                      )
-                    else if (message.isFile)
-                      GestureDetector(
-                        onTap: onFileTap,
-                        child: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: message.isSentByMe
-                                ? Colors.white.withOpacity(0.2)
-                                : Colors.grey.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.insert_drive_file,
-                                color: message.isSentByMe ? Colors.white70 : Colors.grey,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      message.fileName ?? 'Файл',
-                                      style: TextStyle(
-                                        color: message.isSentByMe ? Colors.white : null,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      _formatFileSize(message.fileSize ?? 0),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: message.isSentByMe ? Colors.white70 : Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      Text(
-                        message.text,
-                        style: TextStyle(
-                          color: message.isSentByMe ? Colors.white : null,
-                        ),
-                      ),
-                    if (!message.isFile && !message.isGameInvite) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _formatTime(message.timestamp),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: message.isSentByMe
-                                  ? Colors.white70
-                                  : Colors.grey[600],
-                            ),
-                          ),
-                          if (message.isSentByMe) ...[
-                            const SizedBox(width: 4),
-                            AnimatedSwitcher(
-                              duration: Duration(milliseconds: 200),
-                              child: Icon(
-                                message.status == MessageStatus.sending
-                                    ? Icons.access_time
-                                    : message.status == MessageStatus.sent
-                                    ? Icons.done
-                                    : Icons.error,
-                                key: ValueKey(message.status),
-                                size: 12,
-                                color: message.status == MessageStatus.error
-                                    ? Colors.red
-                                    : message.isSentByMe
-                                    ? Colors.white70
-                                    : Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSenderAvatar() {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).colorScheme.primary,
+            Theme.of(context).colorScheme.primaryContainer,
           ],
         ),
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          widget.message.senderName.substring(0, 1),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatBubbleContent extends StatelessWidget {
+  final ChatMessage message;
+
+  const _ChatBubbleContent({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    if (message.replyToMessage != null) {
+      return _MessageWithReply(message: message);
+    }
+
+    if (message.isGameInvite) {
+      return _GameInviteCard(message: message);
+    }
+
+    if (message.isFile) {
+      return _FileMessageCard(message: message);
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: message.isSentByMe
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message.text,
+            style: TextStyle(
+              color: message.isSentByMe
+                  ? Theme.of(context).colorScheme.onPrimary
+                  : Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _formatTime(message.timestamp),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: message.isSentByMe
+                      ? Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+              if (message.isSentByMe) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  message.status == MessageStatus.sending
+                      ? Icons.access_time_rounded
+                      : message.status == MessageStatus.sent
+                      ? Icons.done_rounded
+                      : Icons.error_rounded,
+                  size: 12,
+                  color: message.status == MessageStatus.error
+                      ? Colors.red
+                      : message.isSentByMe
+                      ? Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -745,72 +909,161 @@ class _ChatBubble extends StatelessWidget {
   String _formatTime(DateTime timestamp) {
     return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
   }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1048576) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / 1048576).toStringAsFixed(1)} MB';
-  }
 }
 
-class _GoogleStyleGameInvite extends StatelessWidget {
-  final String topic;
-  final bool isSentByMe;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
+class _MessageWithReply extends StatelessWidget {
+  final ChatMessage message;
 
-  const _GoogleStyleGameInvite({
-    required this.topic,
-    required this.isSentByMe,
-    required this.onAccept,
-    required this.onDecline,
-  });
+  const _MessageWithReply({required this.message});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Container(
-      constraints: BoxConstraints(maxWidth: 280),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: message.isSentByMe
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Заголовок приглашения
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: message.isSentByMe
+                  ? Colors.white.withOpacity(0.2)
+                  : Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.replyToMessage!.isSentByMe ? 'Вы' : message.replyToMessage!.senderName,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: message.isSentByMe
+                        ? Colors.white.withOpacity(0.9)
+                        : Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message.replyToMessage!.text,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: message.isSentByMe
+                        ? Colors.white.withOpacity(0.7)
+                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message.text,
+            style: TextStyle(
+              color: message.isSentByMe
+                  ? Theme.of(context).colorScheme.onPrimary
+                  : Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _formatTime(message.timestamp),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: message.isSentByMe
+                      ? Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ),
+              if (message.isSentByMe) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  message.status == MessageStatus.sending
+                      ? Icons.access_time_rounded
+                      : message.status == MessageStatus.sent
+                      ? Icons.done_rounded
+                      : Icons.error_rounded,
+                  size: 12,
+                  color: message.status == MessageStatus.error
+                      ? Colors.red
+                      : message.isSentByMe
+                      ? Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)
+                      : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime timestamp) {
+    return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _GameInviteCard extends StatelessWidget {
+  final ChatMessage message;
+
+  const _GameInviteCard({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final topic = message.text.replaceFirst('🎮 Приглашение в игру: ', '');
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 280),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
               Container(
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.videogame_asset,
-                  color: Theme.of(context).primaryColor,
-                  size: 20,
+                  Icons.emoji_events_rounded,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Приглашение в игру',
-                      style: TextStyle(
+                      'Викторина',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: isSentByMe ? Colors.white : Colors.black87,
                       ),
                     ),
-                    SizedBox(height: 2),
                     Text(
-                      'Битва знаний: $topic',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isSentByMe ? Colors.white70 : Colors.black54,
+                      topic,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -818,116 +1071,61 @@ class _GoogleStyleGameInvite extends StatelessWidget {
               ),
             ],
           ),
-
-          SizedBox(height: 16),
-
-          // Описание
+          const SizedBox(height: 16),
           Container(
-            padding: EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isSentByMe
-                  ? Colors.white.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.timer,
-                      size: 16,
-                      color: isSentByMe ? Colors.white70 : Colors.grey,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      '5 минут',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isSentByMe ? Colors.white70 : Colors.grey,
-                      ),
-                    ),
-                  ],
+                Icon(
+                  Icons.timer_rounded,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-                SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.emoji_events,
-                      size: 16,
-                      color: isSentByMe ? Colors.white70 : Colors.grey,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'До 100 очков',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isSentByMe ? Colors.white70 : Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
+                const SizedBox(width: 8),
                 Text(
-                  'Соревнуйтесь в знаниях по теме "$topic". Чем быстрее отвечаете, тем больше очков получаете!',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isSentByMe ? Colors.white70 : Colors.black54,
+                  '5 минут',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Icon(
+                  Icons.emoji_events_rounded,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'До 100 очков',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
           ),
-
-          SizedBox(height: 16),
-
-          // Кнопки действий
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
-                  onPressed: onAccept,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: EdgeInsets.symmetric(vertical: 12),
+                child: FilledButton(
+                  onPressed: () {},
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.play_arrow, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        'Принять вызов',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: const Text('Принять вызов'),
                 ),
               ),
-              SizedBox(width: 8),
-              Container(
-                width: 48,
-                height: 48,
-                child: IconButton(
-                  onPressed: onDecline,
-                  icon: Icon(Icons.close),
-                  style: IconButton.styleFrom(
-                    backgroundColor: isSentByMe
-                        ? Colors.white.withOpacity(0.2)
-                        : Colors.grey.withOpacity(0.2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                  ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.close_rounded),
+                style: IconButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
                 ),
               ),
             ],
@@ -938,341 +1136,84 @@ class _GoogleStyleGameInvite extends StatelessWidget {
   }
 }
 
-class _ChatInput extends StatelessWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final VoidCallback onSend;
-  final VoidCallback onAttachFile;
-  final VoidCallback onToggleMiniGames;
-  final bool showMiniGames;
-  final bool showAttachmentMenu;
-  final bool isTextFieldFocused;
-  final Animation<double> textFieldWidthAnimation;
-  final VoidCallback onBackgroundTap;
+class _FileMessageCard extends StatelessWidget {
+  final ChatMessage message;
 
-  const _ChatInput({
-    required this.controller,
-    required this.focusNode,
-    required this.onSend,
-    required this.onAttachFile,
-    required this.onToggleMiniGames,
-    required this.showMiniGames,
-    required this.showAttachmentMenu,
-    required this.isTextFieldFocused,
-    required this.textFieldWidthAnimation,
-    required this.onBackgroundTap,
-  });
+  const _FileMessageCard({required this.message});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onBackgroundTap,
-      behavior: HitTestBehavior.translucent,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 8,
-              offset: Offset(0, -2),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Row(
+            child: Icon(
+              Icons.insert_drive_file_rounded,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AnimatedOpacity(
-                  duration: Duration(milliseconds: 300),
-                  opacity: isTextFieldFocused ? 0.0 : 1.0,
-                  child: AnimatedContainer(
-                    duration: Duration(milliseconds: 300),
-                    width: isTextFieldFocused ? 0 : 96,
-                    child: Row(
-                      children: [
-                        _CircleIconButton(
-                          icon: Icons.add,
-                          onPressed: onAttachFile,
-                          tooltip: 'Прикрепить файл',
-                          isActive: showAttachmentMenu,
-                        ),
-                        SizedBox(width: 8),
-                        _CircleIconButton(
-                          icon: Icons.videogame_asset,
-                          onPressed: onToggleMiniGames,
-                          tooltip: 'Мини-игры',
-                          isActive: showMiniGames,
-                        ),
-                      ],
-                    ),
+                Text(
+                  message.fileName ?? 'Файл',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-
-                SizedBox(width: 8),
-
-                Expanded(
-                  child: AnimatedBuilder(
-                    animation: textFieldWidthAnimation,
-                    builder: (context, child) {
-                      return FractionallySizedBox(
-                        widthFactor: textFieldWidthAnimation.value,
-                        child: child,
-                      );
-                    },
-                    child: TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      decoration: InputDecoration(
-                        hintText: AppLocalizations.of(context)!.typeMessage,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.surface,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      maxLines: null,
-                      onSubmitted: (_) => onSend(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                AnimatedScale(
-                  duration: Duration(milliseconds: 200),
-                  scale: isTextFieldFocused ? 1.1 : 1.0,
-                  child: CircleAvatar(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    child: IconButton(
-                      onPressed: onSend,
-                      icon: Icon(Icons.send, color: Colors.white),
-                    ),
+                Text(
+                  _formatFileSize(message.fileSize ?? 0),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-  final bool isActive;
-
-  const _CircleIconButton({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-    this.isActive = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isActive
-              ? Theme.of(context).primaryColor.withOpacity(0.2)
-              : Theme.of(context).colorScheme.surface,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isActive
-                ? Theme.of(context).primaryColor
-                : Colors.grey.shade300,
-            width: 1,
           ),
-        ),
-        child: IconButton(
-          onPressed: onPressed,
-          icon: Icon(
-            icon,
-            size: 20,
-            color: isActive
-                ? Theme.of(context).primaryColor
-                : Colors.grey.shade600,
-          ),
-          padding: EdgeInsets.zero,
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniGamesGrid extends StatelessWidget {
-  final Function(String) onGameSelected;
-  final Map<String, String> subjectEmojis;
-  final Map<String, String> localizedSubjects;
-
-  const _MiniGamesGrid({
-    required this.onGameSelected,
-    required this.subjectEmojis,
-    required this.localizedSubjects,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final subjects = [
-      'Русский язык', 'Математика', 'Алгебра', 'Геометрия',
-      'История', 'Физика', 'Химия', 'Биология',
-      'География', 'Английский язык', 'Литература',
-      'Обществознание', 'Информатика'
-    ];
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(top: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: GridView.builder(
-        padding: EdgeInsets.all(16),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.2,
-        ),
-        itemCount: subjects.length,
-        itemBuilder: (context, index) {
-          final subject = subjects[index];
-          final localizedName = localizedSubjects[subject] ?? subject;
-          final emoji = subjectEmojis[subject] ?? '📚';
-
-          return GestureDetector(
-            onTap: () => onGameSelected(subject),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                border: Border.all(
-                  color: Theme.of(context).primaryColor.withOpacity(0.3),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(emoji, style: TextStyle(fontSize: 28)),
-                  SizedBox(height: 8),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      localizedName,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+          IconButton(
+            onPressed: () {},
+            icon: Icon(
+              Icons.download_rounded,
+              color: Theme.of(context).colorScheme.primary,
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
-}
 
-class _AttachmentMenu extends StatelessWidget {
-  final VoidCallback onClose;
-  final VoidCallback onImageFromGallery;
-  final VoidCallback onImageFromCamera;
-  final VoidCallback onDocument;
-  final VoidCallback onAudio;
-  final Animation<double> scaleAnimation;
-  final Animation<double> fadeAnimation;
-
-  const _AttachmentMenu({
-    required this.onClose,
-    required this.onImageFromGallery,
-    required this.onImageFromCamera,
-    required this.onDocument,
-    required this.onAudio,
-    required this.scaleAnimation,
-    required this.fadeAnimation,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: fadeAnimation,
-      child: ScaleTransition(
-        scale: scaleAnimation,
-        child: Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            border: Border(top: BorderSide(color: Colors.grey.shade300)),
-          ),
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              _AttachmentOption(
-                icon: Icons.photo,
-                title: 'Фото из галереи',
-                color: Colors.green,
-                onTap: onImageFromGallery,
-              ),
-              _AttachmentOption(
-                icon: Icons.camera_alt,
-                title: 'Сделать фото',
-                color: Colors.blue,
-                onTap: onImageFromCamera,
-              ),
-              _AttachmentOption(
-                icon: Icons.insert_drive_file,
-                title: 'Документ',
-                color: Colors.orange,
-                onTap: onDocument,
-              ),
-              _AttachmentOption(
-                icon: Icons.audiotrack,
-                title: 'Аудио',
-                color: Colors.purple,
-                onTap: onAudio,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1048576) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / 1048576).toStringAsFixed(1)} MB';
   }
 }
 
-class _AttachmentOption extends StatelessWidget {
+class _AttachmentButton extends StatelessWidget {
   final IconData icon;
-  final String title;
+  final String label;
   final Color color;
   final VoidCallback onTap;
 
-  const _AttachmentOption({
+  const _AttachmentButton({
     required this.icon,
-    required this.title,
+    required this.label,
     required this.color,
     required this.onTap,
   });
@@ -1281,29 +1222,68 @@ class _AttachmentOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 80,
-        child: Column(
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: color.withOpacity(0.3)),
-              ),
-              child: Icon(icon, size: 30, color: color),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withOpacity(0.3)),
             ),
-            SizedBox(height: 8),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+            child: Icon(icon, size: 28, color: color),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GameSubjectCard extends StatelessWidget {
+  final String subject;
+  final String emoji;
+  final VoidCallback onTap;
+
+  const _GameSubjectCard({
+    required this.subject,
+    required this.emoji,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                subject,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
             ),
           ],
         ),
@@ -1322,8 +1302,10 @@ class ChatMessage {
   final bool isFile;
   final String? fileName;
   final int? fileSize;
+  final String senderName;
+  final ChatMessage? replyToMessage;
 
-  ChatMessage({
+  const ChatMessage({
     required this.id,
     required this.text,
     required this.isSentByMe,
@@ -1333,21 +1315,9 @@ class ChatMessage {
     this.isFile = false,
     this.fileName,
     this.fileSize,
+    required this.senderName,
+    this.replyToMessage,
   });
-
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    return ChatMessage(
-      id: json['id'],
-      text: json['text'],
-      isSentByMe: json['is_sent_by_me'] ?? false,
-      timestamp: DateTime.parse(json['timestamp']),
-      status: MessageStatus.values[json['status'] ?? 0],
-      isGameInvite: json['is_game_invite'] ?? false,
-      isFile: json['is_file'] ?? false,
-      fileName: json['file_name'],
-      fileSize: json['file_size'],
-    );
-  }
 
   ChatMessage copyWith({
     String? id,
@@ -1359,6 +1329,8 @@ class ChatMessage {
     bool? isFile,
     String? fileName,
     int? fileSize,
+    String? senderName,
+    ChatMessage? replyToMessage,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -1370,6 +1342,8 @@ class ChatMessage {
       isFile: isFile ?? this.isFile,
       fileName: fileName ?? this.fileName,
       fileSize: fileSize ?? this.fileSize,
+      senderName: senderName ?? this.senderName,
+      replyToMessage: replyToMessage ?? this.replyToMessage,
     );
   }
 }

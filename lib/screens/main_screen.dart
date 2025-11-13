@@ -274,6 +274,37 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  // Метод для группировки тем по параграфам
+  List<dynamic> get _groupedTopics {
+    final filteredTopics = _filteredTopics;
+
+    // Если нет тем или поиск активен, возвращаем как есть
+    if (filteredTopics.isEmpty || _searchQuery.isNotEmpty) {
+      return filteredTopics;
+    }
+
+    final List<dynamic> grouped = [];
+    String? currentParagraph;
+
+    for (final topic in filteredTopics) {
+      final topicData = topic is _TopicWithGrade ? topic.topic : topic;
+      final topicParagraph = topicData.paragraph;
+
+      // Если параграф изменился, добавляем заголовок
+      if (topicParagraph.isNotEmpty && topicParagraph != currentParagraph) {
+        grouped.add(_ParagraphHeader(
+          title: topicParagraph,
+          grade: topic is _TopicWithGrade ? topic.grade : _selectedGrade,
+        ));
+        currentParagraph = topicParagraph;
+      }
+
+      grouped.add(topic);
+    }
+
+    return grouped;
+  }
+
   bool _isTopicCompleted(String topicName) {
     final topic = _findTopicInAllSubjects(topicName);
     if (topic == null) {
@@ -452,6 +483,22 @@ class _MainScreenState extends State<MainScreen> {
         return ReviewScreen();
       case 2:
         return DictionaryScreen();
+      case 3:
+        return ProfileScreen(
+          currentAvatar: _avatar,
+          onAvatarUpdate: (newAvatar) {
+            setState(() {
+              _avatar = newAvatar;
+            });
+            UserDataStorage.saveAvatar(newAvatar);
+          },
+          onUsernameUpdate: (newUsername) {
+            setState(() {
+              _username = newUsername;
+            });
+            UserDataStorage.saveUsername(newUsername);
+          },
+        );
       default:
         return _buildHomeScreen();
     }
@@ -462,35 +509,55 @@ class _MainScreenState extends State<MainScreen> {
 
     return Column(
       children: [
-        _ProfileHeader(
-          avatar: _avatar,
-          isPhotoAvatar: _isPhotoAvatar(),
-          username: _username,
-          dailyCompleted: _dailyCompleted,
-          streakDays: _userStats.streakDays,
-          onAvatarPressed: _openDrawer,
-          appLocalizations: appLocalizations,
-        ),
-        _GradeSubjectSelector(
-          selectedGrade: _selectedGrade,
-          selectedSubject: _selectedSubject,
-          availableSubjects: _availableSubjects,
-          onGradeChanged: _onGradeChanged,
-          onSubjectChanged: _onSubjectChanged,
-          appLocalizations: appLocalizations,
-        ),
-        _SearchField(
-          onChanged: _onSearchChanged,
-          appLocalizations: appLocalizations,
-        ),
         Expanded(
-          child: _OptimizedTopicsList(
-            filteredTopics: _filteredTopics,
-            isTopicCompleted: _isTopicCompleted,
-            onTopicTap: (topic) => _showTopicPopup(context, topic),
-            onRefresh: _refreshData,
-            listKey: _topicsListKey,
-            appLocalizations: appLocalizations,
+          child: Column(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).padding.top),
+                    _ProfileHeader(
+                      avatar: _avatar,
+                      isPhotoAvatar: _isPhotoAvatar(),
+                      username: _username,
+                      dailyCompleted: _dailyCompleted,
+                      streakDays: _userStats.streakDays,
+                      onAvatarPressed: _openDrawer,
+                      appLocalizations: appLocalizations,
+                    ),
+                    _GradeSubjectSelector(
+                      selectedGrade: _selectedGrade,
+                      selectedSubject: _selectedSubject,
+                      availableSubjects: _availableSubjects,
+                      onGradeChanged: _onGradeChanged,
+                      onSubjectChanged: _onSubjectChanged,
+                      appLocalizations: appLocalizations,
+                    ),
+                    _SearchField(
+                      onChanged: _onSearchChanged,
+                      appLocalizations: appLocalizations,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _OptimizedTopicsList(
+                  groupedTopics: _groupedTopics,
+                  isTopicCompleted: _isTopicCompleted,
+                  onTopicTap: (topic) => _showTopicPopup(context, topic),
+                  onRefresh: _refreshData,
+                  listKey: _topicsListKey,
+                  appLocalizations: appLocalizations,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -503,8 +570,12 @@ class _MainScreenState extends State<MainScreen> {
       key: _scaffoldKey,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       drawer: _currentBottomNavIndex == 0 ? _buildDrawer(AppLocalizations.of(context)) : null,
-      body: SafeArea(
-        child: _getCurrentScreen(),
+      body: Column(
+        children: [
+          Expanded(
+            child: _getCurrentScreen(),
+          ),
+        ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
@@ -515,85 +586,52 @@ class _MainScreenState extends State<MainScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: ClipRRect(
-        child: Container(
-          height: 80,
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-          ),
-          child: Stack(
-            children: [
-              // Полностью прозрачный фон
-              Container(
-                color: Colors.transparent,
-              ),
-
-              // Анимированный индикатор
-              AnimatedPositioned(
-                duration: Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                left: MediaQuery.of(context).size.width / 3 * _currentBottomNavIndex + MediaQuery.of(context).size.width / 6 - 20,
-                bottom: 8,
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
-                    borderRadius: BorderRadius.circular(2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Контент панели с легким градиентом для читаемости
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Theme.of(context).scaffoldBackgroundColor.withOpacity(0.1),
-                      Theme.of(context).scaffoldBackgroundColor.withOpacity(0.2),
-                    ],
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    _BottomNavItem(
-                      index: 0,
-                      currentIndex: _currentBottomNavIndex,
-                      icon: Icons.home,
-                      label: appLocalizations.home,
-                      onTap: () => _onBottomNavTap(0),
-                    ),
-                    _BottomNavItem(
-                      index: 1,
-                      currentIndex: _currentBottomNavIndex,
-                      icon: Icons.refresh,
-                      label: appLocalizations.review,
-                      onTap: () => _onBottomNavTap(1),
-                    ),
-                    _BottomNavItem(
-                      index: 2,
-                      currentIndex: _currentBottomNavIndex,
-                      icon: Icons.book,
-                      label: appLocalizations.dictionary,
-                      onTap: () => _onBottomNavTap(2),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+        child: NavigationBar(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          elevation: 3,
+          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
+          selectedIndex: _currentBottomNavIndex,
+          onDestinationSelected: _onBottomNavTap,
+          destinations: [
+            NavigationDestination(
+              icon: Icon(Icons.home_rounded),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: appLocalizations.home,
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.refresh_rounded),
+              selectedIcon: Icon(Icons.refresh_rounded),
+              label: appLocalizations.review,
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.book_rounded),
+              selectedIcon: Icon(Icons.book_rounded),
+              label: appLocalizations.dictionary,
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: appLocalizations.profile,
+            ),
+          ],
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         ),
       ),
     );
@@ -601,124 +639,79 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildDrawer(AppLocalizations appLocalizations) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final profileColor = isDark
-        ? const Color(0xFF2D4A2D)
-        : const Color(0xFFE8F5E8);
+    final greenColor = isDark ? const Color(0xFF2D4A2D) : const Color(0xFFE8F5E8);
 
     return Drawer(
-      backgroundColor: Theme.of(context).cardColor,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
           Container(
-            height: MediaQuery.of(context).padding.top,
-            color: profileColor,
-          ),
-          Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: profileColor,
+              color: greenColor,
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(12),
                 bottomRight: Radius.circular(12),
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: _openProfile,
-                  child: CircleAvatar(
-                    radius: 30,
-                    backgroundColor: isDark
-                        ? Colors.white.withOpacity(0.2)
-                        : Theme.of(context).primaryColor.withOpacity(0.2),
-                    backgroundImage: _isPhotoAvatar()
-                        ? FileImage(File(_avatar)) as ImageProvider
-                        : null,
-                    child: _isPhotoAvatar()
-                        ? null
-                        : Icon(
-                      Icons.person,
-                      size: 30,
-                      color: isDark ? Colors.white : Theme.of(context).primaryColor,
-                    ),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  _DrawerItem(
+                    icon: Icons.star_rounded,
+                    title: 'EduPeak+',
+                    subtitle: appLocalizations.premiumFeatures,
+                    color: Colors.amber,
+                    onTap: _openSubscription,
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _username.isNotEmpty ? '${appLocalizations.hello}, $_username!' : '${appLocalizations.hello}!',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
+                  _DrawerItem(
+                    icon: Icons.analytics_rounded,
+                    title: appLocalizations.statistics,
+                    subtitle: appLocalizations.learningProgress,
+                    color: Colors.green,
+                    onTap: _openStatistics,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  appLocalizations.clickToEdit,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isDark ? Colors.white70 : Colors.black54,
+                  _DrawerItem(
+                    icon: Icons.emoji_events_rounded,
+                    title: appLocalizations.achievements,
+                    subtitle: appLocalizations.achievements,
+                    color: Colors.orange,
+                    onTap: _openAchievements,
                   ),
-                ),
-              ],
+                  _DrawerItem(
+                    icon: Icons.people_rounded,
+                    title: appLocalizations.friends,
+                    subtitle: appLocalizations.friends,
+                    color: Colors.blue,
+                    onTap: _openFriends,
+                  ),
+                  _DrawerItem(
+                    icon: Icons.leaderboard_rounded,
+                    title: appLocalizations.educationalLeague,
+                    subtitle: appLocalizations.educationalLeague,
+                    color: Colors.purple,
+                    onTap: _openEduLeague,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
-          _DrawerItem(
-            icon: Icons.star,
-            title: 'EduPeak+',
-            subtitle: appLocalizations.premiumFeatures,
-            color: Colors.amber,
-            onTap: _openSubscription,
-          ),
-          _DrawerItem(
-            icon: Icons.analytics,
-            title: appLocalizations.statistics,
-            subtitle: appLocalizations.learningProgress,
-            color: Colors.green,
-            onTap: _openStatistics,
-          ),
-          _DrawerItem(
-            icon: Icons.emoji_events,
-            title: appLocalizations.achievements,
-            subtitle: appLocalizations.achievements,
-            color: Colors.orange,
-            onTap: _openAchievements,
-          ),
-          _DrawerItem(
-            icon: Icons.people,
-            title: appLocalizations.friends,
-            subtitle: appLocalizations.friends,
-            color: Colors.blue,
-            onTap: _openFriends,
-          ),
-          _DrawerItem(
-            icon: Icons.leaderboard,
-            title: appLocalizations.educationalLeague,
-            subtitle: appLocalizations.educationalLeague,
-            color: Colors.purple,
-            onTap: _openEduLeague,
-          ),
-          const Divider(),
-          _DrawerItem(
-            icon: Icons.settings,
-            title: appLocalizations.settings,
-            subtitle: appLocalizations.appSettings,
-            color: Colors.blue,
-            onTap: _openSettings,
-          ),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                widget.onLogout();
-              },
-              icon: const Icon(Icons.logout),
-              label: Text(appLocalizations.logout),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  _DrawerItem(
+                    icon: Icons.settings_rounded,
+                    title: appLocalizations.settings,
+                    subtitle: appLocalizations.appSettings,
+                    color: Theme.of(context).colorScheme.primary,
+                    onTap: _openSettings,
+                  ),
+                ],
               ),
             ),
           ),
@@ -869,7 +862,7 @@ class _ProfileHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -880,18 +873,14 @@ class _ProfileHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onAvatarPressed,
-            child: Container(
+          IconButton(
+            onPressed: onAvatarPressed,
+            icon: Container(
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.primaryContainer,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: Theme.of(context).primaryColor,
-                  width: 2,
-                ),
                 image: isPhotoAvatar
                     ? DecorationImage(
                   image: FileImage(File(avatar)),
@@ -903,8 +892,8 @@ class _ProfileHeader extends StatelessWidget {
                   ? null
                   : Center(
                 child: Icon(
-                  Icons.person,
-                  color: Theme.of(context).primaryColor,
+                  Icons.person_rounded,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
                   size: 24,
                 ),
               ),
@@ -917,14 +906,15 @@ class _ProfileHeader extends StatelessWidget {
               children: [
                 Text(
                   username.isNotEmpty ? '${appLocalizations.hello}, $username!' : '${appLocalizations.hello}!',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
                   dailyCompleted ? appLocalizations.todayCompleted : appLocalizations.startLessonText,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).primaryColor,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ],
@@ -933,19 +923,22 @@ class _ProfileHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               children: [
-                const Icon(Icons.local_fire_department, size: 16),
-                const SizedBox(width: 4),
+                Icon(
+                  Icons.local_fire_department_rounded,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+                const SizedBox(width: 6),
                 Text(
                   '$streakDays',
-                  style: TextStyle(
-                    color: Theme.of(context).primaryColor,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
                   ),
                 ),
               ],
@@ -977,8 +970,7 @@ class _GradeSubjectSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      color: Theme.of(context).cardColor,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
         children: [
           Container(
@@ -1060,7 +1052,7 @@ class _GradeDropdown extends StatelessWidget {
           dropdownColor: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
           icon: Icon(
-            Icons.arrow_drop_down,
+            Icons.arrow_drop_down_rounded,
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
         ),
@@ -1084,23 +1076,6 @@ class _SubjectDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final subjectEmojis = {
-      'Русский язык': '📚',
-      'Математика': '🔢',
-      'Алгебра': '𝑥²',
-      'Геометрия': '△',
-      'Английский язык': '🔤',
-      'Литература': '📖',
-      'Биология': '🌿',
-      'Физика': '⚡',
-      'Химия': '🧪',
-      'География': '🌍',
-      'История': '🏛️',
-      'Обществознание': '👥',
-      'Информатика': '💻',
-      'Статистика и вероятность': '📊',
-    };
-
     final uniqueSubjects = availableSubjects.toSet().toList();
     final currentSubject = uniqueSubjects.contains(selectedSubject)
         ? selectedSubject
@@ -1120,11 +1095,10 @@ class _SubjectDropdown extends StatelessWidget {
           isExpanded: true,
           underline: const SizedBox(),
           items: uniqueSubjects.map((subject) {
-            final emoji = subjectEmojis[subject] ?? '📚';
             return DropdownMenuItem<String>(
               value: subject,
               child: Text(
-                '$emoji $subject',
+                subject, // Убрали emoji, оставили только название предмета
                 style: TextStyle(
                   color: Theme.of(context).textTheme.bodyLarge?.color,
                   fontSize: 14,
@@ -1137,7 +1111,7 @@ class _SubjectDropdown extends StatelessWidget {
           dropdownColor: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
           icon: Icon(
-            Icons.arrow_drop_down,
+            Icons.arrow_drop_down_rounded,
             color: Theme.of(context).textTheme.bodyLarge?.color,
           ),
           hint: Text(
@@ -1165,15 +1139,18 @@ class _SearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: TextField(
         onChanged: onChanged,
         decoration: InputDecoration(
           hintText: appLocalizations.searchTopics,
-          prefixIcon: const Icon(Icons.search),
+          prefixIcon: const Icon(Icons.search_rounded),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
           ),
+          filled: true,
+          fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
@@ -1182,7 +1159,7 @@ class _SearchField extends StatelessWidget {
 }
 
 class _OptimizedTopicsList extends StatelessWidget {
-  final List<dynamic> filteredTopics;
+  final List<dynamic> groupedTopics;
   final bool Function(String) isTopicCompleted;
   final Function(dynamic) onTopicTap;
   final Future<void> Function() onRefresh;
@@ -1190,7 +1167,7 @@ class _OptimizedTopicsList extends StatelessWidget {
   final AppLocalizations appLocalizations;
 
   const _OptimizedTopicsList({
-    required this.filteredTopics,
+    required this.groupedTopics,
     required this.isTopicCompleted,
     required this.onTopicTap,
     required this.onRefresh,
@@ -1202,11 +1179,11 @@ class _OptimizedTopicsList extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       onRefresh: onRefresh,
-      child: filteredTopics.isEmpty
+      child: groupedTopics.isEmpty
           ? _EmptyState(appLocalizations: appLocalizations)
           : _OptimizedTopicsListView(
         key: listKey,
-        filteredTopics: filteredTopics,
+        groupedTopics: groupedTopics,
         isTopicCompleted: isTopicCompleted,
         onTopicTap: onTopicTap,
       ),
@@ -1215,13 +1192,13 @@ class _OptimizedTopicsList extends StatelessWidget {
 }
 
 class _OptimizedTopicsListView extends StatefulWidget {
-  final List<dynamic> filteredTopics;
+  final List<dynamic> groupedTopics;
   final bool Function(String) isTopicCompleted;
   final Function(dynamic) onTopicTap;
 
   const _OptimizedTopicsListView({
     super.key,
-    required this.filteredTopics,
+    required this.groupedTopics,
     required this.isTopicCompleted,
     required this.onTopicTap,
   });
@@ -1244,9 +1221,17 @@ class _OptimizedTopicsListViewState extends State<_OptimizedTopicsListView> {
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: widget.filteredTopics.length,
+      itemCount: widget.groupedTopics.length,
       itemBuilder: (context, index) {
-        final topic = widget.filteredTopics[index];
+        final item = widget.groupedTopics[index];
+
+        // Если это заголовок параграфа
+        if (item is _ParagraphHeader) {
+          return item;
+        }
+
+        // Если это тема
+        final topic = item;
         final topicName = _getTopicName(topic);
         final cacheKey = '${topicName}_$index';
 
@@ -1450,7 +1435,7 @@ class _TopicCard extends StatelessWidget {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              Icons.check,
+                              Icons.check_rounded,
                               size: 16,
                               color: Colors.white,
                             ),
@@ -1492,6 +1477,68 @@ class _TopicCard extends StatelessWidget {
   }
 }
 
+class _ParagraphHeader extends StatelessWidget {
+  final String title;
+  final int? grade;
+
+  const _ParagraphHeader({
+    required this.title,
+    this.grade,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12, top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).primaryColor.withOpacity(0.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'Глава',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
+          ),
+          if (grade != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   final AppLocalizations appLocalizations;
 
@@ -1504,7 +1551,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.search_off,
+            Icons.search_off_rounded,
             size: 64,
             color: Theme.of(context).primaryColor.withOpacity(0.5),
           ),

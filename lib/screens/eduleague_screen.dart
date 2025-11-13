@@ -43,13 +43,11 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Загружаем информацию о пользователе
       final userStats = await UserDataStorage.getUserStatsOverview();
       setState(() {
         _userStats = userStats;
       });
 
-      // Загружаем информацию о лиге пользователя
       final userInfoResponse = await ApiService.getUserLeagueInfo();
       if (userInfoResponse['success'] == true) {
         setState(() {
@@ -59,7 +57,6 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
         _loadLocalUserInfo();
       }
 
-      // Загружаем лидерборд для выбранной лиги
       await _loadLeaderboard(_leagues[_selectedLeagueIndex].name);
     } catch (e) {
       print('Error loading league data: $e');
@@ -74,7 +71,7 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
       _userLeagueInfo = {
         'current_league': _userStats['currentLeague'] ?? 'Бронза',
         'weekly_xp': _userStats['weeklyXP'] ?? 0,
-        'rank': 0, // Без ранга пока нет данных
+        'rank': 0,
         'total_users': 0,
         'xp_to_next_league': _calculateXPToNextLeague(),
       };
@@ -108,7 +105,6 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
         final leaderboardData = response['leaderboard'] as List;
         List<User> users = leaderboardData.map((data) => User.fromJson(data)).toList();
 
-        // Добавляем текущего пользователя в лидерборд если он в этой лиге
         final userLeague = _userLeagueInfo['current_league'] ?? _userStats['currentLeague'] ?? 'Бронза';
         if (userLeague == leagueName) {
           final currentUser = _createCurrentUser();
@@ -130,7 +126,7 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
   }
 
   User _createCurrentUser() {
-    final localizations = AppLocalizations.of(context);
+    final localizations = AppLocalizations.of(context)!;
     final username = _userStats['username'] ?? localizations.you;
     final weeklyXP = _userStats['weeklyXP'] ?? 0;
 
@@ -146,10 +142,8 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
   }
 
   void _loadLocalLeaderboard(String leagueName) {
-    // Пустой список вместо заглушек
     List<User> users = [];
 
-    // Добавляем текущего пользователя если он в этой лиге
     final userLeague = _userLeagueInfo['current_league'] ?? _userStats['currentLeague'] ?? 'Бронза';
     if (userLeague == leagueName) {
       users.add(_createCurrentUser());
@@ -174,7 +168,7 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
       case 'Золото': return Color(0xFFFFD700);
       case 'Платина': return Color(0xFFE5E4E2);
       case 'Бриллиант': return Color(0xFFB9F2FF);
-      default: return Theme.of(context).primaryColor;
+      default: return Theme.of(context).colorScheme.primary;
     }
   }
 
@@ -205,7 +199,6 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
     final isPhoto = _isPhotoAvatar(avatar);
 
     if (isPhoto) {
-      // Реальная фото аватарка
       return Container(
         width: size,
         height: size,
@@ -215,7 +208,7 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
             color: _getLeagueColor(_userLeagueInfo['current_league'] ?? _userStats['currentLeague'] ?? 'Бронза'),
             width: 3,
           ) : Border.all(
-            color: Colors.grey.withOpacity(0.3),
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
             width: 1,
           ),
         ),
@@ -223,56 +216,39 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
           child: Image.file(
             File(avatar),
             fit: BoxFit.cover,
-            width: size,
-            height: size,
           ),
         ),
       );
     } else {
-      // Эмодзи или текст аватарка
+      // Используем такой же стиль как в main_screen.dart
       return Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
           shape: BoxShape.circle,
-          color: _getAvatarColor(username),
           border: isCurrentUser ? Border.all(
             color: _getLeagueColor(_userLeagueInfo['current_league'] ?? _userStats['currentLeague'] ?? 'Бронза'),
             width: 3,
           ) : Border.all(
-            color: Colors.grey.withOpacity(0.3),
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
             width: 1,
           ),
         ),
         child: Center(
-          child: Text(
-            avatar.length > 2 ? avatar.substring(0, 2) : avatar,
-            style: TextStyle(
-              fontSize: isCurrentUser ? size * 0.4 : size * 0.35,
-              fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
-              color: Colors.black,
-            ),
+          child: Icon(
+            Icons.person_rounded,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+            size: size * 0.5, // Пропорциональный размер иконки
           ),
         ),
       );
     }
   }
 
-  Color _getAvatarColor(String username) {
-    final colors = [
-      Color(0xFFF44336), Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7),
-      Color(0xFF3F51B5), Color(0xFF2196F3), Color(0xFF03A9F4), Color(0xFF00BCD4),
-      Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFFCDDC39),
-      Color(0xFFFFC107), Color(0xFFFF9800), Color(0xFFFF5722),
-    ];
-
-    final index = username.codeUnits.fold(0, (a, b) => a + b) % colors.length;
-    return colors[index];
-  }
-
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context);
+    final localizations = AppLocalizations.of(context)!;
     final selectedLeague = _leagues[_selectedLeagueIndex];
     final userRank = _userLeagueInfo['rank'] ?? 0;
     final userXP = _userLeagueInfo['weekly_xp'] ?? _userStats['weeklyXP'] ?? 0;
@@ -280,57 +256,60 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
     final xpToNext = _userLeagueInfo['xp_to_next_league'] ?? _calculateXPToNextLeague();
     final username = _userStats['username'] ?? localizations.you;
 
-    // Принудительно черный цвет для всех текстов в светлой теме
-    final bool isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final Color primaryTextColor = isDarkTheme ? Colors.white : Colors.black;
-    final Color secondaryTextColor = isDarkTheme ? Colors.grey[400]! : Colors.grey[700]!;
-
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         title: Text(
           localizations.educationalLeague,
-          style: TextStyle(
-            color: primaryTextColor,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
-        iconTheme: IconThemeData(color: primaryTextColor),
+        centerTitle: true,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: primaryTextColor),
+            icon: Icon(Icons.refresh_rounded),
             onPressed: _isLoading ? null : _loadLeagueData,
           ),
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              '${localizations.loading}...',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      )
           : Column(
         children: [
-          // Плашка пользователя
+          // User info card
           Container(
-            padding: const EdgeInsets.all(16),
-            margin: const EdgeInsets.all(16),
+            margin: EdgeInsets.all(16),
+            padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _getLeagueColor(userLeague).withOpacity(0.1),
-                  _getLeagueColor(userLeague).withOpacity(0.2),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _getLeagueColor(userLeague).withOpacity(0.3),
-                width: 2,
-              ),
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               children: [
-                // Аватар и иконка лиги
+                // Avatar with league badge
                 Stack(
                   children: [
                     _buildUserAvatar(_userAvatar, username, isCurrentUser: true, size: 70),
@@ -343,7 +322,7 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
                         decoration: BoxDecoration(
                           color: _getLeagueColor(userLeague),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
                         ),
                         child: Center(
                           child: Text(
@@ -355,61 +334,66 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(width: 16),
-                // Информация о пользователе
+                SizedBox(width: 16),
+
+                // User info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         username,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: primaryTextColor,
-                        ),
-                      ),
-                      Text(
-                        '${localizations.league}: $userLeague',
-                        style: TextStyle(
-                          color: primaryTextColor,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          fontSize: 14,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
+                      Text(
+                        '$userLeague ${localizations.league}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                      SizedBox(height: 12),
+
+                      // Stats row
                       Row(
                         children: [
                           _UserStatItem(
-                            icon: Icons.emoji_events,
+                            icon: Icons.emoji_events_rounded,
                             value: '$userXP XP',
                             color: _getLeagueColor(userLeague),
-                            textColor: primaryTextColor,
                           ),
-                          const SizedBox(width: 16),
+                          SizedBox(width: 16),
                           _UserStatItem(
-                            icon: Icons.leaderboard,
+                            icon: Icons.leaderboard_rounded,
                             value: userRank > 0 ? '${localizations.rank} $userRank' : localizations.noRank,
                             color: _getLeagueColor(userLeague),
-                            textColor: primaryTextColor,
                           ),
                         ],
                       ),
+
+                      // Progress to next league
                       if (xpToNext > 0) ...[
-                        const SizedBox(height: 8),
-                        LinearProgressIndicator(
-                          value: userXP / 100,
-                          backgroundColor: Colors.grey[300],
-                          color: _getLeagueColor(userLeague),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${localizations.toNextLeague}: $xpToNext XP',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: primaryTextColor,
-                          ),
+                        SizedBox(height: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            LinearProgressIndicator(
+                              value: userXP / 100,
+                              backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                              color: _getLeagueColor(userLeague),
+                              borderRadius: BorderRadius.circular(8),
+                              minHeight: 8,
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              '${localizations.toNextLeague}: $xpToNext XP',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ],
@@ -419,12 +403,12 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
             ),
           ),
 
-          // Горизонтальный список лиг
+          // Leagues horizontal list
           Container(
-            height: 110, // Увеличиваем высоту с 100 до 110
+            height: 100,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.symmetric(horizontal: 16),
               itemCount: _leagues.length,
               itemBuilder: (context, index) {
                 final league = _leagues[index];
@@ -435,21 +419,22 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
                   onTap: () => _onLeagueSelected(index),
                   child: Container(
                     width: 80,
-                    height: 90, // Уменьшаем высоту контейнера с 80 до 90
-                    margin: const EdgeInsets.only(right: 12),
+                    margin: EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? league.color.withOpacity(0.2)
-                          : Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(12),
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? league.color : Colors.grey.withOpacity(0.3),
-                        width: isSelected ? 3 : 1,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                        width: isSelected ? 2 : 1,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8,
                           offset: Offset(0, 2),
                         ),
                       ],
@@ -461,21 +446,20 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
                           league.icon,
                           style: TextStyle(fontSize: 24),
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6),
                         Text(
                           league.name,
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: isSelected ? league.color : primaryTextColor,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.onPrimaryContainer
+                                : Theme.of(context).colorScheme.onSurface,
                           ),
                           textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                         if (isCurrentLeague) ...[
-                          const SizedBox(height: 2),
-                          Icon(Icons.star, size: 12, color: Colors.amber),
+                          SizedBox(height: 2),
+                          Icon(Icons.star_rounded, size: 12, color: Colors.amber),
                         ],
                       ],
                     ),
@@ -485,26 +469,41 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
             ),
           ),
 
-          // Заголовок списка пользователей
+          SizedBox(height: 16),
+
+          // Leaderboard header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
                 Text(
-                  '${localizations.playersInLeague} ${selectedLeague.name} (${_leaderboard.length})',
-                  style: TextStyle(
-                    fontSize: 18,
+                  '${localizations.playersInLeague} ${selectedLeague.name}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: primaryTextColor,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${_leaderboard.length}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 8),
+          SizedBox(height: 12),
 
-          // Список пользователей в лиге
+          // Leaderboard list
           Expanded(
             child: _leaderboard.isEmpty
                 ? Center(
@@ -512,87 +511,77 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.people_outline,
+                    Icons.people_outline_rounded,
                     size: 64,
-                    color: secondaryTextColor,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
                   ),
                   SizedBox(height: 16),
                   Text(
                     localizations.noPlayersInLeague,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: primaryTextColor,
-                    ),
+                    style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   SizedBox(height: 8),
                   Text(
                     localizations.beFirstInLeague,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: secondaryTextColor,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                 ],
               ),
             )
                 : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 16),
               itemCount: _leaderboard.length,
               itemBuilder: (context, index) {
                 final user = _leaderboard[index];
                 final isCurrentUser = user.isCurrentUser;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: isCurrentUser
-                        ? _getLeagueColor(selectedLeague.name).withOpacity(0.1)
-                        : Theme.of(context).cardColor,
+                return Card(
+                  margin: EdgeInsets.only(bottom: 8),
+                  elevation: 1,
+                  color: isCurrentUser
+                      ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                      : Theme.of(context).colorScheme.surface,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isCurrentUser
-                          ? _getLeagueColor(selectedLeague.name).withOpacity(0.3)
-                          : Colors.grey.withOpacity(0.1),
-                    ),
                   ),
                   child: ListTile(
                     leading: Container(
                       width: 40,
                       height: 40,
-                      alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: selectedLeague.color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text(
-                        user.rank > 0 ? '${user.rank}' : '-',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: selectedLeague.color,
+                      child: Center(
+                        child: Text(
+                          user.rank > 0 ? '${user.rank}' : '-',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          ),
                         ),
                       ),
                     ),
                     title: Text(
                       user.name,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: primaryTextColor,
                       ),
                     ),
                     subtitle: Text(
                       '@${user.username} • ${user.xp} XP',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: primaryTextColor,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                       ),
                     ),
                     trailing: _buildUserAvatar(
                       user.avatar,
                       user.username,
                       isCurrentUser: isCurrentUser,
-                      size: isCurrentUser ? 50 : 40,
+                      size: 44,
                     ),
                   ),
                 );
@@ -609,31 +598,35 @@ class _UserStatItem extends StatelessWidget {
   final IconData icon;
   final String value;
   final Color color;
-  final Color textColor;
 
   const _UserStatItem({
     required this.icon,
     required this.value,
     required this.color,
-    required this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: textColor,
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          SizedBox(width: 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
