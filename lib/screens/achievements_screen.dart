@@ -264,7 +264,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           description: localizations.reachBronzeLeague,
           imageAsset: '🥉',
           requiredValue: 1,
-          currentValue: _isLeagueAchieved('Бронза', stats) ? 1 : 0,
+          currentValue: _isLeagueAchieved('Бронзовая', stats) ? 1 : 0,
           type: AchievementType.league,
         ),
         Achievement(
@@ -273,7 +273,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           description: localizations.reachSilverLeague,
           imageAsset: '🥈',
           requiredValue: 1,
-          currentValue: _isLeagueAchieved('Серебро', stats) ? 1 : 0,
+          currentValue: _isLeagueAchieved('Серебряная', stats) ? 1 : 0,
           type: AchievementType.league,
         ),
         Achievement(
@@ -282,7 +282,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           description: localizations.reachGoldLeague,
           imageAsset: '🥇',
           requiredValue: 1,
-          currentValue: _isLeagueAchieved('Золото', stats) ? 1 : 0,
+          currentValue: _isLeagueAchieved('Золотая', stats) ? 1 : 0,
           type: AchievementType.league,
         ),
         Achievement(
@@ -291,7 +291,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           description: localizations.reachPlatinumLeague,
           imageAsset: '💎',
           requiredValue: 1,
-          currentValue: _isLeagueAchieved('Платина', stats) ? 1 : 0,
+          currentValue: _isLeagueAchieved('Платиновая', stats) ? 1 : 0,
           type: AchievementType.league,
         ),
         Achievement(
@@ -300,7 +300,34 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           description: localizations.reachDiamondLeague,
           imageAsset: '💠',
           requiredValue: 1,
-          currentValue: _isLeagueAchieved('Бриллиант', stats) ? 1 : 0,
+          currentValue: _isLeagueAchieved('Бриллиантовая', stats) ? 1 : 0,
+          type: AchievementType.league,
+        ),
+        Achievement(
+          id: 'elite_league',
+          name: 'Элитный воин',
+          description: 'Достигните Элитной лиги',
+          imageAsset: '⭐',
+          requiredValue: 1,
+          currentValue: _isLeagueAchieved('Элитная', stats) ? 1 : 0,
+          type: AchievementType.league,
+        ),
+        Achievement(
+          id: 'legendary_league',
+          name: 'Легендарный герой',
+          description: 'Достигните Легендарной лиги',
+          imageAsset: '🔥',
+          requiredValue: 1,
+          currentValue: _isLeagueAchieved('Легендарная', stats) ? 1 : 0,
+          type: AchievementType.league,
+        ),
+        Achievement(
+          id: 'unreal_league',
+          name: 'Нереальный гений',
+          description: 'Достигните Нереальной лиги',
+          imageAsset: '🌌',
+          requiredValue: 1,
+          currentValue: _isLeagueAchieved('Нереальная', stats) ? 1 : 0,
           type: AchievementType.league,
         ),
 
@@ -375,8 +402,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
   }
 
   bool _isLeagueAchieved(String league, Map<String, dynamic> stats) {
-    final currentLeague = stats['currentLeague'] ?? 'Бронза';
-    final leagueOrder = ['Бронза', 'Серебро', 'Золото', 'Платина', 'Бриллиант'];
+    final currentLeague = stats['currentLeague'] ?? 'Бронзовая';
+    final leagueOrder = ['Бронзовая', 'Серебряная', 'Золотая', 'Платиновая', 'Бриллиантовая', 'Элитная', 'Легендарная', 'Нереальная'];
     final currentIndex = leagueOrder.indexOf(currentLeague);
     final targetIndex = leagueOrder.indexOf(league);
     return currentIndex >= targetIndex;
@@ -430,7 +457,20 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       SnackBar(
         content: Row(
           children: [
-            Text(achievement.imageAsset, style: TextStyle(fontSize: 20)),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  achievement.imageAsset,
+                  style: TextStyle(fontSize: 20),
+                ),
+              ),
+            ),
             SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -438,11 +478,18 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 children: [
                   Text(
                     localizations.achievementUnlocked,
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
                   ),
                   Text(
                     achievement.name,
-                    style: TextStyle(fontSize: 12),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.9),
+                    ),
                   ),
                 ],
               ),
@@ -452,183 +499,355 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         duration: Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     );
   }
 
-  Future<void> _refreshAchievements() async {
-    await _loadAchievements();
-  }
-
-  @override
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final localizations = AppLocalizations.of(context)!;
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
     final completedCount = _achievements.where((a) => a.isUnlocked).length;
     final totalCount = _achievements.length;
     final progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      appBar: AppBar(
-        title: Text(
-          localizations.achievements,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark
+              ? LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.15),
+              theme.scaffoldBackgroundColor.withOpacity(0.7),
+              theme.scaffoldBackgroundColor,
+            ],
+            stops: [0.0, 0.3, 0.7],
+          )
+              : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.08),
+              Colors.white.withOpacity(0.7),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.7],
           ),
         ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        elevation: 0,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh_rounded),
-            onPressed: _isLoading ? null : _refreshAchievements,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Верхняя панель с заголовком
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  children: [
+                    // Кнопка назад
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isDark ? theme.cardColor : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.arrow_back_rounded),
+                        color: primaryColor,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Раздел',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: theme.hintColor,
+                            ),
+                          ),
+                          Text(
+                            localizations.achievements,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: theme.textTheme.titleMedium?.color,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Основной контент
+              Expanded(
+                child: _isLoading
+                    ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        '${localizations.loading}...',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                )
+                    : SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Статистика прогресса
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: isDark ? theme.cardColor : Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 80,
+                                    height: 80,
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.emoji_events_rounded,
+                                      color: primaryColor,
+                                      size: 36,
+                                    ),
+                                  ),
+                                  SizedBox(width: 20),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              'Прогресс',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: theme.hintColor,
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: primaryColor.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                '$completedCount/$totalCount',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: primaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 8),
+                                        LinearProgressIndicator(
+                                          value: completedCount / totalCount,
+                                          backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                                          color: primaryColor,
+                                          borderRadius: BorderRadius.circular(4),
+                                          minHeight: 10,
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          '$completedCount открыто • ${totalCount - completedCount} осталось',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: theme.hintColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Статистика в ряд
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'Открыто',
+                                value: completedCount.toString(),
+                                color: Colors.green,
+                                icon: Icons.check_circle_rounded,
+                                isDark: isDark,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'В прогрессе',
+                                value: _achievements.where((a) => !a.isUnlocked && a.currentValue > 0).length.toString(),
+                                color: Colors.orange,
+                                icon: Icons.trending_up_rounded,
+                                isDark: isDark,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'Заблокировано',
+                                value: _achievements.where((a) => !a.isUnlocked && a.currentValue == 0).length.toString(),
+                                color: Colors.grey,
+                                icon: Icons.lock_rounded,
+                                isDark: isDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Сетка достижений
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Text(
+                          'Все достижения',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textTheme.titleMedium?.color,
+                          ),
+                        ),
+                      ),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: GridView.builder(
+                          physics: NeverScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 0.9,
+                          ),
+                          itemCount: _achievements.length,
+                          itemBuilder: (context, index) {
+                            final achievement = _achievements[index];
+                            return _AchievementCard(
+                              achievement: achievement,
+                              onTap: () => _showAchievementDetails(achievement),
+                            );
+                          },
+                        ),
+                      ),
+
+                      SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required Color color,
+    required IconData icon,
+    required bool isDark,
+  }) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
         ],
       ),
-      body: _isLoading
-          ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text(
-              '${localizations.loading}...',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      )
-          : Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Progress overview
-          Container(
-            margin: EdgeInsets.all(16),
-            padding: EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Progress text
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      localizations.achievementProgress,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      '$completedCount/$totalCount',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16),
-
-                // Progress bar
-                LinearProgressIndicator(
-                  value: completedCount / totalCount,
-                  backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                  color: Theme.of(context).colorScheme.primary,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
-                  minHeight: 12,
                 ),
-                SizedBox(height: 8),
-
-                // Progress percentage
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '${progressPercentage.round()}% ${localizations.completed}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                    Text(
-                      '${totalCount - completedCount} ${localizations.remainingAchievements}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                  ],
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 20,
                 ),
-              ],
-            ),
-          ),
-
-          // Statistics cards
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    title: localizations.completed,
-                    value: completedCount,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    title: localizations.overallProgress,
-                    value: _achievements.where((a) => !a.isUnlocked && a.currentValue > 0).length,
-                    color: Theme.of(context).colorScheme.secondary,
-                  ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _StatCard(
-                    title: localizations.locked,
-                    value: _achievements.where((a) => !a.isUnlocked && a.currentValue == 0).length,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          SizedBox(height: 20),
-
-          // Achievements grid
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.9,
-                ),
-                itemCount: _achievements.length,
-                itemBuilder: (context, index) {
-                  final achievement = _achievements[index];
-                  return _AchievementCard(
-                    achievement: achievement,
-                    onTap: () => _showAchievementDetails(achievement),
-                  );
-                },
               ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: theme.textTheme.titleMedium?.color,
             ),
           ),
         ],
@@ -637,7 +856,10 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
   }
 
   void _showAchievementDetails(Achievement achievement) {
-    final localizations = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isUnlocked = achievement.isUnlocked;
+    final progress = achievement.currentValue / achievement.requiredValue;
 
     showModalBottomSheet(
       context: context,
@@ -646,22 +868,29 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       builder: (context) => Container(
         margin: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: isDark ? theme.cardColor : Colors.white,
           borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: Offset(0, 8),
+            ),
+          ],
         ),
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Achievement icon
+              // Иконка достижения
               Container(
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: achievement.isUnlocked
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surfaceVariant,
+                  color: isUnlocked
+                      ? theme.colorScheme.primary.withOpacity(0.1)
+                      : theme.colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Center(
@@ -674,119 +903,149 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
 
               SizedBox(height: 20),
 
-              // Achievement name
+              // Название достижения
               Text(
                 achievement.name,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.titleMedium?.color,
                 ),
                 textAlign: TextAlign.center,
               ),
 
               SizedBox(height: 12),
 
-              // Achievement description
+              // Описание достижения
               Text(
                 achievement.description,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: theme.hintColor,
                 ),
                 textAlign: TextAlign.center,
               ),
 
               SizedBox(height: 24),
 
-              // Status badge
+              // Статус бейдж
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
-                  color: achievement.isUnlocked
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surfaceVariant,
+                  color: isUnlocked
+                      ? Colors.green.withOpacity(0.1)
+                      : theme.colorScheme.surfaceVariant,
                   borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  achievement.isUnlocked ? 'Достижение получено' : 'Достижение заблокировано',
-                  style: TextStyle(
-                    color: achievement.isUnlocked
-                        ? Theme.of(context).colorScheme.onPrimaryContainer
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
+                  border: Border.all(
+                    color: isUnlocked
+                        ? Colors.green.withOpacity(0.3)
+                        : theme.colorScheme.outline.withOpacity(0.2),
                   ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isUnlocked ? Icons.check_circle_rounded : Icons.lock_rounded,
+                      size: 18,
+                      color: isUnlocked ? Colors.green : theme.colorScheme.onSurfaceVariant,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      isUnlocked ? 'Достижение получено' : 'Достижение заблокировано',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: isUnlocked
+                            ? Colors.green
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
+              if (!isUnlocked && achievement.requiredValue > 1) ...[
+                SizedBox(height: 24),
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Прогресс',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: theme.textTheme.titleMedium?.color,
+                            ),
+                          ),
+                          Text(
+                            '${achievement.currentValue}/${achievement.requiredValue}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 12),
+                      LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: theme.colorScheme.surfaceVariant,
+                        color: theme.colorScheme.primary,
+                        borderRadius: BorderRadius.circular(8),
+                        minHeight: 8,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '${(progress * 100).toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               SizedBox(height: 24),
 
-              // Close button
+              // Кнопка закрытия
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
                   ),
-                  child: Text('Закрыть'),
+                  child: Text(
+                    'Закрыть',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String title;
-  final int value;
-  final Color color;
-
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value.toString(),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -803,34 +1062,36 @@ class _AchievementCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isUnlocked = achievement.isUnlocked;
     final progress = achievement.currentValue / achievement.requiredValue;
 
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Theme.of(context).colorScheme.surface,
+      color: isDark ? theme.cardColor : Colors.white,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Stack(
           children: [
-            // Main content - занимает всю площадь карточки
+            // Основной контент
             Positioned.fill(
               child: Padding(
                 padding: EdgeInsets.all(12),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center, // Центрируем по вертикали
-                  crossAxisAlignment: CrossAxisAlignment.center, // Центрируем по горизонтали
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Achievement icon
+                    // Иконка достижения
                     Container(
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
                         color: isUnlocked
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : Theme.of(context).colorScheme.surfaceVariant,
+                            ? theme.colorScheme.primary.withOpacity(0.1)
+                            : theme.colorScheme.surfaceVariant,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Center(
@@ -843,15 +1104,16 @@ class _AchievementCard extends StatelessWidget {
 
                     SizedBox(height: 12),
 
-                    // Achievement name
+                    // Название достижения
                     Text(
                       achievement.name,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: TextStyle(
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: isUnlocked
-                            ? Theme.of(context).colorScheme.onSurface
-                            : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                            ? theme.textTheme.titleMedium?.color
+                            : theme.textTheme.titleMedium?.color?.withOpacity(0.6),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -859,14 +1121,14 @@ class _AchievementCard extends StatelessWidget {
 
                     SizedBox(height: 8),
 
-                    // Achievement description
+                    // Описание достижения
                     Expanded(
                       child: Text(
                         achievement.description,
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        style: TextStyle(
                           fontSize: 11,
+                          color: theme.hintColor,
                           height: 1.3,
                         ),
                         maxLines: 3,
@@ -874,13 +1136,13 @@ class _AchievementCard extends StatelessWidget {
                       ),
                     ),
 
-                    // Progress for locked achievements
+                    // Прогресс для заблокированных достижений
                     if (!isUnlocked && achievement.requiredValue > 1) ...[
                       SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: progress,
-                        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                        color: Theme.of(context).colorScheme.primary,
+                        backgroundColor: theme.colorScheme.surfaceVariant,
+                        color: theme.colorScheme.primary,
                         borderRadius: BorderRadius.circular(4),
                         minHeight: 6,
                       ),
@@ -888,8 +1150,9 @@ class _AchievementCard extends StatelessWidget {
                       Text(
                         '${achievement.currentValue}/${achievement.requiredValue}',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: theme.hintColor,
                         ),
                       ),
                     ],
@@ -898,7 +1161,7 @@ class _AchievementCard extends StatelessWidget {
               ),
             ),
 
-            // Checkmark for completed
+            // Галочка для завершенных
             if (isUnlocked)
               Positioned(
                 top: 8,
@@ -907,13 +1170,20 @@ class _AchievementCard extends StatelessWidget {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Colors.green,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     Icons.check_rounded,
                     size: 16,
-                    color: Theme.of(context).colorScheme.onPrimary,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -924,7 +1194,6 @@ class _AchievementCard extends StatelessWidget {
   }
 }
 
-// Классы Achievement, AchievementType остаются без изменений
 class Achievement {
   final String id;
   final String name;

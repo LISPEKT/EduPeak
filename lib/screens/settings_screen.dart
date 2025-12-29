@@ -40,360 +40,564 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final languageManager = Provider.of<LanguageManager>(context);
     final regionManager = Provider.of<RegionManager>(context);
     final appLocalizations = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      appBar: AppBar(
-        title: Text(
-          appLocalizations.settings,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark
+              ? LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.15),
+              theme.scaffoldBackgroundColor.withOpacity(0.7),
+              theme.scaffoldBackgroundColor,
+            ],
+            stops: [0.0, 0.3, 0.7],
+          )
+              : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.08),
+              Colors.white.withOpacity(0.7),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.7],
           ),
         ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildRegionSection(regionManager, appLocalizations),
-          const SizedBox(height: 16),
-          _buildThemeSection(themeManager, appLocalizations),
-          const SizedBox(height: 16),
-          _buildLanguageSection(languageManager, appLocalizations, regionManager),
-          const SizedBox(height: 16),
-          _buildResetProgressSection(appLocalizations),
-          const SizedBox(height: 16),
-          _buildFeedbackSection(appLocalizations),
-          const SizedBox(height: 16),
-          _buildAppInfoSection(appLocalizations),
-          const SizedBox(height: 16),
-          _buildLogoutSection(appLocalizations),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRegionSection(RegionManager regionManager, AppLocalizations appLocalizations) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.public_rounded,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Регион обучения',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        'Выберите страну для соответствующей учебной программы',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Заголовок
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Страна обучения',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: regionManager.currentRegion.id,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Theme.of(context).colorScheme.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                      items: regionManager.availableRegions.map((region) {
-                        return DropdownMenuItem<String>(
-                          value: region.id,
-                          child: Row(
-                            children: [
-                              Text(region.flag),
-                              const SizedBox(width: 12),
-                              Text(
-                                region.name,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Раздел',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: theme.hintColor,
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) async {
-                        if (newValue != null && newValue != regionManager.currentRegion.id) {
-                          final languageManager = Provider.of<LanguageManager>(context, listen: false);
-                          final currentLanguage = languageManager.currentLanguageCode;
-
-                          final message = await regionManager.setCurrentRegion(newValue, currentLanguage: currentLanguage);
-
-                          final newRegion = regionManager.getRegionById(newValue);
-                          if (!newRegion.supportedLanguages.contains(currentLanguage)) {
-                            final defaultLanguage = newRegion.defaultLanguage;
-                            await languageManager.setLanguage(defaultLanguage);
-
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(message ?? 'Язык изменен на $defaultLanguage для региона ${newRegion.name}'),
-                                  backgroundColor: Theme.of(context).colorScheme.primary,
-                                  behavior: SnackBarBehavior.floating,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      },
+                        ),
+                        Text(
+                          appLocalizations.settings,
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textTheme.titleMedium?.color,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${regionManager.currentRegion.totalGrades} классов, ${regionManager.currentRegion.curriculum.length} предметов',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: isDark ? theme.cardColor : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.arrow_back_rounded),
+                        color: primaryColor,
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              // Основной контент
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  children: [
+                    // Регион обучения
+                    _buildSectionCard(
+                      title: 'Регион обучения',
+                      subtitle: 'Выберите страну для соответствующей учебной программы',
+                      icon: Icons.public_rounded,
+                      iconColor: Colors.blue,
+                      isDark: isDark,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Страна обучения',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.textTheme.titleMedium?.color,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  DropdownButtonFormField<String>(
+                                    value: regionManager.currentRegion.id,
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: theme.colorScheme.surface,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    ),
+                                    items: regionManager.availableRegions.map((region) {
+                                      return DropdownMenuItem<String>(
+                                        value: region.id,
+                                        child: Row(
+                                          children: [
+                                            Text(region.flag),
+                                            const SizedBox(width: 12),
+                                            Text(
+                                              region.name,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: theme.textTheme.titleMedium?.color,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (String? newValue) async {
+                                      if (newValue != null && newValue != regionManager.currentRegion.id) {
+                                        final currentLanguage = languageManager.currentLanguageCode;
+                                        final message = await regionManager.setCurrentRegion(newValue, currentLanguage: currentLanguage);
+                                        final newRegion = regionManager.getRegionById(newValue);
+
+                                        if (!newRegion.supportedLanguages.contains(currentLanguage)) {
+                                          final defaultLanguage = newRegion.defaultLanguage;
+                                          await languageManager.setLanguage(defaultLanguage);
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(message ?? 'Язык изменен на $defaultLanguage для региона ${newRegion.name}'),
+                                                backgroundColor: theme.colorScheme.primary,
+                                                behavior: SnackBarBehavior.floating,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      }
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${regionManager.currentRegion.totalGrades} классов, ${regionManager.currentRegion.curriculum.length} предметов',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Тема приложения
+                    _buildSectionCard(
+                      title: appLocalizations.appearance,
+                      subtitle: appLocalizations.themeAppliedInstantly,
+                      icon: Icons.palette_rounded,
+                      iconColor: Colors.purple,
+                      isDark: isDark,
+                      child: Column(
+                        children: [
+                          _buildThemeOption(
+                            title: appLocalizations.systemTheme,
+                            subtitle: appLocalizations.followSystemSettings,
+                            value: themeManager.useSystemTheme,
+                            onChanged: (value) async {
+                              if (value) await themeManager.setUseSystemTheme(true);
+                            },
+                            isLoading: themeManager.isLoading,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildThemeOption(
+                            title: appLocalizations.darkTheme,
+                            subtitle: appLocalizations.alwaysUseDarkTheme,
+                            value: themeManager.useDarkTheme,
+                            onChanged: (value) async {
+                              if (value) await themeManager.setUseDarkTheme(true);
+                            },
+                            isLoading: themeManager.isLoading,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildThemeOption(
+                            title: appLocalizations.lightTheme,
+                            subtitle: appLocalizations.alwaysUseLightTheme,
+                            value: !themeManager.useSystemTheme && !themeManager.useDarkTheme,
+                            onChanged: (value) async {
+                              if (value) await themeManager.setLightTheme();
+                            },
+                            isLoading: themeManager.isLoading,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Язык
+                    _buildSectionCard(
+                      title: appLocalizations.languageSettings,
+                      subtitle: 'Доступные языки для региона ${regionManager.currentRegion.name}',
+                      icon: Icons.language_rounded,
+                      iconColor: Colors.teal,
+                      isDark: isDark,
+                      child: Column(
+                        children: [
+                          if (regionManager.currentRegion.supportedLanguages.contains('ru'))
+                            _buildLanguageOption(
+                              title: appLocalizations.russian,
+                              value: languageManager.currentLocale.languageCode == 'ru',
+                              onChanged: () => languageManager.setRussian(),
+                              isLoading: languageManager.isLoading,
+                            ),
+                          if (regionManager.currentRegion.supportedLanguages.contains('ru'))
+                            const SizedBox(height: 12),
+                          if (regionManager.currentRegion.supportedLanguages.contains('en'))
+                            _buildLanguageOption(
+                              title: appLocalizations.english,
+                              value: languageManager.currentLocale.languageCode == 'en',
+                              onChanged: () => languageManager.setEnglish(),
+                              isLoading: languageManager.isLoading,
+                            ),
+                          if (regionManager.currentRegion.supportedLanguages.contains('en'))
+                            const SizedBox(height: 12),
+                          if (regionManager.currentRegion.supportedLanguages.contains('de'))
+                            _buildLanguageOption(
+                              title: appLocalizations.german,
+                              value: languageManager.currentLocale.languageCode == 'de',
+                              onChanged: () => languageManager.setGerman(),
+                              isLoading: languageManager.isLoading,
+                            ),
+                          if (regionManager.currentRegion.supportedLanguages.contains('de'))
+                            const SizedBox(height: 12),
+                          if (regionManager.currentRegion.supportedLanguages.contains('lt'))
+                            _buildLanguageOption(
+                              title: 'Литовский',
+                              value: languageManager.currentLocale.languageCode == 'lt',
+                              onChanged: () => languageManager.setLanguage('lt'),
+                              isLoading: languageManager.isLoading,
+                            ),
+                          if (regionManager.currentRegion.supportedLanguages.contains('lt'))
+                            const SizedBox(height: 12),
+                          if (regionManager.currentRegion.supportedLanguages.contains('vi'))
+                            _buildLanguageOption(
+                              title: 'Вьетнамский',
+                              value: languageManager.currentLocale.languageCode == 'vi',
+                              onChanged: () => languageManager.setLanguage('vi'),
+                              isLoading: languageManager.isLoading,
+                            ),
+                          if (regionManager.currentRegion.supportedLanguages.contains('vi'))
+                            const SizedBox(height: 12),
+                          if (regionManager.currentRegion.supportedLanguages.contains('kz'))
+                            _buildLanguageOption(
+                              title: 'Казахский',
+                              value: languageManager.currentLocale.languageCode == 'kz',
+                              onChanged: () => languageManager.setLanguage('kz'),
+                              isLoading: languageManager.isLoading,
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Сброс прогресса
+                    _buildSectionCard(
+                      title: appLocalizations.progressManagement,
+                      subtitle: appLocalizations.resetProgressDescription,
+                      icon: Icons.restart_alt_rounded,
+                      iconColor: Colors.orange,
+                      isDark: isDark,
+                      child: Container(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: _isResettingProgress ? null : _resetProgress,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: _isResettingProgress
+                              ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                              : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.restart_alt_rounded, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                appLocalizations.resetProgressButton,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Обратная связь
+                    _buildSectionCard(
+                      title: appLocalizations.feedback,
+                      subtitle: appLocalizations.feedbackDescription,
+                      icon: Icons.telegram_rounded,
+                      iconColor: Colors.blue,
+                      isDark: isDark,
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _feedbackController,
+                            maxLines: 4,
+                            decoration: InputDecoration(
+                              hintText: appLocalizations.feedbackHint,
+                              filled: true,
+                              fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.all(16),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            width: double.infinity,
+                            child: FilledButton(
+                              onPressed: _isSendingFeedback ? null : _sendFeedback,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isSendingFeedback
+                                  ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                                  : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.send_rounded, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    appLocalizations.sendTelegramButton,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Информация о приложении
+                    _buildSectionCard(
+                      title: appLocalizations.aboutApp,
+                      subtitle: 'Версия и контактная информация',
+                      icon: Icons.info_rounded,
+                      iconColor: primaryColor,
+                      isDark: isDark,
+                      child: Column(
+                        children: [
+                          _buildInfoRow(
+                            title: appLocalizations.version,
+                            value: 'alpha 0.40.0',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildInfoRow(
+                            title: appLocalizations.developer,
+                            value: 'Murlit Studio',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildInfoRow(
+                            title: appLocalizations.support,
+                            value: 'Telegram: @lispekt',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildInfoRow(
+                            title: appLocalizations.buildDate,
+                            value: '${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year}',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Выход из аккаунта
+                    _buildSectionCard(
+                      title: appLocalizations.accountLogout,
+                      subtitle: appLocalizations.logoutDescription,
+                      icon: Icons.logout_rounded,
+                      iconColor: Colors.red,
+                      isDark: isDark,
+                      child: Container(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: _showLogoutDialog,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.logout_rounded, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                appLocalizations.logout,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildThemeSection(ThemeManager themeManager, AppLocalizations appLocalizations) {
-    final isLightTheme = !themeManager.useSystemTheme && !themeManager.useDarkTheme;
+  Widget _buildSectionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required bool isDark,
+    required Widget child,
+  }) {
+    final theme = Theme.of(context);
 
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.palette_rounded,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        appLocalizations.appearance,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        appLocalizations.themeAppliedInstantly,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildThemeOption(
-              title: appLocalizations.systemTheme,
-              subtitle: appLocalizations.followSystemSettings,
-              value: themeManager.useSystemTheme,
-              onChanged: (value) async {
-                if (value) await themeManager.setUseSystemTheme(true);
-              },
-              isLoading: themeManager.isLoading,
-            ),
-            const Divider(height: 24),
-            _buildThemeOption(
-              title: appLocalizations.darkTheme,
-              subtitle: appLocalizations.alwaysUseDarkTheme,
-              value: themeManager.useDarkTheme,
-              onChanged: (value) async {
-                if (value) await themeManager.setUseDarkTheme(true);
-              },
-              isLoading: themeManager.isLoading,
-            ),
-            const Divider(height: 24),
-            _buildThemeOption(
-              title: appLocalizations.lightTheme,
-              subtitle: appLocalizations.alwaysUseLightTheme,
-              value: isLightTheme,
-              onChanged: (value) async {
-                if (value) await themeManager.setLightTheme();
-              },
-              isLoading: themeManager.isLoading,
-            ),
-          ],
-        ),
+    return Container(
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildLanguageSection(LanguageManager languageManager, AppLocalizations appLocalizations, RegionManager regionManager) {
-    final supportedLanguages = regionManager.currentRegion.supportedLanguages;
-
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.language_rounded,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    size: 20,
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        appLocalizations.languageSettings,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        'Доступные языки для региона ${regionManager.currentRegion.name}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 20,
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (supportedLanguages.contains('ru'))
-              _buildLanguageOption(
-                title: appLocalizations.russian,
-                value: languageManager.currentLocale.languageCode == 'ru',
-                onChanged: () => languageManager.setRussian(),
-                isLoading: languageManager.isLoading,
               ),
-            if (supportedLanguages.contains('ru')) const Divider(height: 16),
-            if (supportedLanguages.contains('en'))
-              _buildLanguageOption(
-                title: appLocalizations.english,
-                value: languageManager.currentLocale.languageCode == 'en',
-                onChanged: () => languageManager.setEnglish(),
-                isLoading: languageManager.isLoading,
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: theme.textTheme.titleMedium?.color,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.hintColor,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            if (supportedLanguages.contains('en')) const Divider(height: 16),
-            if (supportedLanguages.contains('de'))
-              _buildLanguageOption(
-                title: appLocalizations.german,
-                value: languageManager.currentLocale.languageCode == 'de',
-                onChanged: () => languageManager.setGerman(),
-                isLoading: languageManager.isLoading,
-              ),
-            if (supportedLanguages.contains('lt')) const Divider(height: 16),
-            if (supportedLanguages.contains('lt'))
-              _buildLanguageOption(
-                title: 'Литовский',
-                value: languageManager.currentLocale.languageCode == 'lt',
-                onChanged: () => languageManager.setLanguage('lt'),
-                isLoading: languageManager.isLoading,
-              ),
-            if (supportedLanguages.contains('vi')) const Divider(height: 16),
-            if (supportedLanguages.contains('vi'))
-              _buildLanguageOption(
-                title: 'Вьетнамский',
-                value: languageManager.currentLocale.languageCode == 'vi',
-                onChanged: () => languageManager.setLanguage('vi'),
-                isLoading: languageManager.isLoading,
-              ),
-            if (supportedLanguages.contains('kz')) const Divider(height: 16),
-            if (supportedLanguages.contains('kz'))
-              _buildLanguageOption(
-                title: 'Казахский',
-                value: languageManager.currentLocale.languageCode == 'kz',
-                onChanged: () => languageManager.setLanguage('kz'),
-                isLoading: languageManager.isLoading,
-              ),
-          ],
-        ),
+            ],
+          ),
+          SizedBox(height: 16),
+          child,
+        ],
       ),
     );
   }
@@ -404,33 +608,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required VoidCallback onChanged,
     required bool isLoading,
   }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: isLoading && value
-          ? SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      )
-          : Icon(
-        Icons.check_rounded,
-        color: value ? Theme.of(context).colorScheme.primary : Colors.transparent,
-        size: 24,
-      ),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          fontWeight: value ? FontWeight.w600 : FontWeight.normal,
-          color: value
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.onSurface,
-        ),
-      ),
+    final theme = Theme.of(context);
+
+    return GestureDetector(
       onTap: isLoading ? null : onChanged,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: value ? theme.colorScheme.primary.withOpacity(0.1) : theme.colorScheme.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: value ? FontWeight.w600 : FontWeight.normal,
+                color: value ? theme.colorScheme.primary : theme.textTheme.titleMedium?.color,
+              ),
+            ),
+            if (isLoading && value)
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.colorScheme.primary,
+                ),
+              )
+            else if (value)
+              Icon(
+                Icons.check_rounded,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -441,343 +657,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required Function(bool) onChanged,
     required bool isLoading,
   }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: isLoading && value
-          ? SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      )
-          : Icon(
-        Icons.check_rounded,
-        color: value ? Theme.of(context).colorScheme.primary : Colors.transparent,
-        size: 24,
-      ),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          fontWeight: value ? FontWeight.w600 : FontWeight.normal,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-        ),
-      ),
-      trailing: Switch(
-        value: value,
-        onChanged: isLoading ? null : onChanged,
-        activeColor: Theme.of(context).colorScheme.primary,
-      ),
+    final theme = Theme.of(context);
+
+    return GestureDetector(
       onTap: isLoading ? null : () => onChanged(!value),
-    );
-  }
-
-  Widget _buildResetProgressSection(AppLocalizations appLocalizations) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: value ? theme.colorScheme.primary.withOpacity(0.1) : theme.colorScheme.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: value ? FontWeight.w600 : FontWeight.normal,
+                      color: value ? theme.colorScheme.primary : theme.textTheme.titleMedium?.color,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.restart_alt_rounded,
-                    color: Colors.orange,
-                    size: 20,
+                  SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.hintColor,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        appLocalizations.progressManagement,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        appLocalizations.resetProgressDescription,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _isResettingProgress ? null : _resetProgress,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                minimumSize: const Size(double.infinity, 50),
+                ],
               ),
-              child: _isResettingProgress
-                  ? SizedBox(
-                height: 20,
-                width: 20,
+            ),
+            if (isLoading && value)
+              SizedBox(
+                width: 16,
+                height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: theme.colorScheme.primary,
                 ),
               )
-                  : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.restart_alt_rounded, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    appLocalizations.resetProgressButton,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ],
+            else
+              Transform.scale(
+                scale: 0.8,
+                child: Switch(
+                  value: value,
+                  onChanged: isLoading ? null : onChanged,
+                  activeColor: theme.colorScheme.primary,
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeedbackSection(AppLocalizations appLocalizations) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.telegram_rounded,
-                    color: Colors.blue,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        appLocalizations.feedback,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        appLocalizations.feedbackDescription,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _feedbackController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: appLocalizations.feedbackHint,
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.all(16),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _isSendingFeedback ? null : _sendFeedback,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              child: _isSendingFeedback
-                  ? SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-                  : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.send_rounded, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    appLocalizations.sendTelegramButton,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAppInfoSection(AppLocalizations appLocalizations) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.info_rounded,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  appLocalizations.aboutApp,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildInfoRow(title: appLocalizations.version, value: 'alpha 0.35.2'),
-            const Divider(height: 16),
-            _buildInfoRow(title: appLocalizations.developer, value: 'Murlit Studio'),
-            const Divider(height: 16),
-            _buildInfoRow(title: appLocalizations.support, value: 'Telegram: @lispekt'),
-            const Divider(height: 16),
-            _buildInfoRow(title: appLocalizations.buildDate, value: '${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogoutSection(AppLocalizations appLocalizations) {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.logout_rounded,
-                    color: Colors.red,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        appLocalizations.accountLogout,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        appLocalizations.logoutDescription,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _showLogoutDialog,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.logout_rounded, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    appLocalizations.logout,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
@@ -788,27 +721,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String title,
     required String value,
   }) {
+    final theme = Theme.of(context);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           title,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          style: TextStyle(
+            fontSize: 14,
+            color: theme.hintColor,
           ),
         ),
         Text(
           value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          style: TextStyle(
+            fontSize: 14,
             fontWeight: FontWeight.w500,
+            color: theme.textTheme.titleMedium?.color,
           ),
         ),
       ],
     );
   }
-
-  // Остальные методы (_sendFeedback, _resetProgress, _showPasswordDialog, _showFinalConfirmationDialog, _showLogoutDialog)
-  // остаются без изменений, только нужно обновить SnackBar и AlertDialog в стиле MD3
 
   Future<void> _sendFeedback() async {
     final feedback = _feedbackController.text.trim();
@@ -933,41 +868,38 @@ $feedback
         final confirmed = await _showFinalConfirmationDialog();
         if (confirmed != true) return;
 
-        // Сохраняем текущие данные пользователя перед сбросом
         final currentUsername = await UserDataStorage.getUsername();
         final currentAvatar = await UserDataStorage.getAvatar();
 
-        // Создаем новую чистую статистику
         final cleanStats = UserStats(
           streakDays: 0,
           lastActivity: DateTime.now(),
-          topicProgress: {}, // ПУСТОЙ прогресс по темам
+          topicProgress: {},
           dailyCompletion: {},
-          username: currentUsername, // Сохраняем имя
+          username: currentUsername,
           totalXP: 0,
           weeklyXP: 0,
           lastWeeklyReset: DateTime.now(),
         );
 
-        // Сохраняем чистую статистику
         await UserDataStorage.saveUserStats(cleanStats);
 
-        // Очищаем локальный прогресс в SharedPreferences
         final progressKeys = prefs.getKeys().where((key) => key.startsWith('progress_')).toList();
         for (final key in progressKeys) {
           await prefs.remove(key);
         }
 
-        // Восстанавливаем аватар если был
         if (currentAvatar != '👤') {
           await UserDataStorage.saveAvatar(currentAvatar);
         }
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('Прогресс успешно сброшен. Теперь можно заново проходить тесты и получать XP.'),
               backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               duration: Duration(seconds: 3),
             ),
           );
@@ -981,6 +913,8 @@ $feedback
           SnackBar(
             content: Text('Ошибка: ${e.toString()}'),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -995,193 +929,394 @@ $feedback
   }
 
   Future<String?> _showPasswordDialog() async {
-    final appLocalizations = AppLocalizations.of(context);
+    final theme = Theme.of(context);
 
     return await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        title: Text(
-          'Подтверждение сброса прогресса',
-          style: TextStyle(
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Для сброса прогресса введите пароль от вашей учетной записи:',
-              style: TextStyle(
-                color: Theme.of(context).textTheme.bodyMedium?.color,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: Offset(0, 8),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'Пароль',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Icon(
+                  Icons.lock_rounded,
+                  color: Colors.orange,
+                  size: 30,
+                ),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Отмена',
-              style: TextStyle(
-                color: Theme.of(context).primaryColor,
+              SizedBox(height: 20),
+              Text(
+                'Подтверждение сброса',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
               ),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              if (_passwordController.text.isNotEmpty) {
-                Navigator.pop(context, _passwordController.text);
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Введите пароль'),
-                    backgroundColor: Colors.orange,
+              SizedBox(height: 12),
+              Text(
+                'Введите пароль от вашей учетной записи:',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: theme.hintColor,
+                ),
+              ),
+              SizedBox(height: 20),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'Пароль',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                );
-              }
-            },
-            child: const Text(
-              'Продолжить',
-              style: TextStyle(
-                color: Colors.red,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
               ),
-            ),
+              SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Отмена',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        if (_passwordController.text.isNotEmpty) {
+                          Navigator.pop(context, _passwordController.text);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Введите пароль'),
+                              backgroundColor: Colors.orange,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Продолжить',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
   Future<bool?> _showFinalConfirmationDialog() async {
+    final theme = Theme.of(context);
+
     return await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        title: Text(
-          'Окончательное подтверждение',
-          style: TextStyle(
-            color: Theme.of(context).textTheme.bodyLarge?.color,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.warning_rounded,
+                  color: Colors.red,
+                  size: 30,
+                ),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Внимание!',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'ВСЕ ваши данные прогресса будут безвозвратно удалены. Это действие нельзя отменить.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Вы уверены, что хотите продолжить?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+              ),
+              SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Отмена',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Сбросить',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-        content: Text(
-          'ВСЕ ваши данные прогресса будут безвозвратно удалены. Это действие нельзя отменить.\n\nВы уверены, что хотите продолжить?',
-          style: TextStyle(
-            color: Theme.of(context).textTheme.bodyMedium?.color,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Отмена',
-              style: TextStyle(
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Сбросить прогресс',
-              style: TextStyle(
-                color: Colors.red,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
   void _showLogoutDialog() {
+    final theme = Theme.of(context);
     final appLocalizations = AppLocalizations.of(context);
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).cardColor,
-        title: Text(
-          appLocalizations.accountLogout,
-          style: TextStyle(
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-        content: Text(
-          'Вы уверены, что хотите выйти?',
-          style: TextStyle(
-            color: Theme.of(context).textTheme.bodyMedium?.color,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Отмена',
-              style: TextStyle(
-                color: Theme.of(context).primaryColor,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: Offset(0, 8),
               ),
-            ),
+            ],
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Выход выполняется...'),
-                    backgroundColor: Colors.blue,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.logout_rounded,
+                  color: Colors.red,
+                  size: 30,
+                ),
+              ),
+              SizedBox(height: 20),
+              Text(
+                appLocalizations.accountLogout,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Вы уверены, что хотите выйти?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: theme.hintColor,
+                ),
+              ),
+              SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Отмена',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                );
-              }
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () async {
+                        Navigator.pop(context);
 
-              await UserDataStorage.clearUserData();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Выход выполняется...'),
+                            backgroundColor: Colors.blue,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        );
 
-              try {
-                await ApiService.logout();
-                print('✅ Logout successful from server');
-              } catch (e) {
-                print('⚠️ Server logout failed: $e');
-              }
+                        await UserDataStorage.clearUserData();
 
-              widget.onLogout();
+                        try {
+                          await ApiService.logout();
+                          print('✅ Logout successful from server');
+                        } catch (e) {
+                          print('⚠️ Server logout failed: $e');
+                        }
 
-              if (mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AuthScreen()),
-                      (route) => false,
-                );
+                        widget.onLogout();
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Выход выполнен успешно'),
-                    backgroundColor: Colors.green,
+                        if (mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AuthScreen()),
+                                (route) => false,
+                          );
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Выход выполнен успешно'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        appLocalizations.logout,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                );
-              }
-            },
-            child: Text(
-              appLocalizations.logout,
-              style: const TextStyle(color: Colors.red),
-            ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

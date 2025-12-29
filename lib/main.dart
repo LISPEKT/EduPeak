@@ -1,18 +1,24 @@
-// lib/main.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_theme.dart';
 import 'screens/main_screen.dart';
 import 'screens/auth_screen.dart';
 import 'theme/theme_manager.dart';
 import 'services/api_service.dart';
-import 'data/user_data_storage.dart';
 import 'localization.dart';
 import 'language_manager.dart';
 import 'data/subjects_manager.dart';
 import 'services/region_manager.dart';
+import 'data/user_data_storage.dart';
+import 'data/repositories/auth_repository.dart';
+import 'services/session_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'models/user_stats.dart';
+import 'screens/get_xp_screen.dart'; // Экран после теста (XPScreen)
+import 'screens/xp_stats_screen.dart'; // График опыта (XPStatsScreen)
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +29,7 @@ void main() async {
       ChangeNotifierProvider(create: (_) => LanguageManager()),
       ChangeNotifierProvider(create: (_) => RegionManager()),
       ChangeNotifierProvider(create: (_) => SubjectsManager()),
+      Provider<IAuthRepository>(create: (_) => AuthRepository()),
     ],
     child: const MyApp(),
   ));
@@ -53,22 +60,54 @@ class MyApp extends StatelessWidget {
         Locale('en', 'US'),
         Locale('de', 'DE'),
       ],
-      home: const AuthWrapper(),
+      home: const SplashWrapper(),
+      debugShowCheckedModeBanner: false,
       routes: {
         '/main': (context) => MainScreen(onLogout: () {}),
-        '/auth': (context) => const AuthScreen(),
+        '/xp': (context) => XPScreen(
+          earnedXP: 0,
+          questionsCount: 0,
+        ),
+        '/xp_stats': (context) => XPStatsScreen(),
       },
-      debugShowCheckedModeBanner: false,
-      checkerboardOffscreenLayers: false,
-      checkerboardRasterCacheImages: false,
-      showPerformanceOverlay: false,
+    );
+  }
+}
+
+/* ----------  Splash / Auth flow – без изменений  ---------- */
+class SplashWrapper extends StatefulWidget {
+  const SplashWrapper({super.key});
+  @override
+  State<SplashWrapper> createState() => _SplashWrapperState();
+}
+
+class _SplashWrapperState extends State<SplashWrapper> {
+  bool _showSplash = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) setState(() => _showSplash = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 800),
+        child: _showSplash
+            ? Container(key: const ValueKey('splash'), color: Colors.black)
+            : const AuthWrapper(key: ValueKey('auth')),
+      ),
     );
   }
 }
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
-
   @override
   State<AuthWrapper> createState() => _AuthWrapperState();
 }
@@ -80,30 +119,80 @@ class _AuthWrapperState extends State<AuthWrapper> {
   @override
   void initState() {
     super.initState();
-    _checkAuthStatus();
+    _checkAuth();
   }
 
-  Future<void> _checkAuthStatus() async {
+  Future<void> _checkAuth() async {
     try {
-      final isLoggedIn = await ApiService.isLoggedIn();
+      print('🔍 Checking authentication...');
+
+      // 1. Проверяем через SharedPreferences напрямую
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+      print('📊 isLoggedIn from SharedPreferences: $isLoggedIn');
 
       if (isLoggedIn) {
-        print('🔄 App start - syncing with server...');
-        final syncResult = await ApiService.syncAllUserData();
+        // 2. Проверяем валидность сессии
+        final isSessionValid = await SessionManager.isSessionValid();
+        print('📊 Session valid: $isSessionValid');
 
-        if (syncResult['success'] == true) {
-          print('✅ Sync completed: ${syncResult['message']}');
+        if (isSessionValid) {
+          // 3. Обновляем сессию
+          await SessionManager.initializeSession();
+
+          // 4. Проверяем тип аккаунта
+          final authMethod = prefs.getString('auth_method');
+
+          if (authMethod == 'local') {
+            print('🔐 Local account detected - quick access');
+
+            // 5. Для локального аккаунта создаем UserStats если нет
+            try {
+              final userStats = await UserDataStorage.getUserStats();
+              if (userStats.username.isEmpty) {
+                final username = prefs.getString('username') ?? 'Локальный Пользователь';
+
+                final initialStats = UserStats(
+                  streakDays: 0,
+                  lastActivity: DateTime.now(),
+                  topicProgress: {},
+                  dailyCompletion: {},
+                  username: username,
+                  totalXP: 0,
+                  weeklyXP: 0,
+                );
+
+                await UserDataStorage.saveUserStats(initialStats);
+                print('✅ Created minimal user stats for local account');
+              }
+            } catch (e) {
+              print('⚠️ Could not create user stats: $e');
+            }
+          }
+
+          setState(() {
+            _isAuthenticated = true;
+            _isLoading = false;
+          });
+
+          return;
         } else {
-          print('⚠️ Sync completed with issues: ${syncResult['message']}');
+          // Сессия истекла
+          print('❌ Session expired, clearing...');
+          await prefs.remove('isLoggedIn');
+          await SessionManager.clearSession();
         }
       }
 
+      // Если нет сессии
+      print('❌ No active session');
       setState(() {
-        _isAuthenticated = isLoggedIn;
+        _isAuthenticated = false;
         _isLoading = false;
       });
+
     } catch (e) {
-      print('Error checking auth status: $e');
+      print('❌ Auth check error: $e');
       setState(() {
         _isAuthenticated = false;
         _isLoading = false;
@@ -111,37 +200,41 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 
-  void _handleLogout() {
+  void _handleLogout() async {
+    // Получаем метод аутентификации перед очисткой
+    final prefs = await SharedPreferences.getInstance();
+    final authMethod = prefs.getString('auth_method');
+
+    await UserDataStorage.setLoggedIn(false);
+    await SessionManager.clearSession();
+
+    // Если локальный аккаунт - очищаем все данные
+    if (authMethod == 'local') {
+      await prefs.remove('auth_method');
+      await prefs.remove('userEmail');
+      await prefs.remove('username');
+      await UserDataStorage.clearAllData();
+    }
+
     setState(() {
       _isAuthenticated = false;
+      _isLoading = true;
     });
+
+    _checkAuth();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      return const Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(
-                color: Theme.of(context).primaryColor,
-              ),
-              const SizedBox(height: 20),
-              Consumer<LanguageManager>(
-                builder: (context, languageManager, child) {
-                  return Text(
-                    languageManager.currentLanguageCode == 'ru'
-                        ? 'Загрузка...'
-                        : languageManager.currentLanguageCode == 'en'
-                        ? 'Loading...'
-                        : 'Laden...',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  );
-                },
-              ),
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text('Проверяем сессию...'),
             ],
           ),
         ),

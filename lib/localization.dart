@@ -17,6 +17,8 @@ class AppLocalizations {
       'conquer_knowledge': 'Покоряй вершины знаний',
       'students': 'Учеников',
       'topics': 'Тем',
+      'topicCompleted': 'Тема завершена',
+      'experienceShort': 'XP',
       'success': 'Успех',
       'subjects': 'Предметов',
       'join_and_improve': 'Присоединяйтесь и прокачивайте свои мозги',
@@ -218,6 +220,8 @@ class AppLocalizations {
       'remainingAchievements': 'Осталось',
       'overallProgress': 'Прогресс',
       'completed': 'Выполнено',
+      'retakeTestButton': 'Повторить тест',
+
 
       // Типы достижений
       'testsCompleted': 'Тесты пройдены',
@@ -348,7 +352,7 @@ class AppLocalizations {
       'continueLearning': 'Продолжить обучение',
       'animationInProgress': 'Анимация...',
       'you': 'Вы',
-      'educationalLeague': 'Учебная лига',
+      'educationalLeague': 'EduLeague',
       'yourLeague': 'Ваша лига',
       'needMoreXP': 'Нужно еще',
       'noDataInLeague': 'Нет данных в лиге',
@@ -389,9 +393,25 @@ class AppLocalizations {
       'review':'Повторение',
       'dictionary':'Словарь',
       'home':'Главная',
+      'refresh': 'Обновить',
+      'categories': 'Категории',
+      'learning': 'Обучение',
+      'perfect': 'Идеально',
+      'leagues': 'Лиги',
+      'loadingAchievements': 'Загрузка достижений',
+      'remaining': 'Осталось',
+      'experience': 'Опыт',
+      'earnedXP': 'Заработано XP',
+      'navigationHint': 'Навигация',
+      'useBottomNavigation': 'Используйте нижнюю навигацию',
+      'progressToNextLeague': 'Прогресс до следующей лиги',
+      'leaderboard': 'Таблица лидеров',
+      'players': 'Игроков',
+      'level': 'Уровень',
     },
     'en': {
       'app_title': 'EduPeak',
+      'experienceShort': 'XP',
       'welcome': 'Welcome',
       'start_learning': 'Start Learning',
       'conquer_knowledge': 'Conquer Knowledge Peaks',
@@ -735,7 +755,7 @@ class AppLocalizations {
       'continueLearning': 'Continue learning',
       'animationInProgress': 'Animation in progress',
       'you': 'You',
-      'educationalLeague': 'Educational League',
+      'educationalLeague': 'EduLeague',
       'yourLeague': 'Your league',
       'needMoreXP': 'Need more',
       'noDataInLeague': 'No data in league',
@@ -767,9 +787,25 @@ class AppLocalizations {
       'review':'Review',
       'dictionary':'Dictionary',
       'home':'Home',
+      'refresh': 'Refresh',
+      'categories': 'Categories',
+      'learning': 'Learning',
+      'perfect': 'Perfect',
+      'leagues': 'Leagues',
+      'loadingAchievements': 'Loading achievements',
+      'remaining': 'Remaining',
+      'experience': 'Experience',
+      'earnedXP': 'Earned XP',
+      'navigationHint': 'Navigation',
+      'useBottomNavigation': 'Use bottom navigation',
+      'progressToNextLeague': 'Progress to next league',
+      'leaderboard': 'Leaderboard',
+      'players': 'Players',
+      'level': 'Level',
     },
     'de': {
       'app_title': 'EduPeak',
+      'experienceShort': 'XP',
       'welcome': 'Willkommen',
       'start_learning': 'Lernen beginnen',
       'conquer_knowledge': 'Erobere die Gipfel des Wissens',
@@ -1113,7 +1149,7 @@ class AppLocalizations {
       'continueLearning': 'Weiter lernen',
       'animationInProgress': 'Animation läuft',
       'you': 'Du',
-      'educationalLeague': 'Bildungsliga',
+      'educationalLeague': 'EduLeague',
       'yourLeague': 'Deine Liga',
       'needMoreXP': 'Brauche mehr',
       'noDataInLeague': 'Keine Daten in der Liga',
@@ -1145,6 +1181,21 @@ class AppLocalizations {
       'review':'Rezension',
       'dictionary':'Wörterbuch',
       'home':'Heim',
+      'refresh': 'Aktualisieren',
+      'categories': 'Kategorien',
+      'learning': 'Lernen',
+      'perfect': 'Perfekt',
+      'leagues': 'Ligen',
+      'loadingAchievements': 'Erfolge werden geladen',
+      'remaining': 'Verbleibend',
+      'experience': 'Erfahrung',
+      'earnedXP': 'Verdiente XP',
+      'navigationHint': 'Navigation',
+      'useBottomNavigation': 'Verwende die untere Navigation',
+      'progressToNextLeague': 'Fortschritt zur nächsten Liga',
+      'leaderboard': 'Bestenliste',
+      'players': 'Spieler',
+      'level': 'Level',
       '':'',
     },
   };
@@ -1531,7 +1582,24 @@ class AppLocalizations {
   String get review => _localizedValues[locale.languageCode]?['review'] ?? 'Review';
   String get dictionary => _localizedValues[locale.languageCode]?['dictionary'] ?? 'Dictionary';
   String get home => _localizedValues[locale.languageCode]?['home'] ?? 'Home';
-
+  String get experienceShort => _localizedValues[locale.languageCode]?['xp'] ?? 'XP';
+  String get topicCompleted => _localizedValues[locale.languageCode]?['темазавершена'] ?? 'Тема завершена';
+  String get retakeTestButton => _localizedValues[locale.languageCode]?['повторитьтест'] ?? 'Повторить тест';
+  String get refresh => _localizedValues[locale.languageCode]?['refresh'] ?? 'Refresh';
+  String get categories => _localizedValues[locale.languageCode]?['categories'] ?? 'Categories';
+  String get learning => _localizedValues[locale.languageCode]?['learning'] ?? 'Learning';
+  String get perfect => _localizedValues[locale.languageCode]?['perfect'] ?? 'Perfect';
+  String get leagues => _localizedValues[locale.languageCode]?['leagues'] ?? 'Leagues';
+  String get loadingAchievements => _localizedValues[locale.languageCode]?['loadingAchievements'] ?? 'Loading achievements';
+  String get remaining => _localizedValues[locale.languageCode]?['remaining'] ?? 'Remaining';
+  String get experience => _localizedValues[locale.languageCode]?['experience'] ?? 'Experience';
+  String get earnedXP => _localizedValues[locale.languageCode]?['earnedXP'] ?? 'Earned XP';
+  String get navigationHint => _localizedValues[locale.languageCode]?['navigationHint'] ?? 'Navigation';
+  String get useBottomNavigation => _localizedValues[locale.languageCode]?['useBottomNavigation'] ?? 'Use bottom navigation';
+  String get progressToNextLeague => _localizedValues[locale.languageCode]?['progressToNextLeague'] ?? 'Progress to next league';
+  String get leaderboard => _localizedValues[locale.languageCode]?['leaderboard'] ?? 'Leaderboard';
+  String get players => _localizedValues[locale.languageCode]?['players'] ?? 'Players';
+  String get level => _localizedValues[locale.languageCode]?['level'] ?? 'Level';
 }
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../models/user_stats.dart';
+import '../services/secure_prefs.dart';
 
 class UserDataStorage {
   static const String _statsKey = 'user_stats';
@@ -14,6 +15,34 @@ class UserDataStorage {
   static const String _authTokenKey = 'auth_token';
 
   // === ОСНОВНЫЕ МЕТОДЫ ===
+
+  static Future<bool> isLoggedIn() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool('isLoggedIn') ?? false;
+    } catch (e) {
+      print('❌ Error checking login status: $e');
+      return false;
+    }
+  }
+
+  static Future<void> setLoggedIn(bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isLoggedIn', value);
+    } catch (e) {
+      print('❌ Error setting login status: $e');
+    }
+  }
+
+  static Future<void> saveUsername(String username) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('username', username);
+    } catch (e) {
+      print('❌ Error saving username: $e');
+    }
+  }
 
   static Future<void> saveUserStats(UserStats stats) async {
     try {
@@ -59,21 +88,6 @@ class UserDataStorage {
       weeklyXP: 0,
       lastWeeklyReset: DateTime.now(),
     );
-  }
-
-  static Future<void> saveUsername(String username) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_usernameKey, username);
-
-      final stats = await getUserStats();
-      stats.username = username;
-      await saveUserStats(stats);
-
-      print('👤 Username saved: $username');
-    } catch (e) {
-      print('❌ Error saving username: $e');
-    }
   }
 
   static Future<String> getUsername() async {
@@ -217,6 +231,28 @@ class UserDataStorage {
     }
   }
 
+  static Future<void> clearAllData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Удаляем все ключи связанные с пользователем
+      final keys = prefs.getKeys();
+
+      for (final key in keys) {
+        if (key.startsWith('progress_') ||
+            key.startsWith('user_') ||
+            key == 'isLoggedIn' ||
+            key == 'username') {
+          await prefs.remove(key);
+        }
+      }
+
+      print('✅ All user data cleared');
+    } catch (e) {
+      print('❌ Error clearing user data: $e');
+    }
+  }
+
   static Future<void> clearUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -244,35 +280,31 @@ class UserDataStorage {
     }
   }
 
-  static Future<bool> isLoggedIn() async {
+  static Future<void> saveProgressWithSync(
+      String subject,
+      String topicName,
+      int correctAnswers
+      ) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      final token = prefs.getString('auth_token');
+      // 1. Сохраняем локально
+      await UserDataStorage.updateTopicProgress(subject, topicName, correctAnswers);
 
-      print('🔐 Checking login status: isLoggedIn=$isLoggedIn, hasToken=${token != null}');
-
-      return isLoggedIn && token != null && token.isNotEmpty;
+      // 2. Синхронизируем с сервером (если есть интернет)
+      try {
+        await ApiService.updateTopicProgress(subject, topicName, correctAnswers);
+        print('✅ Progress synced with server');
+      } catch (e) {
+        print('⚠️ Server sync failed, saved locally only: $e');
+      }
     } catch (e) {
-      print('❌ Error checking login status: $e');
-      return false;
-    }
-  }
-
-  static Future<void> setLoggedIn(bool value) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_isLoggedInKey, value);
-      print(value ? '🔐 User marked as logged in' : '🚪 User marked as logged out');
-    } catch (e) {
-      print('❌ Error setting login status: $e');
+      print('❌ Error saving progress: $e');
     }
   }
 
   static Future<void> saveAuthToken(String token) async {
     try {
+      await SecurePrefs.saveAuthToken(token);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_authTokenKey, token);
       await prefs.setBool(_isLoggedInKey, true);
       print('🔐 Auth token saved, login status: true');
     } catch (e) {
@@ -483,24 +515,65 @@ class UserDataStorage {
 
   // === МЕТОДЫ ДЛЯ XP И ЛИГ ===
 
+  // Метод для получения прогресса по ID темы
+  static Future<int> getTopicProgressById(String topicId) async {
+    try {
+      final stats = await getUserStats();
+
+      for (final subjectProgress in stats.topicProgress.values) {
+        if (subjectProgress.containsKey(topicId)) {
+          return subjectProgress[topicId]!;
+        }
+      }
+
+      return 0;
+    } catch (e) {
+      print('❌ Error getting topic progress by ID: $e');
+      return 0;
+    }
+  }
+
+  // Обновите метод addUserXP для лучшей синхронизации:
   static Future<void> addUserXP(int xp) async {
     try {
       final stats = await getUserStats();
-      stats.addXP(xp);
+      final oldTotal = stats.totalXP;
+      final oldWeekly = stats.weeklyXP;
+
+      // Проверяем сброс недельного XP
+      final now = DateTime.now();
+      final daysSinceReset = now.difference(stats.lastWeeklyReset).inDays;
+
+      if (daysSinceReset >= 7) {
+        stats.weeklyXP = 0;
+        stats.lastWeeklyReset = now;
+        print('✅ Weekly XP reset due to 7 days passed');
+      }
+
+      stats.totalXP += xp;
+      stats.weeklyXP += xp;
+      stats.lastActivity = DateTime.now();
+
       await saveUserStats(stats);
-      print('✅ XP added: +$xp XP, Total: ${stats.totalXP}, Weekly: ${stats.weeklyXP}');
+
+      print('✅ XP added: +$xp XP, Total: ${stats.totalXP} (was $oldTotal), Weekly: ${stats.weeklyXP} (was $oldWeekly)');
 
       // Пытаемся синхронизировать с сервером
       if (await isLoggedIn()) {
         try {
-          await ApiService.addXP(xp, 'test_completion');
-          print('✅ XP synced to server');
+          final response = await ApiService.addXP(xp, 'test_completion');
+          if (response['success'] == true) {
+            print('✅ XP synced to server');
+          } else {
+            print('⚠️ Server XP sync failed, keeping local data');
+          }
         } catch (e) {
           print('❌ Failed to sync XP to server: $e');
         }
       }
     } catch (e) {
       print('❌ Error adding XP: $e');
+      rethrow;
     }
   }
 
@@ -601,23 +674,6 @@ class UserDataStorage {
     } catch (e) {
       print('Error saving topic progress: $e');
       rethrow;
-    }
-  }
-
-  static Future<int> getTopicProgressById(String topicId) async {
-    try {
-      final stats = await getUserStats();
-
-      for (final subjectProgress in stats.topicProgress.values) {
-        if (subjectProgress.containsKey(topicId)) {
-          return subjectProgress[topicId]!;
-        }
-      }
-
-      return 0;
-    } catch (e) {
-      print('Error getting topic progress by ID: $e');
-      return 0;
     }
   }
 

@@ -7,6 +7,9 @@ import '../services/api_service.dart';
 import 'register_screen.dart';
 import '../localization.dart';
 import 'dart:convert';
+import '../services/secure_prefs.dart';
+import '../models/user_stats.dart';
+import '../services/session_manager.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -104,41 +107,60 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       print('🔐 Creating local account...');
 
+      final username = 'Локальный Пользователь';
+      final email = 'local@user.com';
+      final password = '12345678';
+
+      // 1. СОХРАНЯЕМ В SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-
-      // Сохраняем данные пользователя
       await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('userEmail', 'local@user.com');
-      await prefs.setString('username', 'Локальный Пользователь');
+      await prefs.setString('userEmail', email);
+      await prefs.setString('username', username);
       await prefs.setString('auth_method', 'local');
+      await prefs.setString('local_password', password);
+      await prefs.setString('lastLogin', DateTime.now().toIso8601String());
 
-      // Инициализируем UserDataStorage
-      await UserDataStorage.setLoggedIn(true);
-      await UserDataStorage.saveUsername('Локальный Пользователь');
-
-      // Создаем базовую статистику
-      final initialStats = {
-        'streakDays': 1,
-        'lastActivity': DateTime.now().toIso8601String(),
-        'topicProgress': {
-          'История': {'introduction_history': 8},
-          'Обществознание': {'social_studies_class6_topic1': 6}
-        },
-        'dailyCompletion': {},
-        'username': 'Локальный Пользователь',
-        'totalXP': 150,
-        'weeklyXP': 50,
-        'lastWeeklyReset': DateTime.now().toIso8601String(),
-      };
-
-      await prefs.setString('user_stats', jsonEncode(initialStats));
+      // 2. ИНИЦИАЛИЗИРУЕМ СЕССИЮ
+      await SessionManager.initializeSession();
 
       print('✅ Local account created successfully!');
+      print('📧 Email: $email');
+      print('🔑 Password: $password');
+      print('👤 Username: $username');
 
+      // 3. Показываем информацию о созданном аккаунте
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Text('✅ Локальный аккаунт создан'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Вы можете войти с этими данными:'),
+                SizedBox(height: 12),
+                _buildAccountInfo('📧 Email', email),
+                _buildAccountInfo('👤 Логин', username),
+                _buildAccountInfo('🔑 Пароль', password),
+                SizedBox(height: 16),
+                Text(
+                  'Этот пароль нужен для будущих входов в локальный аккаунт.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _navigateToMainScreen();
+                },
+                child: Text('Продолжить'),
+              ),
+            ],
+          ),
         );
       }
     } catch (e) {
@@ -151,11 +173,40 @@ class _LoginScreenState extends State<LoginScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-    } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Widget _buildAccountInfo(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text('$label: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          SizedBox(width: 8),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: SelectableText(
+              value,
+              style: TextStyle(fontFamily: 'Monospace'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToMainScreen() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
+    );
   }
 
   Future<void> _login() async {
@@ -210,21 +261,40 @@ class _LoginScreenState extends State<LoginScreen> {
       print('📡 Login result: $response');
 
       if (response['success'] == true) {
-        // Сохраняем имя пользователя локально (временно)
+        // Успешный вход
         final username = _emailController.text.split('@').first;
-        await UserDataStorage.saveUsername(username);
 
-        // Устанавливаем статус входа
+        // 1. СОХРАНЯЕМ СТАТУС ВХОДА
         await UserDataStorage.setLoggedIn(true);
 
-        // ПОЛНАЯ синхронизация с сервером с отладкой
-        print('🔄 Starting full synchronization after login...');
-        await UserDataStorage.syncFromServer();
+        // 2. СОХРАНЯЕМ ИМЯ ПОЛЬЗОВАТЕЛЯ
+        await UserDataStorage.saveUsername(username);
 
-        // Проверяем результат синхронизации
-        final syncedUsername = await UserDataStorage.getUsername();
-        final syncedAvatar = await UserDataStorage.getAvatar();
-        print('🔄 Sync result - Username: $syncedUsername, Avatar: ${syncedAvatar != '👤' ? "Custom" : "Default"}');
+        // 3. ИНИЦИАЛИЗИРУЕМ СЕССИЮ
+        await SessionManager.initializeSession();
+
+        // 4. СОЗДАЕМ И СОХРАНЯЕМ БАЗОВЫЕ ДАННЫЕ
+        final userStats = UserStats(
+          streakDays: 0,
+          lastActivity: DateTime.now(),
+          topicProgress: {},
+          dailyCompletion: {},
+          username: username,
+          totalXP: 0,
+          weeklyXP: 0,
+        );
+
+        await UserDataStorage.saveUserStats(userStats);
+
+        // 5. СОХРАНЯЕМ В SharedPreferences ДЛЯ БЫСТРОГО ВОССТАНОВЛЕНИЯ
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userEmail', _emailController.text.trim());
+        await prefs.setString('username', username);
+        await prefs.setString('lastLogin', DateTime.now().toIso8601String());
+
+        print('✅ Login successful! User data saved locally.');
+        print('👤 Username: $username');
+        print('📧 Email: ${_emailController.text.trim()}');
 
         if (mounted) {
           Navigator.pushReplacement(
@@ -257,6 +327,21 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _fillLocalAccountCredentials() {
+    setState(() {
+      _emailController.text = 'local@user.com';
+      _passwordController.text = '12345678';
+      _showSecretOption = true; // Чтобы показать кнопку
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Данные локального аккаунта заполнены'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _navigateToRegister() {
@@ -528,7 +613,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 )
                     : Text(
                   appLocalizations.login,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),

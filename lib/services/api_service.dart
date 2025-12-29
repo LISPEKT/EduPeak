@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import '../screens/achievements_screen.dart';
 import '../data/user_data_storage.dart';
 import 'package:edu_peak/screens/chat_screen.dart';
+import 'session_manager.dart';
+import 'package:edu_peak/services/session_manager.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -15,7 +17,7 @@ class ApiService {
   ApiService._internal();
 
   late Dio _dio;
-  final String _baseUrl = 'http://46.254.19.119:8000';
+  final String _baseUrl = 'https://edupeak.ru';
   bool _isInitialized = false;
   String? _csrfToken;
   String? _sessionCookie;
@@ -65,7 +67,6 @@ class ApiService {
     await ApiService()._syncAllProgressToServer(progressData);
   }
 
-  // В api_service.dart добавьте полную реализацию:
   static Future<Map<String, dynamic>> getChatMessages(String friendId) async {
     return await ApiService()._getChatMessages(friendId);
   }
@@ -74,79 +75,6 @@ class ApiService {
     return await ApiService()._sendMessage(friendId, message);
   }
 
-// Добавьте эти методы в класс ApiService:
-  Future<Map<String, dynamic>> _getChatMessages(String friendId) async {
-    try {
-      if (!_isInitialized) await initialize();
-
-      final response = await _dio.get(
-        '/chat/messages/$friendId',
-        options: Options(
-          followRedirects: false,
-          validateStatus: (status) => status! < 400,
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        try {
-          final data = response.data;
-          if (data is Map<String, dynamic>) {
-            return {'success': true, 'messages': data['messages'] ?? []};
-          }
-        } catch (e) {
-          print('⚠️ Error parsing chat messages: $e');
-        }
-      }
-
-      // Возвращаем fallback данные вместо null
-      return {'success': false, 'messages': []};
-
-    } catch (e) {
-      print('❌ Error getting chat messages: $e');
-      return {'success': false, 'messages': []};
-    }
-  }
-
-  Future<Map<String, dynamic>> _sendMessage(String friendId, String message) async {
-    try {
-      if (!_isInitialized) await initialize();
-
-      final csrfToken = await _getCsrfToken();
-      if (csrfToken == null) {
-        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
-      }
-
-      final formData = {
-        '_token': csrfToken,
-        'friend_id': friendId,
-        'message': message,
-      };
-
-      final response = await _dio.post(
-        '/chat/send',
-        data: formData,
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-          followRedirects: false,
-          validateStatus: (status) => status! < 500,
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        return {'success': true, 'message': 'Сообщение отправлено'};
-      } else {
-        return {'success': false, 'message': 'Ошибка отправки сообщения'};
-      }
-
-    } catch (e) {
-      print('❌ Error sending message: $e');
-      return {'success': false, 'message': 'Ошибка сети'};
-    }
-  }
-
-  // === НОВЫЕ СТАТИЧЕСКИЕ МЕТОДЫ ДЛЯ ЭКРАНОВ ===
-
-  // Достижения
   static Future<Map<String, dynamic>> getAchievements() async {
     return await ApiService()._getAchievements();
   }
@@ -159,7 +87,6 @@ class ApiService {
     return await ApiService()._getAchievementProgress();
   }
 
-  // Друзья
   static Future<Map<String, dynamic>> getFriends() async {
     return await ApiService()._getFriends();
   }
@@ -184,7 +111,6 @@ class ApiService {
     return await ApiService()._searchUsers(query);
   }
 
-  // Лиги и XP
   static Future<Map<String, dynamic>> getLeagueLeaderboard(String leagueName) async {
     return await ApiService()._getLeagueLeaderboard(leagueName);
   }
@@ -201,7 +127,6 @@ class ApiService {
     return await ApiService()._getUserXPStats();
   }
 
-  // === СИНХРОНИЗАЦИЯ ДАННЫХ ===
   static Future<Map<String, dynamic>> syncAllUserData() async {
     return await ApiService()._syncAllUserData();
   }
@@ -320,7 +245,7 @@ class ApiService {
     try {
       if (!_isInitialized) await initialize();
 
-      print('🔄 Starting login process...');
+      print('🔄 Starting login process for edupeak.ru...');
 
       // 1. Получаем страницу логина для получения CSRF токена
       final loginResponse = await _dio.get(
@@ -356,7 +281,7 @@ class ApiService {
         'password': password,
       };
 
-      print('🔐 Login attempt with email: $email');
+      print('🔐 Login attempt to edupeak.ru with email: $email');
 
       // 4. Отправляем POST запрос
       final response = await _dio.post(
@@ -386,16 +311,15 @@ class ApiService {
         final location = response.headers['location']?.first;
         print('🔄 Redirect to: $location');
 
-        if (location != null && location.contains('/profile')) {
+        if (location != null && (location.contains('/home') || location.contains('/dashboard') || location.contains('/profile'))) {
           // Успешный вход
           await _saveCookies();
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('userEmail', email);
-          await prefs.setString('auth_token', _sessionCookie ?? '');
 
-          print('✅ Login successful');
+          print('✅ Login successful on edupeak.ru');
           return {'success': true, 'message': 'Вход выполнен успешно'};
         } else if (location != null && location.contains('/login')) {
           return {'success': false, 'message': 'Неверный email или пароль'};
@@ -405,7 +329,8 @@ class ApiService {
       // 6. Проверяем содержимое ответа на ошибки
       final responseText = response.data.toString();
       if (responseText.contains('Неверный email или пароль') ||
-          responseText.contains('Invalid credentials')) {
+          responseText.contains('Invalid credentials') ||
+          responseText.contains('These credentials do not match our records')) {
         return {'success': false, 'message': 'Неверный email или пароль'};
       }
 
@@ -427,7 +352,8 @@ class ApiService {
 
           final responseText = response.data.toString();
           if (responseText.contains('Неверный email или пароль') ||
-              responseText.contains('Invalid credentials')) {
+              responseText.contains('Invalid credentials') ||
+              responseText.contains('These credentials do not match our records')) {
             return {'success': false, 'message': 'Неверный email или пароль'};
           }
         }
@@ -441,12 +367,34 @@ class ApiService {
     try {
       if (!_isInitialized) await initialize();
 
-      // Получаем свежий CSRF токен
-      final csrfToken = await _getCsrfToken();
-      if (csrfToken == null) {
-        throw Exception('Не удалось получить CSRF токен');
+      // 1. Получаем страницу регистрации для CSRF токена
+      final registerResponse = await _dio.get(
+        '/register',
+        options: Options(
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        ),
+      );
+
+      // Сохраняем куки
+      _saveCookiesFromResponse(registerResponse);
+
+      // 2. Парсим CSRF токен из формы
+      final html = registerResponse.data.toString();
+      final tokenPattern = RegExp(r'name="_token" value="([^"]+)"');
+      final match = tokenPattern.firstMatch(html);
+
+      if (match == null) {
+        print('❌ CSRF Token not found in register form');
+        return {'success': false, 'message': 'Ошибка получения токена безопасности'};
       }
 
+      final csrfToken = match.group(1)!;
+      print('✅ CSRF Token found in register form: $csrfToken');
+
+      // 3. Подготавливаем данные для регистрации
       final formData = {
         '_token': csrfToken,
         'name': name,
@@ -455,14 +403,17 @@ class ApiService {
         'password_confirmation': password,
       };
 
-      print('📝 Registration attempt with email: $email');
+      print('📝 Registration attempt to edupeak.ru with email: $email');
 
+      // 4. Отправляем POST запрос
       final response = await _dio.post(
         '/register',
         data: formData,
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
           headers: {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'X-Requested-With': 'XMLHttpRequest',
             'Origin': _baseUrl,
             'Referer': '$_baseUrl/register',
@@ -474,35 +425,68 @@ class ApiService {
 
       print('📡 Registration response status: ${response.statusCode}');
 
-      // Проверяем редирект на профиль (успешная регистрация)
+      // Сохраняем куки из ответа
+      _saveCookiesFromResponse(response);
+
+      // 5. Проверяем успешность регистрации
       if (response.statusCode == 302) {
         final location = response.headers['location']?.first;
-        if (location != null && location.contains('/profile')) {
+        print('🔄 Redirect after registration: $location');
+
+        if (location != null && (location.contains('/home') || location.contains('/dashboard') || location.contains('/profile'))) {
+          // Успешная регистрация
           await _saveCookies();
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('isLoggedIn', true);
           await prefs.setString('userEmail', email);
+          await prefs.setString('username', name);
 
+          print('✅ Registration successful on edupeak.ru');
           return {'success': true, 'message': 'Регистрация успешна'};
         }
       }
 
-      // Проверяем ошибки валидации
+      // 6. Проверяем ошибки валидации
       final responseText = response.data.toString();
+      print('📄 Registration response text: $responseText');
+
       if (responseText.contains('email has already been taken') ||
-          responseText.contains('Email уже используется')) {
+          responseText.contains('Email уже используется') ||
+          responseText.contains('The email has already been taken')) {
         return {'success': false, 'message': 'Email уже используется'};
       }
 
       if (responseText.contains('password confirmation') ||
-          responseText.contains('Пароли не совпадают')) {
+          responseText.contains('Пароли не совпадают') ||
+          responseText.contains('The password confirmation does not match')) {
         return {'success': false, 'message': 'Пароли не совпадают'};
+      }
+
+      if (responseText.contains('The name field is required')) {
+        return {'success': false, 'message': 'Имя обязательно для заполнения'};
+      }
+
+      if (responseText.contains('The email must be a valid email address')) {
+        return {'success': false, 'message': 'Введите корректный email'};
+      }
+
+      if (responseText.contains('The password must be at least')) {
+        return {'success': false, 'message': 'Пароль должен быть не менее 6 символов'};
       }
 
       return {'success': false, 'message': 'Ошибка регистрации. Проверьте данные.'};
     } catch (e) {
       print('❌ Registration error: $e');
+
+      if (e is DioException) {
+        final response = e.response;
+        if (response != null) {
+          print('📡 Registration error response: ${response.statusCode}');
+          print('📄 Error response text: ${response.data}');
+        }
+      }
+
       return {'success': false, 'message': 'Ошибка сети: $e'};
     }
   }
@@ -656,6 +640,31 @@ class ApiService {
     }
   }
 
+  Future<void> clearSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Очищаем все данные авторизации
+      await prefs.remove('isLoggedIn');
+      await prefs.remove('userEmail');
+      await prefs.remove('username');
+      await prefs.remove('auth_timestamp');
+      await prefs.remove('session_cookie');
+      await prefs.remove('csrf_token');
+
+      // Очищаем cookies в памяти
+      _sessionCookie = null;
+      _csrfToken = null;
+
+      // Очищаем менеджер сессии
+      await SessionManager.clearSession();
+
+      print('✅ Session cleared');
+    } catch (e) {
+      print('❌ Error clearing session: $e');
+    }
+  }
+
   Future<void> _logout() async {
     try {
       if (!_isInitialized) await initialize();
@@ -677,6 +686,7 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', false);
       await prefs.remove('userEmail');
+      await prefs.remove('username');
 
       print('✅ Logout successful');
     } catch (e) {
@@ -684,6 +694,7 @@ class ApiService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', false);
       await prefs.remove('userEmail');
+      await prefs.remove('username');
     }
   }
 
@@ -845,6 +856,67 @@ class ApiService {
       print('❌ Bulk progress sync error: $e');
       // При ошибке сохраняем все данные локально
       await _saveAllProgressLocally(progressData);
+    }
+  }
+
+  Future<void> saveAuthData(String email, String username) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Сохраняем основные данные авторизации
+      await prefs.setBool('isLoggedIn', true);
+      await prefs.setString('userEmail', email);
+      await prefs.setString('username', username);
+      await prefs.setString('auth_timestamp', DateTime.now().toIso8601String());
+
+      // Сохраняем session cookie для будущих запросов
+      if (_sessionCookie != null) {
+        await prefs.setString('session_cookie', _sessionCookie!);
+      }
+
+      if (_csrfToken != null) {
+        await prefs.setString('csrf_token', _csrfToken!);
+      }
+
+      // Инициализируем менеджер сессии
+      await SessionManager.initializeSession();
+
+      print('✅ Auth data saved for user: $username');
+    } catch (e) {
+      print('❌ Error saving auth data: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> restoreSession() async {
+    try {
+      if (!_isInitialized) await initialize();
+      await _loadCookies();
+
+      // Проверяем есть ли сохраненные куки
+      if (_sessionCookie == null || _csrfToken == null) {
+        return {'success': false, 'message': 'No saved session cookies'};
+      }
+
+      // Проверяем валидность сессии на сервере
+      final isLoggedIn = await checkServerLoginStatus();
+
+      if (isLoggedIn) {
+        // Получаем профиль
+        final profile = await getProfile();
+        final username = profile?['name'] ?? 'Пользователь';
+
+        return {
+          'success': true,
+          'username': username,
+          'message': 'Session restored'
+        };
+      }
+
+      return {'success': false, 'message': 'Server session invalid'};
+
+    } catch (e) {
+      print('❌ Error restoring session: $e');
+      return {'success': false, 'message': 'Error: $e'};
     }
   }
 
@@ -1427,6 +1499,72 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> _getChatMessages(String friendId) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final response = await _dio.get(
+        '/chat/messages/$friendId',
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        try {
+          final data = response.data;
+          if (data is Map<String, dynamic>) {
+            return {'success': true, 'messages': data['messages'] ?? []};
+          }
+        } catch (e) {
+          print('⚠️ Error parsing chat messages: $e');
+        }
+      }
+
+      return {'success': false, 'messages': []};
+    } catch (e) {
+      print('❌ Error getting chat messages: $e');
+      return {'success': false, 'messages': []};
+    }
+  }
+
+  Future<Map<String, dynamic>> _sendMessage(String friendId, String message) async {
+    try {
+      if (!_isInitialized) await initialize();
+
+      final csrfToken = await _getCsrfToken();
+      if (csrfToken == null) {
+        return {'success': false, 'message': 'Не удалось получить CSRF токен'};
+      }
+
+      final formData = {
+        '_token': csrfToken,
+        'friend_id': friendId,
+        'message': message,
+      };
+
+      final response = await _dio.post(
+        '/chat/send',
+        data: formData,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          followRedirects: false,
+          validateStatus: (status) => status! < 500,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'message': 'Сообщение отправлено'};
+      } else {
+        return {'success': false, 'message': 'Ошибка отправки сообщения'};
+      }
+    } catch (e) {
+      print('❌ Error sending message: $e');
+      return {'success': false, 'message': 'Ошибка сети'};
+    }
+  }
+
   Future<Map<String, dynamic>> _getAchievementProgress() async {
     try {
       if (!_isInitialized) await initialize();
@@ -1545,7 +1683,7 @@ class ApiService {
       if (!_isInitialized) await initialize();
 
       final csrfToken = await _getCsrfToken();
-      if (csrfToken == null) {
+      if (csrfToken != null) {
         return {'success': false, 'message': 'Не удалось получить CSRF токен'};
       }
 
@@ -2203,6 +2341,32 @@ class ApiService {
       print('✅ MERGED DATA UPLOADED TO SERVER');
     } catch (e) {
       print('❌ ERROR UPLOADING MERGED DATA: $e');
+    }
+  }
+
+  static Future<bool> checkAuthStatus() async {
+    try {
+      final apiService = ApiService();
+      await apiService.initialize();
+
+      // Проверяем токен и куки
+      final hasValidSession = await apiService.checkServerLoginStatus();
+
+      if (!hasValidSession) {
+        // Пробуем восстановить сессию
+        final prefs = await SharedPreferences.getInstance();
+        final savedEmail = prefs.getString('userEmail');
+
+        if (savedEmail != null) {
+          print('🔄 Attempting to restore session for: $savedEmail');
+          // Можно добавить логику восстановления сессии здесь
+        }
+      }
+
+      return hasValidSession;
+    } catch (e) {
+      print('❌ Auth status check error: $e');
+      return false;
     }
   }
 

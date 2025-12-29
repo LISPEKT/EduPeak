@@ -1,2 +1,5 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+#include "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
+TELEGRAM_BOT_TOKEN=8326804174:AAE0KfB3X1MIuW4YE9mT2zbl7eAnw4OHDJ4
+TELEGRAM_CHAT_ID=1236849662

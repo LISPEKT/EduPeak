@@ -1,14 +1,15 @@
-// test_screen.dart - ИСПРАВЛЕННАЯ ВЕРСИЯ
 import 'package:flutter/material.dart';
 import 'result_screen.dart';
 import '../widgets/answer_popup.dart';
 import '../data/user_data_storage.dart';
 import '../data/subjects_data.dart';
 import '../models/question.dart';
+import '../models/topic.dart';
 import '../localization.dart';
+import 'get_xp_screen.dart';
 
 class TestScreen extends StatefulWidget {
-  final dynamic topic;
+  final Topic topic;
   final int? currentGrade;
   final String? currentSubject;
 
@@ -38,7 +39,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
   late TextEditingController _textController;
-  bool _testCompleted = false; // Флаг завершения теста
+  bool _testCompleted = false;
 
   @override
   void initState() {
@@ -64,39 +65,17 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   }
 
   void _shuffleQuestions() {
-    final questions = <Question>[];
-    for (final originalQuestion in widget.topic.questions) {
-      if (originalQuestion.isSingleChoice) {
-        final shuffledQuestion = _shuffleQuestionOptions(originalQuestion);
-        questions.add(shuffledQuestion);
-      } else {
-        questions.add(Question(
-          text: originalQuestion.text,
-          options: List<String>.from(originalQuestion.options),
-          correctIndex: originalQuestion.correctIndex,
-          explanation: originalQuestion.explanation,
-          answerType: originalQuestion.answerType,
-        ));
-      }
+    if (widget.topic.questions.isEmpty) {
+      print('⚠️ No questions in topic: ${widget.topic.name}');
+      return;
     }
+
+    final questions = List<Question>.from(widget.topic.questions);
     questions.shuffle();
+
     setState(() {
       _shuffledQuestions = questions;
     });
-  }
-
-  Question _shuffleQuestionOptions(Question originalQuestion) {
-    final correctAnswer = originalQuestion.options[originalQuestion.correctIndex];
-    final options = List<String>.from(originalQuestion.options);
-    options.shuffle();
-    final newCorrectIndex = options.indexOf(correctAnswer);
-    return Question(
-      text: originalQuestion.text,
-      options: options,
-      correctIndex: newCorrectIndex,
-      explanation: originalQuestion.explanation,
-      answerType: originalQuestion.answerType,
-    );
   }
 
   Question? get _currentQuestion {
@@ -183,18 +162,21 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   bool _checkAnswerCorrectness(Question question) {
     try {
       if (question.isTextAnswer) {
-        final correctIndex = _getCorrectIndex(question.correctIndex);
-        return _textAnswer.trim().toLowerCase() == question.options[correctIndex].toLowerCase();
+        return _textAnswer.trim().toLowerCase() == question.options[0].toLowerCase();
       } else if (question.isSingleChoice) {
-        final correctIndex = _getCorrectIndex(question.correctIndex);
+        final correctIndex = question.correctIndex is List<int>
+            ? (question.correctIndex as List<int>)[0]
+            : question.correctIndex as int;
         return _selectedAnswerIndex == correctIndex;
       } else if (question.isMultipleChoice) {
-        final correctAnswers = _getCorrectAnswers(question.correctIndex);
+        final correctAnswers = question.correctIndex as List<int>;
         if (_selectedMultipleAnswers.length != correctAnswers.length) return false;
-        _selectedMultipleAnswers.sort();
-        final sortedCorrect = List<int>.from(correctAnswers)..sort();
-        for (int i = 0; i < _selectedMultipleAnswers.length; i++) {
-          if (_selectedMultipleAnswers[i] != sortedCorrect[i]) return false;
+
+        final userAnswersSorted = List<int>.from(_selectedMultipleAnswers)..sort();
+        final correctAnswersSorted = List<int>.from(correctAnswers)..sort();
+
+        for (int i = 0; i < userAnswersSorted.length; i++) {
+          if (userAnswersSorted[i] != correctAnswersSorted[i]) return false;
         }
         return true;
       }
@@ -203,20 +185,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       print('❌ Error in _checkAnswerCorrectness: $e');
       return false;
     }
-  }
-
-  int _getCorrectIndex(dynamic correctIndex) {
-    if (correctIndex is int) return correctIndex;
-    else if (correctIndex is List<int>) return correctIndex.isNotEmpty ? correctIndex[0] : -1;
-    else if (correctIndex is List) return correctIndex.isNotEmpty ? (correctIndex[0] as int) : -1;
-    return -1;
-  }
-
-  List<int> _getCorrectAnswers(dynamic correctIndex) {
-    if (correctIndex is List<int>) return correctIndex;
-    else if (correctIndex is List) return correctIndex.cast<int>();
-    else if (correctIndex is int) return [correctIndex];
-    return [];
   }
 
   void _toggleMultipleAnswer(int index) {
@@ -245,149 +213,127 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
 
     _animationController.forward();
 
-    // Проверяем, завершился ли тест
     if (!_hasMoreQuestions) {
       _completeTest();
     }
   }
 
-  void _completeTest() async {
+  // В test_screen.dart добавьте этот метод
+  Future<void> _completeTest() async {
     if (_testCompleted) return;
+
+    print('🎯 START _completeTest');
+    print('📊 Test results - Correct: $_correctAnswersCount/${widget.topic.questions.length}');
 
     setState(() {
       _testCompleted = true;
     });
 
-    print('🎯 START _completeTest');
-    print('📊 Test results - Correct: $_correctAnswersCount/$totalQuestions');
+    String subjectName = widget.currentSubject ?? 'Общий';
+    final topicId = widget.topic.id;
+    int earnedXP = 0;
 
     try {
-      print('1. Starting daily completion update...');
+      // Обновляем ежедневную активность
       await UserDataStorage.updateDailyCompletion();
-      print('✅ Daily completion updated');
 
-      String subjectName = widget.currentSubject ?? 'История';
-      if (subjectName.isEmpty) {
-        subjectName = _findSubjectForTopic();
+      // Получаем предыдущий прогресс
+      final oldProgress = await UserDataStorage.getTopicProgressById(topicId);
+      print('📊 Previous progress: $oldProgress');
+
+      // Рассчитываем заработанный XP
+      if (_correctAnswersCount > oldProgress) {
+        final difference = _correctAnswersCount - oldProgress;
+        earnedXP = difference * 10; // 10 XP за каждый новый правильный ответ
+
+        // Бонус за 100% прохождение (только если впервые достигли 100%)
+        if (_correctAnswersCount == widget.topic.questions.length && oldProgress < widget.topic.questions.length) {
+          earnedXP += 100;
+        }
       }
 
-      final topicId = widget.topic.id;
-
-      print('2. Topic info - Subject: $subjectName, Topic ID: $topicId, Topic Name: ${widget.topic.name}');
-
-      print('3. Calling updateTopicProgress...');
-// Передаем актуальное количество правильных ответов
-      final actualCorrectAnswers = _correctAnswersCount;
-      await UserDataStorage.updateTopicProgress(
-          subjectName,
-          topicId,
-          actualCorrectAnswers
+      // Сохраняем прогресс - МАКСИМУМ из старого и нового
+      final newProgress = _correctAnswersCount > oldProgress ? _correctAnswersCount : oldProgress;
+      await UserDataStorage.saveTopicProgress(
+        subjectName,
+        topicId,
+        newProgress,
       );
-      print('✅ updateTopicProgress completed with $actualCorrectAnswers correct answers');
+      print('✅ Progress saved: $newProgress correct answers (was $oldProgress)');
+      print('💰 XP to award: $earnedXP XP');
 
     } catch (e) {
       print('❌ ERROR in _completeTest: $e');
-      print('❌ Stack trace: ${e.toString()}');
     }
 
     print('🎯 END _completeTest');
 
+    // Переходим на экран XP с информацией о результатах
     if (mounted) {
-      // Используем обычный push для перехода на ResultScreen
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => ResultScreen(
-            topic: widget.topic,
-            userAnswers: _userAnswers,
-            textAnswers: _textAnswers,
-            correctAnswersCount: _correctAnswersCount,
-            currentGrade: widget.currentGrade,
-            currentSubject: widget.currentSubject,
+          builder: (context) => XPScreen(
+            earnedXP: earnedXP,
+            questionsCount: _correctAnswersCount,
+            topicId: widget.topic.id,
+            subjectName: widget.currentSubject,
           ),
         ),
       );
     }
   }
 
-  String _findSubjectForTopic() {
-    final subjectsData = getSubjectsByGrade(context);
+// Метод для расчета XP
+  int _calculateEarnedXP(int newProgress, int oldProgress) {
+    if (newProgress <= oldProgress) return 0;
 
-    for (final grade in subjectsData.keys) {
-      final subjects = subjectsData[grade] ?? [];
-      for (final subject in subjects) {
-        final topics = subject.topicsByGrade[grade] ?? [];
-        for (final topic in topics) {
-          if (topic.id == widget.topic.id) {
-            return subject.name;
-          }
-        }
-      }
+    final difference = newProgress - oldProgress;
+    int earned = difference * 10; // 10 XP за каждый новый правильный ответ
+
+    // Бонус за 100% прохождение (только если впервые достигли 100%)
+    final topic = widget.topic;
+    if (newProgress == topic.questions.length && oldProgress < topic.questions.length) {
+      earned += 100;
     }
-    return 'История';
+
+    return earned;
+  }
+
+  int _calculateXPEarned(int newProgress, int oldProgress, bool isPerfectScore) {
+    if (newProgress <= oldProgress) return 0;
+
+    final difference = newProgress - oldProgress;
+    final baseXP = difference * 10;
+    final bonusXP = isPerfectScore ? 100 : 0;
+
+    return baseXP + bonusXP;
   }
 
   Color _getProgressColor() {
-    final percentage = _correctAnswersCount / totalQuestions;
-    if (percentage >= 0.8) return Colors.green;
+    if (widget.topic.questions.isEmpty) return Theme.of(context).colorScheme.primary;
+
+    final percentage = _correctAnswersCount / widget.topic.questions.length;
+    if (percentage == 1.0) return Colors.green;
+    if (percentage >= 0.8) return Colors.lightGreen;
     if (percentage >= 0.6) return Colors.orange;
-    return Theme.of(context).colorScheme.primary;
-  }
-
-  bool _isAnswerCorrectAtIndex(int questionIndex) {
-    if (questionIndex >= _shuffledQuestions.length || questionIndex >= _userAnswers.length) {
-      return false;
-    }
-
-    final question = _shuffledQuestions[questionIndex];
-    final userAnswer = _userAnswers[questionIndex];
-
-    if (userAnswer == null) return false;
-
-    try {
-      if (question.isTextAnswer) {
-        final correctIndex = _getCorrectIndex(question.correctIndex);
-        return (userAnswer as String).trim().toLowerCase() ==
-            question.options[correctIndex].toLowerCase();
-      } else if (question.isSingleChoice) {
-        final correctIndex = _getCorrectIndex(question.correctIndex);
-        return (userAnswer as int) == correctIndex;
-      } else if (question.isMultipleChoice) {
-        final correctAnswers = _getCorrectAnswers(question.correctIndex);
-        final userAnswers = (userAnswer as List<int>);
-
-        if (userAnswers.length != correctAnswers.length) return false;
-
-        userAnswers.sort();
-        final sortedCorrect = List<int>.from(correctAnswers)..sort();
-
-        for (int i = 0; i < userAnswers.length; i++) {
-          if (userAnswers[i] != sortedCorrect[i]) return false;
-        }
-        return true;
-      }
-      return false;
-    } catch (e) {
-      print('❌ Error in _isAnswerCorrectAtIndex: $e');
-      return false;
-    }
+    return Colors.red;
   }
 
   Widget _buildQuestionIndicator() {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 6,
+      runSpacing: 6,
       children: List.generate(totalQuestions, (index) {
         final isActive = index == _currentQuestionIndex;
         final isCompleted = index < _currentQuestionIndex;
-        final isCorrect = index < _userAnswers.length ? _isAnswerCorrectAtIndex(index) : false;
 
         return Container(
-          width: isActive ? 12 : 8,
-          height: isActive ? 12 : 8,
+          width: isActive ? 10 : 6,
+          height: isActive ? 10 : 6,
           decoration: BoxDecoration(
             color: isCompleted
-                ? (isCorrect ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.error)
+                ? Theme.of(context).colorScheme.primary
                 : (isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline.withOpacity(0.3)),
             shape: BoxShape.circle,
           ),

@@ -3,7 +3,7 @@ description: "Приложение для подтягивания школьн�
 
 publish_to: 'none'
 
-version: 0.35.2
+version: 0.40.0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -13,6 +13,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  flutter_secure_storage: ^9.2.2
   shared_preferences: ^2.5.3
   url_launcher: ^6.3.2
   cupertino_icons: ^1.0.2
@@ -26,7 +27,6 @@ dependencies:
   cookie_jar: ^4.0.8
   dio_cookie_manager: ^3.0.0
   cookie_store: ^0.3.5
-  firebase_messaging: ^16.0.3
 
 dev_dependencies:
   flutter_test:

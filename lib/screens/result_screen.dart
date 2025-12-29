@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'lesson_screen.dart';
 import '../localization.dart';
-import 'xp_screen.dart';
+import 'get_xp_screen.dart';
 import '../models/user_stats.dart';
 import '../data/user_data_storage.dart';
 

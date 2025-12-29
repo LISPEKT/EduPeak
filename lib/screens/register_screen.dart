@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../localization.dart';
 import '../services/region_manager.dart';
+import '../models/user_stats.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -134,9 +135,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (response['success'] == true) {
+        // СОХРАНЯЕМ ДАННЫЕ АВТОРИЗАЦИИ
+        final apiService = ApiService();
+        await apiService.initialize();
+        await apiService.saveAuthData(_emailController.text.trim(), _usernameController.text.trim());
+
+        // СОЗДАЕМ ЛОКАЛЬНЫЙ ПРОФИЛЬ
+        final userStats = UserStats(
+          streakDays: 0,
+          lastActivity: DateTime.now(),
+          topicProgress: {},
+          dailyCompletion: {},
+          username: _usernameController.text.trim(),
+          totalXP: 0,
+          weeklyXP: 0,
+          lastWeeklyReset: DateTime.now(),
+        );
+
+        await UserDataStorage.saveUserStats(userStats);
         await UserDataStorage.saveUsername(_usernameController.text.trim());
-        await UserDataStorage.setLoggedIn(true);
-        await UserDataStorage.syncFromServer();
+
+        print('✅ Registration completed, data saved locally and on server');
 
         if (mounted) {
           Navigator.pushReplacement(

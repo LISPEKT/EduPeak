@@ -1,8 +1,9 @@
-// xp_screen.dart - РЕДИЗАЙН В MD3
+// get_xp_screen.dart - РЕДИЗАЙН В MD3 с исправлением бесконечного начисления XP и улучшенной анимацией
 import 'package:flutter/material.dart';
 import '../data/user_data_storage.dart';
 import '../services/api_service.dart';
 import '../localization.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class XPScreen extends StatefulWidget {
   final int earnedXP;
@@ -28,18 +29,22 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
   late Animation<double> _progressAnimation;
   int _displayXP = 0;
   int _currentXP = 0;
+  int _startXP = 0; // XP до начала теста
   Map<String, dynamic> _userStats = {};
   bool _isSyncing = false;
   bool _animationCompleted = false;
   bool _isLoading = true;
   bool _shouldAwardXP = true;
   int _actualEarnedXP = 0;
+  bool _xpAlreadyAdded = false;
+  bool _xpAddingInProgress = false;
+  double _leagueProgressStart = 0.0; // Начальный прогресс лиги
+  double _leagueProgressEnd = 0.0; // Конечный прогресс лиги
 
   @override
   void initState() {
     super.initState();
     _displayXP = 0;
-    _loadUserData();
     _controller = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
@@ -60,90 +65,163 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
       parent: _controller,
       curve: Curves.easeInOutCubic,
     ));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _loadUserData();
+      await _addXPOnceIfNeeded();
+      await _startAnimation();
+    });
   }
 
   Future<void> _loadUserData() async {
     try {
       await _checkIfShouldAwardXP();
-      final response = await ApiService.getUserXPStats();
-      if (response['success'] == true) {
-        setState(() {
-          _userStats = response;
-          _currentXP = (response['totalXP'] as int?) ?? 0;
-          _displayXP = _currentXP;
-          _isLoading = false;
-        });
-        _startAnimation();
-      } else {
+
+      try {
+        final response = await ApiService.getUserXPStats();
+        if (response['success'] == true) {
+          setState(() {
+            _userStats = response;
+            _currentXP = (response['totalXP'] as int?) ?? 0;
+            _startXP = _currentXP - _actualEarnedXP; // Вычисляем XP до теста
+            if (_startXP < 0) _startXP = 0;
+            _displayXP = _startXP; // Начинаем отображение с XP до теста
+
+            // Вычисляем прогресс лиги до и после теста
+            _leagueProgressStart = _calculateLeagueProgress(_startXP);
+            _leagueProgressEnd = _calculateLeagueProgress(_currentXP + _actualEarnedXP);
+            _isLoading = false;
+          });
+        } else {
+          throw Exception('Server response not successful');
+        }
+      } catch (e) {
+        print('⚠️ Server data failed: $e, using local data');
         final localStats = await UserDataStorage.getUserStatsOverview();
         setState(() {
           _userStats = localStats;
           _currentXP = (localStats['totalXP'] as int?) ?? 0;
-          _displayXP = _currentXP;
+          _startXP = _currentXP - _actualEarnedXP;
+          if (_startXP < 0) _startXP = 0;
+          _displayXP = _startXP;
+
+          _leagueProgressStart = _calculateLeagueProgress(_startXP);
+          _leagueProgressEnd = _calculateLeagueProgress(_currentXP + _actualEarnedXP);
           _isLoading = false;
         });
-        _startAnimation();
       }
     } catch (e) {
-      print('Error loading user data: $e');
-      final localStats = await UserDataStorage.getUserStatsOverview();
+      print('❌ Error loading user data: $e');
       setState(() {
-        _userStats = localStats;
-        _currentXP = (localStats['totalXP'] as int?) ?? 0;
-        _displayXP = _currentXP;
+        _userStats = {};
+        _currentXP = 0;
+        _startXP = 0;
+        _displayXP = 0;
+        _leagueProgressStart = 0;
+        _leagueProgressEnd = _calculateLeagueProgress(_actualEarnedXP);
         _isLoading = false;
       });
-      _startAnimation();
     }
+  }
+
+  double _calculateLeagueProgress(int xp) {
+    if (xp >= 5000) return 1.0;
+    if (xp >= 4000) return (xp - 4000) / 1000.0;
+    if (xp >= 3000) return (xp - 3000) / 1000.0;
+    if (xp >= 2000) return (xp - 2000) / 1000.0;
+    if (xp >= 1500) return (xp - 1500) / 500.0;
+    if (xp >= 1000) return (xp - 1000) / 500.0;
+    if (xp >= 500) return (xp - 500) / 500.0;
+    return xp / 500.0;
   }
 
   Future<void> _checkIfShouldAwardXP() async {
     if (widget.topicId == null || widget.subjectName == null) {
       setState(() {
-        _shouldAwardXP = true;
+        _shouldAwardXP = widget.earnedXP > 0;
         _actualEarnedXP = widget.earnedXP;
       });
       return;
     }
 
     try {
-      final userStats = await UserDataStorage.getUserStats();
-      final topicProgress = userStats.getTopicProgress(widget.topicId!);
+      final topicProgress = await UserDataStorage.getTopicProgressById(widget.topicId!);
+      final oldProgress = topicProgress;
+      final newProgress = widget.questionsCount;
 
-      if (topicProgress > 0) {
-        setState(() {
-          _shouldAwardXP = false;
-          _actualEarnedXP = 0;
-        });
-      } else {
-        setState(() {
-          _shouldAwardXP = true;
-          _actualEarnedXP = widget.earnedXP;
-        });
-        await UserDataStorage.updateTopicProgress(
+      print('📊 Topic progress check: old=$oldProgress, new=$newProgress');
+
+      setState(() {
+        _shouldAwardXP = widget.earnedXP > 0;
+        _actualEarnedXP = widget.earnedXP;
+      });
+
+      if (newProgress > oldProgress && widget.subjectName != null) {
+        await UserDataStorage.saveTopicProgress(
             widget.subjectName!,
             widget.topicId!,
-            widget.questionsCount
+            newProgress
         );
       }
+
+      print('✅ XP calculation: shouldAward=$_shouldAwardXP, xp=$_actualEarnedXP');
     } catch (e) {
       print('❌ Error checking topic progress: $e');
       setState(() {
-        _shouldAwardXP = true;
+        _shouldAwardXP = widget.earnedXP > 0;
         _actualEarnedXP = widget.earnedXP;
       });
     }
   }
 
-  Future<void> _startAnimation() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    if (_shouldAwardXP && _actualEarnedXP > 0) {
-      await _syncXPWithServer();
-    } else {
-      await _loadUserData();
+  Future<void> _addXPOnceIfNeeded() async {
+    if (_xpAlreadyAdded || _xpAddingInProgress) {
+      print('⚠️ XP already added or adding in progress, skipping');
+      return;
     }
 
+    if (!_shouldAwardXP || _actualEarnedXP <= 0) {
+      print('⚠️ No XP to award or should not award');
+      return;
+    }
+
+    _xpAddingInProgress = true;
+    print('💰 Attempting to add XP once: +${_actualEarnedXP} XP');
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sessionKey = 'xp_awarded_${widget.topicId}_${widget.earnedXP}_${DateTime.now().millisecondsSinceEpoch ~/ 60000}';
+
+      if (prefs.containsKey(sessionKey)) {
+        print('⚠️ XP already awarded in the last minute for this session');
+        _xpAlreadyAdded = true;
+        _xpAddingInProgress = false;
+        return;
+      }
+
+      await UserDataStorage.addUserXP(_actualEarnedXP);
+
+      _xpAlreadyAdded = true;
+      await prefs.setString(sessionKey, DateTime.now().toIso8601String());
+      await prefs.setInt('last_xp_amount', _actualEarnedXP);
+      await prefs.setString('last_xp_topic_id', widget.topicId ?? 'unknown');
+
+      print('✅ XP added successfully to local storage');
+
+      _syncXPWithServerInBackground();
+
+    } catch (e) {
+      print('❌ Error adding XP: $e');
+      _xpAlreadyAdded = true;
+    } finally {
+      _xpAddingInProgress = false;
+    }
+  }
+
+  Future<void> _startAnimation() async {
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // Запускаем анимации
     await _controller.forward();
 
     final targetXP = _currentXP + _actualEarnedXP;
@@ -156,19 +234,20 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
       return;
     }
 
-    final maxSteps = 100;
-    final steps = _actualEarnedXP > maxSteps ? maxSteps : _actualEarnedXP;
+    // Плавная анимация увеличения XP
+    final duration = 1800;
+    final steps = (_actualEarnedXP > 100) ? 100 : _actualEarnedXP;
     final xpPerStep = _actualEarnedXP / steps;
-    final durationPerStep = 2000 ~/ steps;
+    final durationPerStep = duration ~/ steps;
 
-    double currentValue = _currentXP.toDouble();
+    double currentValue = _startXP.toDouble();
 
     for (int i = 0; i <= steps; i++) {
       if (!mounted) break;
-      await Future.delayed(Duration(milliseconds: durationPerStep.clamp(20, 100)));
+      await Future.delayed(Duration(milliseconds: durationPerStep.clamp(15, 40)));
       if (mounted) {
         setState(() {
-          currentValue = _currentXP + (i * xpPerStep);
+          currentValue = _startXP + (i * xpPerStep);
           _displayXP = currentValue.round();
         });
       }
@@ -184,21 +263,22 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
     await _loadUserData();
   }
 
-  Future<void> _syncXPWithServer() async {
+  Future<void> _syncXPWithServerInBackground() async {
     if (!_shouldAwardXP || _actualEarnedXP <= 0) return;
+
+    print('🔄 Starting background XP sync: +${_actualEarnedXP} XP');
+
     setState(() => _isSyncing = true);
 
     try {
       final response = await ApiService.addXP(_actualEarnedXP, 'test_completion');
       if (response['success'] == true) {
-        print('✅ XP synced with server: +${_actualEarnedXP} XP');
+        print('✅ XP synced with server in background');
       } else {
-        await UserDataStorage.addUserXP(_actualEarnedXP);
-        print('✅ XP saved locally: +${_actualEarnedXP} XP');
+        print('⚠️ Server sync failed in background: ${response['message']}');
       }
     } catch (e) {
-      print('❌ Error syncing XP with server: $e');
-      await UserDataStorage.addUserXP(_actualEarnedXP);
+      print('❌ Background XP sync error: $e');
     } finally {
       if (mounted) {
         setState(() => _isSyncing = false);
@@ -208,51 +288,92 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
 
   Color _getLeagueColor(String league) {
     switch (league) {
-      case 'Бронза': return Color(0xFFCD7F32);
-      case 'Серебро': return Color(0xFFC0C0C0);
-      case 'Золото': return Color(0xFFFFD700);
-      case 'Платина': return Color(0xFFE5E4E2);
-      case 'Бриллиант': return Color(0xFFB9F2FF);
+      case 'Бронзовая': return Color(0xFFCD7F32);
+      case 'Серебряная': return Color(0xFFC0C0C0);
+      case 'Золотая': return Color(0xFFFFD700);
+      case 'Платиновая': return Color(0xFFE5E4E2);
+      case 'Бриллиантовая': return Color(0xFFB9F2FF);
+      case 'Элитная': return Color(0xFF7F7F7F);
+      case 'Легендарная': return Color(0xFFFF4500);
+      case 'Нереальная': return Color(0xFFE6E6FA);
       default: return Theme.of(context).colorScheme.primary;
     }
   }
 
-  double _getLeagueProgress() {
-    final weeklyXP = (_userStats['weeklyXP'] as int?) ?? 0;
-    if (weeklyXP >= 1001) return 1.0;
-    if (weeklyXP >= 501) return (weeklyXP - 501) / 500.0;
-    if (weeklyXP >= 301) return (weeklyXP - 301) / 200.0;
-    if (weeklyXP >= 101) return (weeklyXP - 101) / 200.0;
-    return weeklyXP / 100.0;
+  String _getCurrentLeagueByXP(int xp) {
+    if (xp >= 5000) return 'Нереальная';
+    if (xp >= 4000) return 'Легендарная';
+    if (xp >= 3000) return 'Элитная';
+    if (xp >= 2000) return 'Бриллиантовая';
+    if (xp >= 1500) return 'Платиновая';
+    if (xp >= 1000) return 'Золотая';
+    if (xp >= 500) return 'Серебряная';
+    return 'Бронзовая';
+  }
+
+  double _getCurrentLeagueProgress(int xp) {
+    final league = _getCurrentLeagueByXP(xp);
+    final leagueXP = xp - _getLeagueMinXP(league);
+    final leagueRange = _getLeagueRange(league);
+
+    if (leagueRange == 0) return 1.0;
+    return (leagueXP / leagueRange).clamp(0.0, 1.0);
+  }
+
+  int _getLeagueMinXP(String league) {
+    switch (league) {
+      case 'Бронзовая': return 0;
+      case 'Серебряная': return 500;
+      case 'Золотая': return 1000;
+      case 'Платиновая': return 1500;
+      case 'Бриллиантовая': return 2000;
+      case 'Элитная': return 3000;
+      case 'Легендарная': return 4000;
+      case 'Нереальная': return 5000;
+      default: return 0;
+    }
+  }
+
+  int _getLeagueRange(String league) {
+    switch (league) {
+      case 'Бронзовая': return 500;
+      case 'Серебряная': return 500;
+      case 'Золотая': return 500;
+      case 'Платиновая': return 500;
+      case 'Бриллиантовая': return 1000;
+      case 'Элитная': return 1000;
+      case 'Легендарная': return 1000;
+      case 'Нереальная': return 5000; // Условно
+      default: return 500;
+    }
   }
 
   String _getNextLeague(String currentLeague) {
     switch (currentLeague) {
-      case 'Бронза': return 'Серебро';
-      case 'Серебро': return 'Золото';
-      case 'Золото': return 'Платина';
-      case 'Платина': return 'Бриллиант';
-      case 'Бриллиант': return 'Бриллиант';
-      default: return 'Серебро';
+      case 'Бронзовая': return 'Серебряная';
+      case 'Серебряная': return 'Золотая';
+      case 'Золотая': return 'Платиновая';
+      case 'Платиновая': return 'Бриллиантовая';
+      case 'Бриллиантовая': return 'Элитная';
+      case 'Элитная': return 'Легендарная';
+      case 'Легендарная': return 'Нереальная';
+      case 'Нереальная': return 'Нереальная';
+      default: return 'Серебряная';
     }
   }
 
-  int _getXPToNextLeague() {
-    final weeklyXP = (_userStats['weeklyXP'] as int?) ?? 0;
-    final currentLeague = (_userStats['currentLeague'] as String?) ?? 'Бронза';
+  int _getXPToNextLeague(int xp) {
+    final currentLeague = _getCurrentLeagueByXP(xp);
+    final nextLeagueMinXP = _getLeagueMinXP(_getNextLeague(currentLeague));
 
-    switch (currentLeague) {
-      case 'Бронза': return (101 - weeklyXP).clamp(0, 101);
-      case 'Серебро': return (301 - weeklyXP).clamp(0, 301);
-      case 'Золото': return (501 - weeklyXP).clamp(0, 501);
-      case 'Платина': return (1001 - weeklyXP).clamp(0, 1001);
-      case 'Бриллиант': return 0;
-      default: return (101 - weeklyXP).clamp(0, 101);
-    }
+    if (nextLeagueMinXP == 0) return 0;
+    return (nextLeagueMinXP - xp).clamp(0, nextLeagueMinXP);
   }
 
   @override
   void dispose() {
+    _xpAlreadyAdded = false;
+    _xpAddingInProgress = false;
     _controller.dispose();
     super.dispose();
   }
@@ -272,13 +393,13 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
       );
     }
 
-    final currentLeague = (_userStats['currentLeague'] as String?) ?? 'Бронза';
-    final totalXP = (_userStats['totalXP'] as int?) ?? 0;
+    final currentLeague = _getCurrentLeagueByXP(_displayXP);
+    final targetXP = _currentXP + _actualEarnedXP;
+    final targetLeague = _getCurrentLeagueByXP(targetXP);
     final weeklyXP = (_userStats['weeklyXP'] as int?) ?? 0;
     final leagueColor = _getLeagueColor(currentLeague);
-    final leagueProgress = _getLeagueProgress();
     final nextLeague = _getNextLeague(currentLeague);
-    final xpToNext = _getXPToNextLeague();
+    final xpToNext = _getXPToNextLeague(_displayXP);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
@@ -354,15 +475,16 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                     ),
                   ),
 
-                  // Прогресс лиги
+                  // Прогресс лиги с анимацией от начального до конечного
                   SizedBox(
                     width: 200,
                     height: 200,
                     child: AnimatedBuilder(
                       animation: _progressAnimation,
                       builder: (context, child) {
+                        final animatedProgress = _leagueProgressStart + (_leagueProgressEnd - _leagueProgressStart) * _progressAnimation.value;
                         return CircularProgressIndicator(
-                          value: _progressAnimation.value * leagueProgress,
+                          value: animatedProgress,
                           strokeWidth: 8,
                           color: leagueColor,
                           backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
@@ -398,13 +520,17 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(
-                            '$_displayXP',
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              color: leagueColor,
-                              height: 1.1,
+                          AnimatedSwitcher(
+                            duration: Duration(milliseconds: 300),
+                            child: Text(
+                              '$_displayXP',
+                              key: ValueKey(_displayXP),
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
+                                color: leagueColor,
+                                height: 1.1,
+                              ),
                             ),
                           ),
                           Text(
@@ -430,6 +556,25 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                               ),
                             ),
                           ),
+                          if (_shouldAwardXP && _actualEarnedXP > 0 && currentLeague != targetLeague)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '↑ $targetLeague',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -505,7 +650,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       const SizedBox(height: 12),
                       _InfoRow(
                         title: '${localizations.totalExperience}:',
-                        value: '$totalXP XP',
+                        value: '$_displayXP XP',
                         icon: Icons.star_rounded,
                       ),
                       const SizedBox(height: 12),
@@ -517,7 +662,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       const SizedBox(height: 12),
                       _InfoRow(
                         title: '${localizations.leagueProgress}:',
-                        value: '${(leagueProgress * 100).round()}%',
+                        value: '${(_getCurrentLeagueProgress(_displayXP) * 100).round()}%',
                         valueColor: leagueColor,
                         icon: Icons.timeline_rounded,
                       ),
@@ -596,6 +741,18 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                                   color: leagueColor.withOpacity(0.8),
                                 ),
                               ),
+                              if (currentLeague != targetLeague)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    'Поздравляем! Вы достигли новой лиги: $targetLeague',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: leagueColor.withOpacity(0.8),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -622,6 +779,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                   width: double.infinity,
                   child: FilledButton(
                     onPressed: _animationCompleted ? () {
+                      print('🎯 Continue button pressed, navigating to /main');
                       Navigator.pushNamedAndRemoveUntil(
                         context,
                         '/main',

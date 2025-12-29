@@ -1,26 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import '../data/subjects_data.dart';
 import '../data/user_data_storage.dart';
 import '../models/user_stats.dart';
-import '../models/subject.dart';
-import '../theme/app_theme.dart';
-import 'topic_popup.dart';
-import 'settings_screen.dart';
+import '../localization.dart';
+import 'subject_screen.dart';
 import 'auth_screen.dart';
 import 'profile_screen.dart';
-import 'statistics_screen.dart';
-import 'subscription_screen.dart';
-import '../services/api_service.dart';
-import '../localization.dart';
-import '../data/subjects_manager.dart';
-import 'xp_screen.dart';
-import 'friends_screen.dart';
-import 'achievements_screen.dart';
-import 'eduleague_screen.dart';
 import 'review_screen.dart';
 import 'dictionary_screen.dart';
+import 'subscription_screen.dart';
+import 'xp_stats_screen.dart';
+import 'subject_info_screen.dart';
+import '../theme/app_theme.dart';
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -31,12 +25,8 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentBottomNavIndex = 0;
-  int? _selectedGrade;
-  String _selectedSubject = 'История';
-  String _searchQuery = '';
-  bool _dailyCompleted = false;
   String _username = '';
   String _avatar = '👤';
   UserStats _userStats = UserStats(
@@ -45,95 +35,81 @@ class _MainScreenState extends State<MainScreen> {
     topicProgress: {},
     dailyCompletion: {},
     username: '',
+    totalXP: 0,
+    weeklyXP: 0,
+    lastWeeklyReset: DateTime.now(),
   );
 
-  final GlobalKey<_OptimizedTopicsListViewState> _topicsListKey = GlobalKey();
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
-  Map<int, List<Subject>> get _subjectsData {
-    try {
-      return getSubjectsByGrade(context);
-    } catch (e) {
-      print('❌ Error getting subjects data: $e');
-      return {
-        5: [Subject(name: 'История', topicsByGrade: {5: []})],
-      };
-    }
-  }
-
-  void _openAchievements() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => AchievementsScreen()),
-    );
-  }
-
-  void _openFriends() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => FriendsScreen()),
-    );
-  }
-
-  void _openEduLeague() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => EduLeagueScreen()),
-    );
-  }
+  List<String> _selectedSubjects = [];
+  DateTime? _lastDataUpdate;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkAuthStatus();
-    _loadLastSelected();
+    _loadUserData();
+    _loadSelectedSubjects();
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_username.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadUserData();
-        _debugCheckTopics();
-      });
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _currentBottomNavIndex == 0) {
+      _loadUserData();
     }
   }
 
-  Future<void> _loadLastSelected() async {
+  Future<void> _loadUserData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final lastGrade = prefs.getInt('lastSelectedGrade');
-      final lastSubject = prefs.getString('lastSelectedSubject');
+      final stats = await UserDataStorage.getUserStats();
+      final username = await UserDataStorage.getUsername();
+      final avatar = await UserDataStorage.getAvatar();
 
       if (mounted) {
         setState(() {
-          _selectedGrade = lastGrade ?? 5;
-          _selectedSubject = lastSubject ?? 'История';
+          _userStats = stats;
+          _username = username;
+          _avatar = avatar;
+          _lastDataUpdate = DateTime.now();
         });
       }
-
-      print('📝 Loaded last selected - Grade: $_selectedGrade, Subject: $_selectedSubject');
     } catch (e) {
-      print('❌ Error loading last selected: $e');
-      if (mounted) {
-        setState(() {
-          _selectedGrade = 5;
-          _selectedSubject = 'История';
-        });
-      }
+      print('❌ Error loading user data: $e');
     }
   }
 
-  Future<void> _saveLastSelected() async {
+  Future<void> _loadSelectedSubjects() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('lastSelectedGrade', _selectedGrade ?? 5);
-      await prefs.setString('lastSelectedSubject', _selectedSubject);
-      print('💾 Saved last selected - Grade: $_selectedGrade, Subject: $_selectedSubject');
+      final savedSubjects = prefs.getStringList('selectedSubjects');
+
+      final allSubjects = _getAllSubjects();
+
+      if (mounted) {
+        setState(() {
+          _selectedSubjects = savedSubjects ?? allSubjects;
+        });
+      }
     } catch (e) {
-      print('❌ Error saving last selected: $e');
+      print('❌ Error loading selected subjects: $e');
     }
+  }
+
+  List<String> _getAllSubjects() {
+    final allSubjects = <String>{};
+    for (final grade in getSubjectsByGrade(context).keys) {
+      final subjects = getSubjectsByGrade(context)[grade] ?? [];
+      for (final subject in subjects) {
+        allSubjects.add(subject.name);
+      }
+    }
+    return allSubjects.toList();
   }
 
   Future<void> _checkAuthStatus() async {
@@ -150,1432 +126,757 @@ class _MainScreenState extends State<MainScreen> {
       }
     } catch (e) {
       print('Error checking auth status: $e');
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const AuthScreen()),
-              (route) => false,
-        );
-      }
     }
-  }
-
-  Future<void> _loadUserData() async {
-    try {
-      final stats = await UserDataStorage.getUserStats();
-      final username = await UserDataStorage.getUsername();
-      final avatar = await UserDataStorage.getAvatar();
-
-      if (mounted) {
-        setState(() {
-          _userStats = stats;
-          _username = username;
-          _avatar = avatar;
-          _dailyCompleted = stats.dailyCompletion[DateTime.now().toIso8601String().split('T')[0]] ?? false;
-
-          final subjects = _availableSubjects;
-          if (subjects.isNotEmpty && !subjects.contains(_selectedSubject)) {
-            _selectedSubject = subjects.first;
-            _saveLastSelected();
-          }
-        });
-      }
-
-      print('👤 User data loaded - Username: $username, Streak: ${stats.streakDays} days');
-    } catch (e) {
-      print('❌ Error loading user data: $e');
-    }
-  }
-
-  void _debugCheckTopics() {
-    print('🔍 DEBUG: Checking all topics in data');
-    int totalTopics = 0;
-
-    for (final grade in _subjectsData.keys) {
-      final subjects = _subjectsData[grade] ?? [];
-      for (final subject in subjects) {
-        final topics = subject.topicsByGrade[grade] ?? [];
-        print('   Grade $grade, Subject: ${subject.name}, Topics: ${topics.length}');
-        for (final topic in topics) {
-          print('     - ${topic.name} (ID: ${topic.id})');
-          totalTopics++;
-        }
-      }
-    }
-    print('🔍 DEBUG: Total topics found: $totalTopics');
-  }
-
-  Future<void> _refreshData() async {
-    _topicsListKey.currentState?._clearCache();
-    await _loadUserData();
-  }
-
-  List<String> get _availableSubjects {
-    if (_selectedGrade != null) {
-      final subjects = _subjectsData[_selectedGrade] ?? [];
-      final subjectNames = subjects.map((s) => s.name).toList();
-      final uniqueSubjects = subjectNames.toSet().toList();
-      print('📖 Subjects for grade $_selectedGrade: $uniqueSubjects');
-      return uniqueSubjects;
-    } else {
-      final allSubjects = <String>{};
-      for (final grade in _subjectsData.keys) {
-        final subjects = _subjectsData[grade] ?? [];
-        for (final subject in subjects) {
-          allSubjects.add(subject.name);
-        }
-      }
-      final result = allSubjects.toList();
-      print('📖 All subjects: $result');
-      return result;
-    }
-  }
-
-  List<dynamic> get _filteredTopics {
-    final List<dynamic> allTopics = [];
-
-    if (_selectedGrade != null) {
-      final subjects = _subjectsData[_selectedGrade];
-      if (subjects != null) {
-        for (final subject in subjects) {
-          if (subject.name == _selectedSubject) {
-            final topics = subject.topicsByGrade[_selectedGrade] ?? [];
-            allTopics.addAll(topics);
-            print('📚 Found ${topics.length} topics for $subject');
-            break;
-          }
-        }
-      }
-    } else {
-      for (final grade in _subjectsData.keys) {
-        final subjects = _subjectsData[grade] ?? [];
-        for (final subject in subjects) {
-          if (subject.name == _selectedSubject) {
-            final topics = subject.topicsByGrade[grade] ?? [];
-            for (final topic in topics) {
-              allTopics.add(_TopicWithGrade(topic: topic, grade: grade));
-            }
-          }
-        }
-      }
-    }
-
-    if (_searchQuery.isNotEmpty) {
-      final filtered = allTopics.where((topic) {
-        final topicData = topic is _TopicWithGrade ? topic.topic : topic;
-        return topicData.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            topicData.description.toLowerCase().contains(_searchQuery.toLowerCase());
-      }).toList();
-      print('🔍 Filtered ${filtered.length} topics for search: "$_searchQuery"');
-      return filtered;
-    } else {
-      print('📚 Total topics found: ${allTopics.length}');
-      return allTopics;
-    }
-  }
-
-  // Метод для группировки тем по параграфам
-  List<dynamic> get _groupedTopics {
-    final filteredTopics = _filteredTopics;
-
-    // Если нет тем или поиск активен, возвращаем как есть
-    if (filteredTopics.isEmpty || _searchQuery.isNotEmpty) {
-      return filteredTopics;
-    }
-
-    final List<dynamic> grouped = [];
-    String? currentParagraph;
-
-    for (final topic in filteredTopics) {
-      final topicData = topic is _TopicWithGrade ? topic.topic : topic;
-      final topicParagraph = topicData.paragraph;
-
-      // Если параграф изменился, добавляем заголовок
-      if (topicParagraph.isNotEmpty && topicParagraph != currentParagraph) {
-        grouped.add(_ParagraphHeader(
-          title: topicParagraph,
-          grade: topic is _TopicWithGrade ? topic.grade : _selectedGrade,
-        ));
-        currentParagraph = topicParagraph;
-      }
-
-      grouped.add(topic);
-    }
-
-    return grouped;
-  }
-
-  bool _isTopicCompleted(String topicName) {
-    final topic = _findTopicInAllSubjects(topicName);
-    if (topic == null) {
-      print('❌ Topic not found: $topicName');
-      return false;
-    }
-
-    final topicId = topic.id;
-
-    print('🔍 Checking completion for topic: $topicName (ID: $topicId)');
-
-    for (final subjectName in _userStats.topicProgress.keys) {
-      final subjectProgress = _userStats.topicProgress[subjectName];
-      if (subjectProgress != null && subjectProgress.containsKey(topicId)) {
-        final topicCorrectAnswers = subjectProgress[topicId] ?? 0;
-        final totalQuestions = topic.questions.length;
-        final isCompleted = topicCorrectAnswers >= totalQuestions;
-
-        print('📊 Progress found - Subject: $subjectName, Correct: $topicCorrectAnswers/$totalQuestions, Completed: $isCompleted');
-        return isCompleted;
-      }
-    }
-
-    print('📊 No progress found for topic: $topicName (ID: $topicId)');
-    return false;
-  }
-
-  dynamic _findTopicInAllSubjects(String topicName) {
-    for (final grade in _subjectsData.keys) {
-      final subjects = _subjectsData[grade] ?? [];
-      for (final subject in subjects) {
-        final topics = subject.topicsByGrade[grade] ?? [];
-        for (final topic in topics) {
-          if (topic.name == topicName) {
-            return topic;
-          }
-        }
-      }
-    }
-    return null;
-  }
-
-  void _showTopicPopup(BuildContext context, dynamic topic) {
-    final topicData = topic is _TopicWithGrade ? topic.topic : topic;
-    final topicGrade = topic is _TopicWithGrade ? topic.grade : _selectedGrade;
-
-    print('🎯 Showing topic popup:');
-    print('   Topic: ${topicData.name} (ID: ${topicData.id})');
-    print('   Grade: $topicGrade');
-    print('   Subject: $_selectedSubject');
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => TopicPopup(
-        topic: topicData,
-        currentGrade: topicGrade,
-        currentSubject: _selectedSubject,
-      ),
-    );
-  }
-
-  bool _isPhotoAvatar() {
-    if (_avatar == '👤') return false;
-
-    try {
-      final file = File(_avatar);
-      return file.existsSync();
-    } catch (e) {
-      print('❌ Error checking avatar file: $e');
-      return false;
-    }
-  }
-
-  void _onGradeChanged(int? value) {
-    setState(() {
-      _selectedGrade = value;
-      final subjects = _availableSubjects;
-      if (subjects.isNotEmpty) {
-        _selectedSubject = subjects.first;
-      }
-      _topicsListKey.currentState?._clearCache();
-      _saveLastSelected();
-      print('🎓 Grade changed to: $value, subjects: $subjects');
-    });
-  }
-
-  void _onSubjectChanged(String? value) {
-    if (value != null) {
-      setState(() {
-        _selectedSubject = value;
-        _topicsListKey.currentState?._clearCache();
-        _saveLastSelected();
-        print('📖 Subject changed to: $value');
-      });
-    }
-  }
-
-  void _onSearchChanged(String value) {
-    setState(() {
-      _searchQuery = value;
-      _topicsListKey.currentState?._clearCache();
-    });
-  }
-
-  void _openProfile() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProfileScreen(
-          currentAvatar: _avatar,
-          onAvatarUpdate: (newAvatar) {
-            setState(() {
-              _avatar = newAvatar;
-            });
-            UserDataStorage.saveAvatar(newAvatar);
-          },
-          onUsernameUpdate: (newUsername) {
-            setState(() {
-              _username = newUsername;
-            });
-            UserDataStorage.saveUsername(newUsername);
-          },
-        ),
-      ),
-    ).then((_) => _refreshData());
-  }
-
-  void _openStatistics() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StatisticsScreen(userStats: _userStats),
-      ),
-    );
-  }
-
-  void _openSubscription() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const SubscriptionScreen(),
-      ),
-    );
-  }
-
-  void _openSettings() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SettingsScreen(
-          onLogout: () {
-            widget.onLogout();
-          },
-        ),
-      ),
-    ).then((_) => _refreshData());
-  }
-
-  void _openDrawer() {
-    _scaffoldKey.currentState?.openDrawer();
   }
 
   void _onBottomNavTap(int index) {
     setState(() {
       _currentBottomNavIndex = index;
     });
+
+    if (index == 0 && mounted) {
+      final now = DateTime.now();
+      if (_lastDataUpdate == null ||
+          now.difference(_lastDataUpdate!).inSeconds > 5) {
+        _loadUserData();
+      }
+    }
   }
 
   Widget _getCurrentScreen() {
     switch (_currentBottomNavIndex) {
       case 0:
-        return _buildHomeScreen();
+        return _buildHomeScreenContent();
       case 1:
-        return ReviewScreen();
+        return ReviewScreen(
+          onBottomNavTap: _onBottomNavTap,
+          currentIndex: _currentBottomNavIndex,
+        );
       case 2:
-        return DictionaryScreen();
+        return DictionaryScreen(
+          onBottomNavTap: _onBottomNavTap,
+          currentIndex: _currentBottomNavIndex,
+        );
       case 3:
+        return const SubscriptionScreen();
+      case 4:
         return ProfileScreen(
-          currentAvatar: _avatar,
-          onAvatarUpdate: (newAvatar) {
-            setState(() {
-              _avatar = newAvatar;
-            });
-            UserDataStorage.saveAvatar(newAvatar);
-          },
-          onUsernameUpdate: (newUsername) {
-            setState(() {
-              _username = newUsername;
-            });
-            UserDataStorage.saveUsername(newUsername);
-          },
+          onBottomNavTap: _onBottomNavTap,
+          currentIndex: _currentBottomNavIndex,
+          onLogout: widget.onLogout,
         );
       default:
-        return _buildHomeScreen();
+        return _buildHomeScreenContent();
     }
   }
 
-  Widget _buildHomeScreen() {
-    final appLocalizations = AppLocalizations.of(context);
+  Color _getSubjectColor(String subject) {
+    final colors = {
+      'Математика': Color(0xFF4285F4), // Синий Google
+      'Алгебра': Color(0xFF2196F3), // Голубой
+      'Геометрия': Color(0xFF3F51B5), // Индиго
+      'Русский язык': Color(0xFFEA4335), // Красный Google
+      'Литература': Color(0xFFFBBC05), // Желтый Google
+      'История': Color(0xFF34A853), // Зеленый Google
+      'Обществознание': Color(0xFF8E44AD), // Фиолетовый
+      'География': Color(0xFF00BCD4), // Бирюзовый
+      'Биология': Color(0xFF4CAF50), // Зеленый
+      'Физика': Color(0xFF9C27B0), // Пурпурный
+      'Химия': Color(0xFFFF9800), // Оранжевый
+      'Английский язык': Color(0xFFE91E63), // Розовый
+    };
+    return colors[subject] ?? Colors.grey;
+  }
 
-    return Column(
-      children: [
-        Expanded(
+  double _calculateSubjectProgress(String subjectName) {
+    if (!_userStats.topicProgress.containsKey(subjectName)) {
+      return 0.0;
+    }
+
+    final completedTopics = _userStats.topicProgress[subjectName]?.length ?? 0;
+
+    int totalTopics = 0;
+    for (final grade in getSubjectsByGrade(context).keys) {
+      final subjects = getSubjectsByGrade(context)[grade] ?? [];
+      for (final subject in subjects) {
+        if (subject.name == subjectName) {
+          totalTopics += subject.topicsByGrade[grade]?.length ?? 0;
+        }
+      }
+    }
+
+    return totalTopics > 0 ? completedTopics / totalTopics : 0.0;
+  }
+
+  void _openXPScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => XPStatsScreen(),
+      ),
+    );
+  }
+
+  void _openSubjectInfo(String subject) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SubjectInfoScreen(subjectName: subject),
+      ),
+    );
+  }
+
+  // В основных экранах добавьте отображение текущего XP:
+  Widget _buildXPIndicator() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: UserDataStorage.getUserStatsOverview(),
+      builder: (context, snapshot) {
+        if (snapshot.hasData) {
+          final xp = snapshot.data!['totalXP'] ?? 0;
+          final league = snapshot.data!['currentLeague'] ?? 'Бронза';
+
+          return Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.star, color: Theme.of(context).colorScheme.primary),
+                SizedBox(width: 8),
+                Text('$xp XP • $league'),
+              ],
+            ),
+          );
+        }
+        return SizedBox.shrink();
+      },
+    );
+  }
+
+  Widget _buildHomeScreenContent() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark
+              ? LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.15),
+              theme.scaffoldBackgroundColor.withOpacity(0.7),
+              theme.scaffoldBackgroundColor,
+            ],
+            stops: [0.0, 0.3, 0.7],
+          )
+              : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.08),
+              Colors.white.withOpacity(0.7),
+              Colors.white,
+            ],
+            stops: [0.0, 0.3, 0.7],
+          ),
+        ),
+        child: SafeArea(
           child: Column(
             children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                ),
-                child: Column(
+              // Верхняя панель с аватаркой и поиском
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    SizedBox(height: MediaQuery.of(context).padding.top),
-                    _ProfileHeader(
-                      avatar: _avatar,
-                      isPhotoAvatar: _isPhotoAvatar(),
-                      username: _username,
-                      dailyCompleted: _dailyCompleted,
-                      streakDays: _userStats.streakDays,
-                      onAvatarPressed: _openDrawer,
-                      appLocalizations: appLocalizations,
+                    // Аватарка и приветствие
+                    Row(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: isDark ? theme.cardColor : Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: _isPhotoAvatar()
+                              ? ClipOval(
+                            child: Image.file(
+                              File(_avatar),
+                              fit: BoxFit.cover,
+                              width: 56,
+                              height: 56,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Icon(
+                                  Icons.person_rounded,
+                                  color: primaryColor,
+                                  size: 28,
+                                );
+                              },
+                            ),
+                          )
+                              : Center(
+                            child: Icon(
+                              Icons.person_rounded,
+                              color: primaryColor,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Привет, что будем изучать сегодня?',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: theme.hintColor,
+                              ),
+                            ),
+                            Text(
+                              _username.isNotEmpty ? _username : 'Гость',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: theme.textTheme.titleMedium?.color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    _GradeSubjectSelector(
-                      selectedGrade: _selectedGrade,
-                      selectedSubject: _selectedSubject,
-                      availableSubjects: _availableSubjects,
-                      onGradeChanged: _onGradeChanged,
-                      onSubjectChanged: _onSubjectChanged,
-                      appLocalizations: appLocalizations,
-                    ),
-                    _SearchField(
-                      onChanged: _onSearchChanged,
-                      appLocalizations: appLocalizations,
+
+                    // Кнопка поиска
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: isDark ? theme.cardColor : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.search_rounded),
+                        color: primaryColor,
+                        onPressed: () {
+                          // TODO: Реализовать поиск
+                        },
+                      ),
                     ),
                   ],
                 ),
               ),
+
+              // НОВАЯ ПЛАШКА С ОПЫТОМ (как на других экранах)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: isDark ? theme.cardColor : Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Иконка XP
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.leaderboard_rounded,
+                          color: primaryColor,
+                          size: 36,
+                        ),
+                      ),
+                      SizedBox(width: 20),
+
+                      // Информация об опыте
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Твой опыт',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: theme.hintColor,
+                                  ),
+                                ),
+                                Text(
+                                  '${_userStats.totalXP} XP',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: primaryColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: _userStats.totalXP > 10000 ? 1.0 : _userStats.totalXP / 10000,
+                              backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                              color: primaryColor,
+                              borderRadius: BorderRadius.circular(4),
+                              minHeight: 10,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              _getMotivationMessage(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.hintColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Заголовок предметов
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Мои предметы',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: theme.textTheme.titleMedium?.color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Список предметов с затемнением (цвет фона, а не карточек)
               Expanded(
-                child: _OptimizedTopicsList(
-                  groupedTopics: _groupedTopics,
-                  isTopicCompleted: _isTopicCompleted,
-                  onTopicTap: (topic) => _showTopicPopup(context, topic),
-                  onRefresh: _refreshData,
-                  listKey: _topicsListKey,
-                  appLocalizations: appLocalizations,
+                child: Stack(
+                  children: [
+                    // Контент с отступами
+                    _selectedSubjects.isEmpty
+                        ? _buildEmptyState()
+                        : ListView(
+                      padding: EdgeInsets.all(20),
+                      children: _selectedSubjects.map((subject) {
+                        final progress = _calculateSubjectProgress(subject);
+                        final color = _getSubjectColor(subject);
+
+                        return _buildSubjectCard(
+                          subject: subject,
+                          progress: progress,
+                          color: color,
+                          isDark: isDark,
+                          theme: theme,
+                        );
+                      }).toList(),
+                    ),
+
+                    // Затемнение сверху (цвет фона)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: 30,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
+                              Colors.transparent,
+                            ],
+                            stops: [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Затемнение снизу (цвет фона)
+                    Positioned(
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      child: Container(
+                        height: 30,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
+                              (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
+                              Colors.transparent,
+                            ],
+                            stops: [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
-      ],
+      ),
     );
+  }
+
+  String _getMotivationMessage() {
+    if (_userStats.totalXP >= 5000) {
+      return 'Отличная работа! Ты набрал уже ${_userStats.totalXP} XP';
+    } else if (_userStats.totalXP >= 1000) {
+      return 'У тебя ${_userStats.totalXP} XP. Отличный прогресс!';
+    } else if (_userStats.totalXP >= 500) {
+      return '${_userStats.totalXP} XP - хороший результат!';
+    } else if (_userStats.totalXP >= 100) {
+      return 'У тебя уже ${_userStats.totalXP} XP. Двигайся дальше!';
+    } else {
+      return 'Пройди первый тест и получи свои первые XP!';
+    }
+  }
+
+  Widget _buildSubjectCard({
+    required String subject,
+    required double progress,
+    required Color color,
+    required bool isDark,
+    required ThemeData theme,
+  }) {
+    final completedPercent = (progress * 100).round();
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Верхняя часть с названием и кнопкой
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    subject,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textTheme.titleMedium?.color,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => _openSubjectInfo(subject),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      color: color,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Прогресс бар
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Прогресс',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.hintColor,
+                      ),
+                    ),
+                    Text(
+                      '$completedPercent%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                  minHeight: 10,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: isDark ? theme.cardColor : Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.school_rounded,
+                size: 60,
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+              ),
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Нет выбранных предметов',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: theme.textTheme.titleMedium?.color,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Добавьте предметы для обучения',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: theme.hintColor,
+              ),
+            ),
+            SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                // TODO: Реализовать добавление предметов
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF4CAF50),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                elevation: 0,
+                shadowColor: Colors.transparent,
+              ),
+              child: Text(
+                'Добавить предметы',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _isPhotoAvatar() {
+    return _avatar.startsWith('/');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      drawer: _currentBottomNavIndex == 0 ? _buildDrawer(AppLocalizations.of(context)) : null,
-      body: Column(
-        children: [
-          Expanded(
-            child: _getCurrentScreen(),
-          ),
-        ],
-      ),
+      body: _getCurrentScreen(),
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
   Widget _buildBottomNavigationBar() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final appLocalizations = AppLocalizations.of(context);
 
     return Container(
+      margin: EdgeInsets.fromLTRB(20, 0, 20, 20),
+      height: 70,
       decoration: BoxDecoration(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(35),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 0,
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.15),
+            blurRadius: 20,
+            offset: Offset(0, 4),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-        child: NavigationBar(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          elevation: 3,
-          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
-          selectedIndex: _currentBottomNavIndex,
-          onDestinationSelected: _onBottomNavTap,
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.home_rounded),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: appLocalizations.home,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.refresh_rounded),
-              selectedIcon: Icon(Icons.refresh_rounded),
-              label: appLocalizations.review,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.book_rounded),
-              selectedIcon: Icon(Icons.book_rounded),
-              label: appLocalizations.dictionary,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: appLocalizations.profile,
-            ),
-          ],
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawer(AppLocalizations appLocalizations) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final greenColor = isDark ? const Color(0xFF2D4A2D) : const Color(0xFFE8F5E8);
-
-    return Drawer(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      child: Column(
+      child: Row(
         children: [
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: greenColor,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(12),
-                bottomRight: Radius.circular(12),
-              ),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-                  _DrawerItem(
-                    icon: Icons.star_rounded,
-                    title: 'EduPeak+',
-                    subtitle: appLocalizations.premiumFeatures,
-                    color: Colors.amber,
-                    onTap: _openSubscription,
-                  ),
-                  _DrawerItem(
-                    icon: Icons.analytics_rounded,
-                    title: appLocalizations.statistics,
-                    subtitle: appLocalizations.learningProgress,
-                    color: Colors.green,
-                    onTap: _openStatistics,
-                  ),
-                  _DrawerItem(
-                    icon: Icons.emoji_events_rounded,
-                    title: appLocalizations.achievements,
-                    subtitle: appLocalizations.achievements,
-                    color: Colors.orange,
-                    onTap: _openAchievements,
-                  ),
-                  _DrawerItem(
-                    icon: Icons.people_rounded,
-                    title: appLocalizations.friends,
-                    subtitle: appLocalizations.friends,
-                    color: Colors.blue,
-                    onTap: _openFriends,
-                  ),
-                  _DrawerItem(
-                    icon: Icons.leaderboard_rounded,
-                    title: appLocalizations.educationalLeague,
-                    subtitle: appLocalizations.educationalLeague,
-                    color: Colors.purple,
-                    onTap: _openEduLeague,
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
+          _buildBottomNavItem(
+            index: 0,
+            icon: Icons.home_rounded,
+            label: appLocalizations.home,
+            isDark: isDark,
           ),
-          Expanded(
-            child: SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  _DrawerItem(
-                    icon: Icons.settings_rounded,
-                    title: appLocalizations.settings,
-                    subtitle: appLocalizations.appSettings,
-                    color: Theme.of(context).colorScheme.primary,
-                    onTap: _openSettings,
-                  ),
-                ],
-              ),
-            ),
+          _buildBottomNavItem(
+            index: 1,
+            icon: Icons.refresh_rounded,
+            label: appLocalizations.review,
+            isDark: isDark,
+          ),
+          _buildBottomNavItem(
+            index: 2,
+            icon: Icons.book_rounded,
+            label: appLocalizations.dictionary,
+            isDark: isDark,
+          ),
+          _buildBottomNavItem(
+            index: 3,
+            icon: Icons.star_rounded,
+            label: 'Premium',
+            isDark: isDark,
+          ),
+          _buildBottomNavItem(
+            index: 4,
+            icon: Icons.person_rounded,
+            label: appLocalizations.profile,
+            isDark: isDark,
           ),
         ],
       ),
     );
   }
-}
 
-class _BottomNavItem extends StatelessWidget {
-  final int index;
-  final int currentIndex;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _BottomNavItem({
-    required this.index,
-    required this.currentIndex,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = index == currentIndex;
+  Widget _buildBottomNavItem({
+    required int index,
+    required IconData icon,
+    required String label,
+    required bool isDark,
+  }) {
+    final isSelected = index == _currentBottomNavIndex;
+    final color = isSelected ? Color(0xFF4CAF50) : (isDark ? Colors.grey[500]! : Colors.grey[400]!);
 
     return Expanded(
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
-          splashColor: Theme.of(context).primaryColor.withOpacity(0.1),
-          highlightColor: Theme.of(context).primaryColor.withOpacity(0.05),
+          onTap: () => _onBottomNavTap(index),
+          borderRadius: BorderRadius.circular(35),
           child: Container(
-            height: 80,
+            height: 70,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                AnimatedContainer(
-                  duration: Duration(milliseconds: 200),
-                  padding: EdgeInsets.all(8),
+                Container(
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: isSelected
-                        ? Theme.of(context).primaryColor.withOpacity(0.1)
-                        : Colors.transparent,
+                    color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     icon,
-                    size: 24,
-                    color: isSelected
-                        ? Theme.of(context).primaryColor
-                        : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
+                    size: 20,
+                    color: color,
                   ),
                 ),
                 SizedBox(height: 4),
-                AnimatedDefaultTextStyle(
-                  duration: Duration(milliseconds: 200),
-                  style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                    color: isSelected
-                        ? Theme.of(context).primaryColor
-                        : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    fontSize: isSelected ? 12 : 11,
-                  ),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DrawerItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _DrawerItem({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: color),
-      ),
-      title: Text(
-        title,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-}
-
-class _ProfileHeader extends StatelessWidget {
-  final String avatar;
-  final bool isPhotoAvatar;
-  final String username;
-  final bool dailyCompleted;
-  final int streakDays;
-  final VoidCallback onAvatarPressed;
-  final AppLocalizations appLocalizations;
-
-  const _ProfileHeader({
-    required this.avatar,
-    required this.isPhotoAvatar,
-    required this.username,
-    required this.dailyCompleted,
-    required this.streakDays,
-    required this.onAvatarPressed,
-    required this.appLocalizations,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            onPressed: onAvatarPressed,
-            icon: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-                image: isPhotoAvatar
-                    ? DecorationImage(
-                  image: FileImage(File(avatar)),
-                  fit: BoxFit.cover,
-                )
-                    : null,
-              ),
-              child: isPhotoAvatar
-                  ? null
-                  : Center(
-                child: Icon(
-                  Icons.person_rounded,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
                 Text(
-                  username.isNotEmpty ? '${appLocalizations.hello}, $username!' : '${appLocalizations.hello}!',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  dailyCompleted ? appLocalizations.todayCompleted : appLocalizations.startLessonText,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.local_fire_department_rounded,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '$streakDays',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GradeSubjectSelector extends StatelessWidget {
-  final int? selectedGrade;
-  final String selectedSubject;
-  final List<String> availableSubjects;
-  final ValueChanged<int?> onGradeChanged;
-  final ValueChanged<String?> onSubjectChanged;
-  final AppLocalizations appLocalizations;
-
-  const _GradeSubjectSelector({
-    required this.selectedGrade,
-    required this.selectedSubject,
-    required this.availableSubjects,
-    required this.onGradeChanged,
-    required this.onSubjectChanged,
-    required this.appLocalizations,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Row(
-        children: [
-          Container(
-            width: MediaQuery.of(context).size.width * 0.35,
-            child: _GradeDropdown(
-              selectedGrade: selectedGrade,
-              onChanged: onGradeChanged,
-              appLocalizations: appLocalizations,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _SubjectDropdown(
-              selectedSubject: selectedSubject,
-              availableSubjects: availableSubjects,
-              onChanged: onSubjectChanged,
-              appLocalizations: appLocalizations,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GradeDropdown extends StatelessWidget {
-  final int? selectedGrade;
-  final ValueChanged<int?> onChanged;
-  final AppLocalizations appLocalizations;
-
-  const _GradeDropdown({
-    required this.selectedGrade,
-    required this.onChanged,
-    required this.appLocalizations,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final availableGrades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.3),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: DropdownButton<int?>(
-          value: selectedGrade,
-          isExpanded: true,
-          underline: const SizedBox(),
-          items: [
-            DropdownMenuItem(
-              value: null,
-              child: Text(
-                appLocalizations.allGrades,
-                style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                  fontSize: 14,
-                ),
-              ),
-            ),
-            ...availableGrades.map((grade) {
-              return DropdownMenuItem(
-                value: grade,
-                child: Text(
-                  '$grade ${appLocalizations.grade}',
+                  label,
                   style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                    fontSize: 14,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: color,
                   ),
                 ),
-              );
-            }),
-          ],
-          onChanged: onChanged,
-          dropdownColor: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          icon: Icon(
-            Icons.arrow_drop_down_rounded,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SubjectDropdown extends StatelessWidget {
-  final String selectedSubject;
-  final List<String> availableSubjects;
-  final ValueChanged<String?> onChanged;
-  final AppLocalizations appLocalizations;
-
-  const _SubjectDropdown({
-    required this.selectedSubject,
-    required this.availableSubjects,
-    required this.onChanged,
-    required this.appLocalizations,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final uniqueSubjects = availableSubjects.toSet().toList();
-    final currentSubject = uniqueSubjects.contains(selectedSubject)
-        ? selectedSubject
-        : (uniqueSubjects.isNotEmpty ? uniqueSubjects.first : '');
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.grey.withOpacity(0.3),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: DropdownButton<String>(
-          value: currentSubject.isEmpty ? null : currentSubject,
-          isExpanded: true,
-          underline: const SizedBox(),
-          items: uniqueSubjects.map((subject) {
-            return DropdownMenuItem<String>(
-              value: subject,
-              child: Text(
-                subject, // Убрали emoji, оставили только название предмета
-                style: TextStyle(
-                  color: Theme.of(context).textTheme.bodyLarge?.color,
-                  fontSize: 14,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            );
-          }).toList(),
-          onChanged: onChanged,
-          dropdownColor: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          icon: Icon(
-            Icons.arrow_drop_down_rounded,
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-          ),
-          hint: Text(
-            appLocalizations.selectSubject,
-            style: TextStyle(
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-              fontSize: 14,
+              ],
             ),
           ),
         ),
       ),
     );
   }
-}
-
-class _SearchField extends StatelessWidget {
-  final ValueChanged<String> onChanged;
-  final AppLocalizations appLocalizations;
-
-  const _SearchField({
-    required this.onChanged,
-    required this.appLocalizations,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: TextField(
-        onChanged: onChanged,
-        decoration: InputDecoration(
-          hintText: appLocalizations.searchTopics,
-          prefixIcon: const Icon(Icons.search_rounded),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-      ),
-    );
-  }
-}
-
-class _OptimizedTopicsList extends StatelessWidget {
-  final List<dynamic> groupedTopics;
-  final bool Function(String) isTopicCompleted;
-  final Function(dynamic) onTopicTap;
-  final Future<void> Function() onRefresh;
-  final GlobalKey<_OptimizedTopicsListViewState> listKey;
-  final AppLocalizations appLocalizations;
-
-  const _OptimizedTopicsList({
-    required this.groupedTopics,
-    required this.isTopicCompleted,
-    required this.onTopicTap,
-    required this.onRefresh,
-    required this.listKey,
-    required this.appLocalizations,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: groupedTopics.isEmpty
-          ? _EmptyState(appLocalizations: appLocalizations)
-          : _OptimizedTopicsListView(
-        key: listKey,
-        groupedTopics: groupedTopics,
-        isTopicCompleted: isTopicCompleted,
-        onTopicTap: onTopicTap,
-      ),
-    );
-  }
-}
-
-class _OptimizedTopicsListView extends StatefulWidget {
-  final List<dynamic> groupedTopics;
-  final bool Function(String) isTopicCompleted;
-  final Function(dynamic) onTopicTap;
-
-  const _OptimizedTopicsListView({
-    super.key,
-    required this.groupedTopics,
-    required this.isTopicCompleted,
-    required this.onTopicTap,
-  });
-
-  @override
-  State<StatefulWidget> createState() => _OptimizedTopicsListViewState();
-}
-
-class _OptimizedTopicsListViewState extends State<_OptimizedTopicsListView> {
-  final Map<String, Widget> _topicCardCache = {};
-
-  void _clearCache() {
-    _topicCardCache.clear();
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: widget.groupedTopics.length,
-      itemBuilder: (context, index) {
-        final item = widget.groupedTopics[index];
-
-        // Если это заголовок параграфа
-        if (item is _ParagraphHeader) {
-          return item;
-        }
-
-        // Если это тема
-        final topic = item;
-        final topicName = _getTopicName(topic);
-        final cacheKey = '${topicName}_$index';
-
-        return _LazyTopicCard(
-          key: ValueKey(cacheKey),
-          topic: topic,
-          isCompleted: widget.isTopicCompleted(topicName),
-          grade: _getTopicGrade(topic),
-          onTap: () => widget.onTopicTap(topic),
-          cache: _topicCardCache,
-          cacheKey: cacheKey,
-        );
-      },
-    );
-  }
-
-  String _getTopicName(dynamic topic) {
-    if (topic is _TopicWithGrade) {
-      return topic.topic.name;
-    } else {
-      return topic.name;
-    }
-  }
-
-  int? _getTopicGrade(dynamic topic) {
-    if (topic is _TopicWithGrade) {
-      return topic.grade;
-    } else {
-      return null;
-    }
-  }
-}
-
-class _LazyTopicCard extends StatefulWidget {
-  final dynamic topic;
-  final bool isCompleted;
-  final int? grade;
-  final VoidCallback onTap;
-  final Map<String, Widget> cache;
-  final String cacheKey;
-
-  const _LazyTopicCard({
-    required Key key,
-    required this.topic,
-    required this.isCompleted,
-    required this.grade,
-    required this.onTap,
-    required this.cache,
-    required this.cacheKey,
-  }) : super(key: key);
-
-  @override
-  State<_LazyTopicCard> createState() => _LazyTopicCardState();
-}
-
-class _LazyTopicCardState extends State<_LazyTopicCard> with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-
-    if (widget.cache.containsKey(widget.cacheKey)) {
-      return widget.cache[widget.cacheKey]!;
-    }
-
-    final topicCard = _TopicCard(
-      topic: widget.topic,
-      isCompleted: widget.isCompleted,
-      grade: widget.grade,
-      onTap: widget.onTap,
-    );
-
-    widget.cache[widget.cacheKey] = topicCard;
-    return topicCard;
-  }
-}
-
-class _TopicCard extends StatelessWidget {
-  final dynamic topic;
-  final bool isCompleted;
-  final int? grade;
-  final VoidCallback onTap;
-
-  const _TopicCard({
-    required this.topic,
-    required this.isCompleted,
-    required this.grade,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final topicData = topic is _TopicWithGrade ? topic.topic : topic;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1,
-      color: isCompleted
-          ? (Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1B5E20)
-          : const Color(0xFFE8F5E8))
-          : Theme.of(context).cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: isCompleted
-                      ? (Theme.of(context).brightness == Brightness.dark
-                      ? const Color(0xFF4CAF50)
-                      : const Color(0xFFC8E6C9))
-                      : Theme.of(context).primaryColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isCompleted
-                        ? (Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF4CAF50)
-                        : const Color(0xFFC8E6C9))
-                        : Theme.of(context).primaryColor.withOpacity(0.2),
-                    width: 1.5,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    topicData.imageAsset,
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: isCompleted
-                          ? (Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : const Color(0xFF2E7D32))
-                          : Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (grade != null)
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 4),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).primaryColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    '$grade ${AppLocalizations.of(context).grade}',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Theme.of(context).primaryColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              Text(
-                                topicData.name,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: isCompleted
-                                      ? (Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.white
-                                      : Colors.black87)
-                                      : null,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (isCompleted)
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? const Color(0xFF4CAF50)
-                                  : const Color(0xFF2E7D32),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.check_rounded,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      topicData.description,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: isCompleted
-                            ? (Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white70
-                            : Colors.black54)
-                            : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                        height: 1.4,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: isCompleted
-                    ? (Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white54
-                    : Colors.black38)
-                    : Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ParagraphHeader extends StatelessWidget {
-  final String title;
-  final int? grade;
-
-  const _ParagraphHeader({
-    required this.title,
-    this.grade,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12, top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).primaryColor.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).primaryColor.withOpacity(0.2),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              'Глава',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-          ),
-          if (grade != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  final AppLocalizations appLocalizations;
-
-  const _EmptyState({required this.appLocalizations});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 64,
-            color: Theme.of(context).primaryColor.withOpacity(0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            appLocalizations.noTopicsFound,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            appLocalizations.tryDifferentSearch,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TopicWithGrade {
-  final dynamic topic;
-  final int grade;
-
-  _TopicWithGrade({required this.topic, required this.grade});
 }

@@ -6,6 +6,7 @@ import 'main_screen.dart';
 import '../theme/app_theme.dart';
 import '../localization.dart';
 import '../language_manager.dart';
+import '../data/user_data_storage.dart'; // ДОБАВЬТЕ ЭТОТ ИМПОРТ
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -51,14 +52,19 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _checkExistingAuth() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+    try {
+      print('🔍 Checking existing auth in AuthScreen...');
+      final isValid = await UserDataStorage.isLoggedIn();
+      print('📊 Auth validation result: $isValid');
 
-    if (isLoggedIn && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
-      );
+      if (isValid && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
+        );
+      }
+    } catch (e) {
+      print('❌ Error checking existing auth: $e');
     }
   }
 
