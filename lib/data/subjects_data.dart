@@ -66,7 +66,7 @@ List<Subject> _getGrade5Subjects(BuildContext context, String regionId) {
   }
 
   // Добавляем региональные предметы
-  _addRegionalSubjects(subjects, context, regionId, 6);
+  _addRegionalSubjects(subjects, context, regionId, 5);
 
   return subjects;
 }

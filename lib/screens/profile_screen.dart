@@ -53,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _completedTopics = 0;
   int _correctAnswers = 0;
   int _achievementsCompleted = 0;
-  int _totalAchievements = 41; // Обновлено количество достижений
+  int _totalAchievements = 41;
   int _friendsCount = 0;
   Map<DateTime, int> _dailyActivity = {};
   Map<DateTime, int> _dailyXP = {};
@@ -103,7 +103,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final currentLeague = statsOverview['currentLeague'] as String? ?? 'Бронзовая';
       final username = statsOverview['username'] as String? ?? '';
 
-      // Определяем лигу на основе общего XP
       final actualLeague = _determineLeagueByXP(totalXP);
 
       String popularSubject = 'Нет данных';
@@ -125,7 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _weeklyXP = weeklyXP;
           _completedTopics = completedTopics;
           _correctAnswers = correctAnswers;
-          _currentLeague = actualLeague; // Используем лигу на основе XP
+          _currentLeague = actualLeague;
           _mostPopularSubject = popularSubject;
           _username = username.isNotEmpty ? username : _username;
         });
@@ -243,7 +242,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<List<Map<String, dynamic>>> _simulateAchievementsApiCall() async {
     await Future.delayed(Duration(milliseconds: 100));
 
-    // Определяем, какие лиги достигнуты
     bool isBronzeAchieved = _isLeagueAchieved('Бронзовая');
     bool isSilverAchieved = _isLeagueAchieved('Серебряная');
     bool isGoldAchieved = _isLeagueAchieved('Золотая');
@@ -508,14 +506,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Color _getLeagueColor() {
     switch (_currentLeague) {
-      case 'Нереальная': return Color(0xFFE6E6FA); // Лавандовый
-      case 'Легендарная': return Color(0xFFFF4500); // Красный
-      case 'Элитная': return Color(0xFF7F7F7F); // Серый
-      case 'Бриллиантовая': return Color(0xFFB9F2FF); // Голубой
-      case 'Платиновая': return Color(0xFFE5E4E2); // Белый
-      case 'Золотая': return Color(0xFFFFD700); // Желтый
-      case 'Серебряная': return Color(0xFFC0C0C0); // Серебряный
-      case 'Бронзовая': return Color(0xFFCD7F32); // Бронзовый
+      case 'Нереальная': return Color(0xFFE6E6FA);
+      case 'Легендарная': return Color(0xFFFF4500);
+      case 'Элитная': return Color(0xFF7F7F7F);
+      case 'Бриллиантовая': return Color(0xFFB9F2FF);
+      case 'Платиновая': return Color(0xFFE5E4E2);
+      case 'Золотая': return Color(0xFFFFD700);
+      case 'Серебряная': return Color(0xFFC0C0C0);
+      case 'Бронзовая': return Color(0xFFCD7F32);
       default: return Theme.of(context).colorScheme.primary;
     }
   }
@@ -679,388 +677,396 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // Основная карточка профиля
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Container(
-                  padding: EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isDark ? theme.cardColor : Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
+              // Остальной контент в скролле (как на других экранах)
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Аватар
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ProfileEditorScreen(
-                                currentAvatar: _avatar,
-                                onAvatarUpdate: (newAvatar) {
-                                  setState(() {
-                                    _avatar = newAvatar;
-                                  });
-                                  UserDataStorage.saveAvatar(newAvatar);
-                                },
-                                onUsernameUpdate: (newUsername) {
-                                  setState(() {
-                                    _username = newUsername;
-                                  });
-                                  UserDataStorage.saveUsername(newUsername);
-                                },
-                                onBottomNavTap: widget.onBottomNavTap,
-                                currentIndex: widget.currentIndex,
-                              ),
-                            ),
-                          ).then((_) => _loadUserData());
-                        },
+                      // Основная карточка профиля
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                         child: Container(
-                          width: 80,
-                          height: 80,
+                          padding: EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: primaryColor.withOpacity(0.1),
-                            shape: BoxShape.circle,
+                            color: isDark ? theme.cardColor : Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          child: _isPhotoAvatar()
-                              ? ClipOval(
-                            child: Image.file(
-                              File(_avatar),
-                              fit: BoxFit.cover,
-                              width: 80,
-                              height: 80,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Icon(
-                                  Icons.person_rounded,
-                                  color: primaryColor,
-                                  size: 36,
-                                );
-                              },
-                            ),
-                          )
-                              : Icon(
-                            Icons.person_rounded,
-                            color: primaryColor,
-                            size: 36,
+                          child: Row(
+                            children: [
+                              // Аватар
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ProfileEditorScreen(
+                                        currentAvatar: _avatar,
+                                        onAvatarUpdate: (newAvatar) {
+                                          setState(() {
+                                            _avatar = newAvatar;
+                                          });
+                                          UserDataStorage.saveAvatar(newAvatar);
+                                        },
+                                        onUsernameUpdate: (newUsername) {
+                                          setState(() {
+                                            _username = newUsername;
+                                          });
+                                          UserDataStorage.saveUsername(newUsername);
+                                        },
+                                        onBottomNavTap: widget.onBottomNavTap,
+                                        currentIndex: widget.currentIndex,
+                                      ),
+                                    ),
+                                  ).then((_) => _loadUserData());
+                                },
+                                child: Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: _isPhotoAvatar()
+                                      ? ClipOval(
+                                    child: Image.file(
+                                      File(_avatar),
+                                      fit: BoxFit.cover,
+                                      width: 80,
+                                      height: 80,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return Icon(
+                                          Icons.person_rounded,
+                                          color: primaryColor,
+                                          size: 36,
+                                        );
+                                      },
+                                    ),
+                                  )
+                                      : Icon(
+                                    Icons.person_rounded,
+                                    color: primaryColor,
+                                    size: 36,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 20),
+
+                              // Информация профиля
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _username.isNotEmpty ? _username : 'Без имени',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.textTheme.titleMedium?.color,
+                                      ),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      _formatRegistrationDate(),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: theme.hintColor,
+                                      ),
+                                    ),
+                                    SizedBox(height: 12),
+
+                                    // Лига и XP
+                                    Row(
+                                      children: [
+                                        // Лига
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: _getLeagueColor().withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: _getLeagueColor(),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                _getLeagueIcon(),
+                                                size: 14,
+                                                color: _getLeagueColor(),
+                                              ),
+                                              SizedBox(width: 6),
+                                              Text(
+                                                _currentLeague,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _getLeagueColor(),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(width: 12),
+
+                                        // XP
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.bolt_rounded,
+                                                size: 14,
+                                                color: Colors.green,
+                                              ),
+                                              SizedBox(width: 6),
+                                              Text(
+                                                '$_totalXP XP',
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.green,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    SizedBox(height: 12),
+
+                                    // Друзья
+                                    GestureDetector(
+                                      onTap: _openFriendsScreen,
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: primaryColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.people_rounded,
+                                              size: 16,
+                                              color: primaryColor,
+                                            ),
+                                            SizedBox(width: 6),
+                                            Text(
+                                              '$_friendsCount друзей',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                                color: primaryColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      SizedBox(width: 20),
 
-                      // Информация профиля
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      // Статистика в ряд
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Text(
+                          'Статистика',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textTheme.titleMedium?.color,
+                          ),
+                        ),
+                      ),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'Дней',
+                                value: '${_userStats.streakDays}',
+                                subtitle: 'подряд',
+                                color: Colors.orange,
+                                icon: Icons.local_fire_department_rounded,
+                                isDark: isDark,
+                                onTap: _openStreakScreen,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'Опыт',
+                                value: '$_totalXP',
+                                subtitle: 'XP',
+                                color: Colors.green,
+                                icon: Icons.leaderboard_rounded,
+                                isDark: isDark,
+                                onTap: _openXPScreen,
+                              ),
+                            ),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'Темы',
+                                value: '$_completedTopics',
+                                subtitle: 'завершено',
+                                color: Colors.blue,
+                                icon: Icons.check_circle_rounded,
+                                isDark: isDark,
+                                onTap: _openStatisticsScreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Изучаемые предметы
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _username.isNotEmpty ? _username : 'Без имени',
+                              'Изучаемые предметы',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
                                 color: theme.textTheme.titleMedium?.color,
                               ),
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              _formatRegistrationDate(),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: theme.hintColor,
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                            SizedBox(height: 12),
-
-                            // Лига и XP
-                            Row(
-                              children: [
-                                // Лига
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: _getLeagueColor().withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: _getLeagueColor(),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        _getLeagueIcon(),
-                                        size: 14,
-                                        color: _getLeagueColor(),
-                                      ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        _currentLeague,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: _getLeagueColor(),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(width: 12),
-
-                                // XP
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.bolt_rounded,
-                                        size: 14,
-                                        color: Colors.green,
-                                      ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        '$_totalXP XP',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.green,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            SizedBox(height: 12),
-
-                            // Друзья
-                            GestureDetector(
-                              onTap: _openFriendsScreen,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.people_rounded,
-                                      size: 16,
-                                      color: primaryColor,
-                                    ),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      '$_friendsCount друзей',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                        color: primaryColor,
-                                      ),
-                                    ),
-                                  ],
+                              child: Text(
+                                '${_selectedSubjects.length}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: primaryColor,
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
 
-              // Статистика в ряд
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Text(
-                  'Статистика',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: theme.textTheme.titleMedium?.color,
-                  ),
-                ),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Дней',
-                        value: '${_userStats.streakDays}',
-                        subtitle: 'подряд',
-                        color: Colors.orange,
-                        icon: Icons.local_fire_department_rounded,
-                        isDark: isDark,
-                        onTap: _openStreakScreen,
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Опыт',
-                        value: '$_totalXP',
-                        subtitle: 'XP',
-                        color: Colors.green,
-                        icon: Icons.leaderboard_rounded,
-                        isDark: isDark,
-                        onTap: _openXPScreen,
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Темы',
-                        value: '$_completedTopics',
-                        subtitle: 'завершено',
-                        color: Colors.blue,
-                        icon: Icons.check_circle_rounded,
-                        isDark: isDark,
-                        onTap: _openStatisticsScreen,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Изучаемые предметы
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Изучаемые предметы',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textTheme.titleMedium?.color,
-                      ),
-                    ),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${_selectedSubjects.length}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: primaryColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Container(
-                  height: 40,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _selectedSubjects.length,
-                    itemBuilder: (context, index) {
-                      final subject = _selectedSubjects[index];
-                      return Container(
-                        margin: EdgeInsets.only(right: 8),
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          subject,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: primaryColor,
-                            fontWeight: FontWeight.w500,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Container(
+                          height: 40,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _selectedSubjects.length,
+                            itemBuilder: (context, index) {
+                              final subject = _selectedSubjects[index];
+                              return Container(
+                                margin: EdgeInsets.only(right: 8),
+                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  subject,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: primaryColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
-              // Дополнительная статистика
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                  child: ListView(
-                    children: [
-                      // Достижения
-                      _buildFeatureCard(
-                        title: 'Достижения',
-                        subtitle: '$_achievementsCompleted/$_totalAchievements завершено',
-                        icon: Icons.emoji_events_rounded,
-                        color: Colors.amber,
-                        isDark: isDark,
-                        onTap: _openAchievementsScreen,
                       ),
-                      SizedBox(height: 12),
 
-                      // Лига
-                      _buildFeatureCard(
-                        title: 'Лига',
-                        subtitle: _currentLeague,
-                        icon: _getLeagueIcon(),
-                        color: _getLeagueColor(),
-                        isDark: isDark,
-                        onTap: _openLeagueScreen,
-                      ),
-                      SizedBox(height: 12),
+                      // Дополнительная статистика
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                        child: Column(
+                          children: [
+                            // Достижения
+                            _buildFeatureCard(
+                              title: 'Достижения',
+                              subtitle: '$_achievementsCompleted/$_totalAchievements завершено',
+                              icon: Icons.emoji_events_rounded,
+                              color: Colors.amber,
+                              isDark: isDark,
+                              onTap: _openAchievementsScreen,
+                            ),
+                            SizedBox(height: 12),
 
-                      // Лучший предмет
-                      _buildFeatureCard(
-                        title: 'Лучший предмет',
-                        subtitle: _mostPopularSubject,
-                        icon: Icons.school_rounded,
-                        color: Colors.purple,
-                        isDark: isDark,
-                        onTap: _openStatisticsScreen,
-                      ),
-                      SizedBox(height: 12),
+                            // Лига
+                            _buildFeatureCard(
+                              title: 'Лига',
+                              subtitle: _currentLeague,
+                              icon: _getLeagueIcon(),
+                              color: _getLeagueColor(),
+                              isDark: isDark,
+                              onTap: _openLeagueScreen,
+                            ),
+                            SizedBox(height: 12),
 
-                      // Правильные ответы
-                      _buildFeatureCard(
-                        title: 'Правильные ответы',
-                        subtitle: '$_correctAnswers',
-                        icon: Icons.check_rounded,
-                        color: Colors.teal,
-                        isDark: isDark,
-                        onTap: _openStatisticsScreen,
-                      ),
-                      SizedBox(height: 12),
+                            // Лучший предмет
+                            _buildFeatureCard(
+                              title: 'Лучший предмет',
+                              subtitle: _mostPopularSubject,
+                              icon: Icons.school_rounded,
+                              color: Colors.purple,
+                              isDark: isDark,
+                              onTap: _openStatisticsScreen,
+                            ),
+                            SizedBox(height: 12),
 
-                      // Еженедельный опыт
-                      _buildFeatureCard(
-                        title: 'Еженедельный опыт',
-                        subtitle: '$_weeklyXP XP',
-                        icon: Icons.timeline_rounded,
-                        color: Colors.blue,
-                        isDark: isDark,
-                        onTap: _openXPScreen,
+                            // Правильные ответы
+                            _buildFeatureCard(
+                              title: 'Правильные ответы',
+                              subtitle: '$_correctAnswers',
+                              icon: Icons.check_rounded,
+                              color: Colors.teal,
+                              isDark: isDark,
+                              onTap: _openStatisticsScreen,
+                            ),
+                            SizedBox(height: 12),
+
+                            // Еженедельный опыт
+                            _buildFeatureCard(
+                              title: 'Еженедельный опыт',
+                              subtitle: '$_weeklyXP XP',
+                              icon: Icons.timeline_rounded,
+                              color: Colors.blue,
+                              isDark: isDark,
+                              onTap: _openXPScreen,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

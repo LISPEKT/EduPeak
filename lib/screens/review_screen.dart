@@ -165,7 +165,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
               CircularProgressIndicator(),
               SizedBox(height: 16),
               Text(
-                'Загружаем темы для повторения...',
+                'Загружаем вопросы для повторения...',
                 style: theme.textTheme.bodyMedium,
               ),
             ],
@@ -303,7 +303,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Темы для повторения',
+                                      'Вопросы для повторения',
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -358,7 +358,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                             SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
-                                title: 'Темы',
+                                title: 'Тем',
                                 value: '${_startedTopicsItems.length}',
                                 subtitle: 'начаты',
                                 color: Colors.green,
@@ -369,7 +369,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                             SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
-                                title: 'Классы',
+                                title: 'Классов',
                                 value: '${Set.from(_startedTopicsItems.map((e) => e.grade)).length}',
                                 subtitle: 'активно',
                                 color: Colors.amber,
