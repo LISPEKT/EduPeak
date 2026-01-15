@@ -25,18 +25,10 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
     lastWeeklyReset: DateTime.now(),
   );
 
-  final ScrollController _scrollController = ScrollController();
-
   @override
   void initState() {
     super.initState();
     _loadUserStats();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadUserStats() async {
@@ -229,310 +221,317 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                 ),
               ),
 
-              // Основная информация о предмете
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isDark ? theme.cardColor : Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
+              // Основной контент в скролле
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: BouncingScrollPhysics(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Иконка предмета
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: subjectColor.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _getSubjectIcon(),
-                          color: subjectColor,
-                          size: 36,
+                      // Основная информация о предмете
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: isDark ? theme.cardColor : Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              // Иконка предмета
+                              Container(
+                                width: 80,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: subjectColor.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  _getSubjectIcon(),
+                                  color: subjectColor,
+                                  size: 36,
+                                ),
+                              ),
+                              SizedBox(width: 20),
+
+                              // Информация
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Прогресс',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: theme.hintColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          '$completedPercent%',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: subjectColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 8),
+                                    LinearProgressIndicator(
+                                      value: progress,
+                                      backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                                      color: subjectColor,
+                                      borderRadius: BorderRadius.circular(4),
+                                      minHeight: 10,
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      '$completedTopics/$totalTopics тем завершено',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: theme.hintColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      SizedBox(width: 20),
 
-                      // Информация
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      // Статистика
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Text(
+                          'Статистика',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textTheme.titleMedium?.color,
+                          ),
+                        ),
+                      ),
+
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Прогресс',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: theme.hintColor,
-                                  ),
-                                ),
-                                Text(
-                                  '$completedPercent%',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: subjectColor,
-                                  ),
-                                ),
-                              ],
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'Тем',
+                                value: '$totalTopics',
+                                subtitle: 'всего',
+                                color: subjectColor,
+                                icon: Icons.library_books_rounded,
+                                isDark: isDark,
+                              ),
                             ),
-                            SizedBox(height: 8),
-                            LinearProgressIndicator(
-                              value: progress,
-                              backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-                              color: subjectColor,
-                              borderRadius: BorderRadius.circular(4),
-                              minHeight: 10,
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'Завершено',
+                                value: '$completedTopics',
+                                subtitle: 'тем',
+                                color: Colors.green,
+                                icon: Icons.check_circle_rounded,
+                                isDark: isDark,
+                              ),
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              '$completedTopics/$totalTopics тем завершено',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: theme.hintColor,
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: _buildStatCard(
+                                title: 'Классов',
+                                value: '${grades.length}',
+                                subtitle: 'доступно',
+                                color: Colors.amber,
+                                icon: Icons.school_rounded,
+                                isDark: isDark,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
 
-              // Статистика
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(
-                  'Статистика',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: theme.textTheme.titleMedium?.color,
-                  ),
-                ),
-              ),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Тем',
-                        value: '$totalTopics',
-                        subtitle: 'всего',
-                        color: subjectColor,
-                        icon: Icons.library_books_rounded,
-                        isDark: isDark,
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Завершено',
-                        value: '$completedTopics',
-                        subtitle: 'тем',
-                        color: Colors.green,
-                        icon: Icons.check_circle_rounded,
-                        isDark: isDark,
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatCard(
-                        title: 'Классов',
-                        value: '${grades.length}',
-                        subtitle: 'доступно',
-                        color: Colors.amber,
-                        icon: Icons.school_rounded,
-                        isDark: isDark,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Доступные классы
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Доступные классы',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textTheme.titleMedium?.color,
-                      ),
-                    ),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: subjectColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${grades.length} класса',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: subjectColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Горизонтальный список классов с затемнениями
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Container(
-                    height: 200, // Увеличил высоту для избежания переполнения
-                    child: Stack(
-                      children: [
-                        // Горизонтальный список классов
-                        ListView.builder(
-                          controller: _scrollController,
-                          scrollDirection: Axis.horizontal,
-                          padding: EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: grades.length,
-                          shrinkWrap: true,
-                          physics: BouncingScrollPhysics(),
-                          itemBuilder: (context, index) {
-                            final grade = grades[index];
-                            return Padding(
-                              padding: EdgeInsets.only(right: 16),
-                              child: _buildOriginalGradeCard(grade, subjectColor, isDark: isDark),
-                            );
-                          },
-                        ),
-
-                        // Затемнение слева
-                        Positioned(
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 30,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                                colors: [
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
-                                  Colors.transparent,
-                                ],
-                                stops: [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
+                      // Доступные классы
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Доступные классы',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: theme.textTheme.titleMedium?.color,
                               ),
                             ),
-                          ),
-                        ),
-
-                        // Затемнение справа
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 30,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.centerRight,
-                                end: Alignment.centerLeft,
-                                colors: [
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
-                                  (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
-                                  Colors.transparent,
-                                ],
-                                stops: [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: subjectColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${grades.length} класса',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: subjectColor,
+                                ),
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+
+                      // Горизонтальный список классов с затемнениями
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Container(
+                          height: 200,
+                          child: Stack(
+                            children: [
+                              // Горизонтальный список классов
+                              ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                padding: EdgeInsets.symmetric(horizontal: 20),
+                                itemCount: grades.length,
+                                physics: BouncingScrollPhysics(),
+                                itemBuilder: (context, index) {
+                                  final grade = grades[index];
+                                  return Padding(
+                                    padding: EdgeInsets.only(right: 16),
+                                    child: _buildOriginalGradeCard(grade, subjectColor, isDark: isDark),
+                                  );
+                                },
+                              ),
+
+                              // Затемнение слева
+                              Positioned(
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 30,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
+                                        Colors.transparent,
+                                      ],
+                                      stops: [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // Затемнение справа
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 30,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.centerRight,
+                                      end: Alignment.centerLeft,
+                                      colors: [
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
+                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
+                                        Colors.transparent,
+                                      ],
+                                      stops: [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+
+                      // Информация о классах
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark ? theme.cardColor : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.info_outline_rounded,
+                                    color: subjectColor,
+                                    size: 18,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Информация о классах',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.textTheme.titleMedium?.color,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                'Каждый класс содержит уникальный набор тем, соответствующий школьной программе.',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: theme.hintColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 20),
+                    ],
                   ),
                 ),
               ),
-
-              // Информация о классах
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Container(
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? theme.cardColor : Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            color: subjectColor,
-                            size: 18,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Информация о классах',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: theme.textTheme.titleMedium?.color,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'Каждый класс содержит уникальный набор тем, соответствующий школьной программе.',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: theme.hintColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              SizedBox(height: 20),
             ],
           ),
         ),

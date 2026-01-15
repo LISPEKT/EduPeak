@@ -21,6 +21,8 @@ class DictionaryScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: isDark
               ? LinearGradient(
@@ -45,6 +47,7 @@ class DictionaryScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -327,6 +330,9 @@ class DictionaryScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+
+                      // Отступ для BottomNavigationBar
+                      SizedBox(height: 90),
                     ],
                   ),
                 ),

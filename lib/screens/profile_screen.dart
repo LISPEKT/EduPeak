@@ -600,6 +600,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: isDark
               ? LinearGradient(
@@ -624,6 +626,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -677,7 +680,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // Остальной контент в скролле (как на других экранах)
+              // Остальной контент в скролле
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -781,75 +784,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                                     SizedBox(height: 12),
-
-                                    // Лига и XP
-                                    Row(
-                                      children: [
-                                        // Лига
-                                        Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: _getLeagueColor().withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: _getLeagueColor(),
-                                              width: 1,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                _getLeagueIcon(),
-                                                size: 14,
-                                                color: _getLeagueColor(),
-                                              ),
-                                              SizedBox(width: 6),
-                                              Text(
-                                                _currentLeague,
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: _getLeagueColor(),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        SizedBox(width: 12),
-
-                                        // XP
-                                        Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.bolt_rounded,
-                                                size: 14,
-                                                color: Colors.green,
-                                              ),
-                                              SizedBox(width: 6),
-                                              Text(
-                                                '$_totalXP XP',
-                                                style: TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Colors.green,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-
-                                    SizedBox(height: 12),
-
                                     // Друзья
                                     GestureDetector(
                                       onTap: _openFriendsScreen,
@@ -869,7 +803,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             ),
                                             SizedBox(width: 6),
                                             Text(
-                                              '$_friendsCount друзей',
+                                              '$_friendsCount друга',
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500,
@@ -919,9 +853,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
-                                title: 'Опыт',
+                                title: 'Опыта',
                                 value: '$_totalXP',
-                                subtitle: 'XP',
+                                subtitle: 'получено',
                                 color: Colors.green,
                                 icon: Icons.leaderboard_rounded,
                                 isDark: isDark,
@@ -931,7 +865,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
-                                title: 'Темы',
+                                title: 'Тем',
                                 value: '$_completedTopics',
                                 subtitle: 'завершено',
                                 color: Colors.blue,
@@ -1068,6 +1002,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ],
                         ),
                       ),
+
+                      // Отступ для BottomNavigationBar
+                      SizedBox(height: 90),
                     ],
                   ),
                 ),

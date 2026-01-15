@@ -107,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       print('🔐 Creating local account...');
 
-      final username = 'Локальный Пользователь';
+      final username = 'LocalUser';
       final email = 'local@user.com';
       final password = '12345678';
 

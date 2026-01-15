@@ -158,17 +158,47 @@ class _ReviewScreenState extends State<ReviewScreen> {
     if (_isLoading) {
       return Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text(
-                'Загружаем вопросы для повторения...',
-                style: theme.textTheme.bodyMedium,
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                primaryColor.withOpacity(0.15),
+                theme.scaffoldBackgroundColor.withOpacity(0.7),
+                theme.scaffoldBackgroundColor,
+              ],
+              stops: [0.0, 0.3, 0.7],
+            )
+                : LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                primaryColor.withOpacity(0.08),
+                Colors.white.withOpacity(0.7),
+                Colors.white,
+              ],
+              stops: [0.0, 0.3, 0.7],
+            ),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text(
+                    'Загружаем вопросы для повторения...',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       );
@@ -177,6 +207,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: isDark
               ? LinearGradient(
@@ -201,6 +233,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -440,6 +473,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           ],
                         ),
                       ),
+
+                      // Отступ для BottomNavigationBar
+                      SizedBox(height: 90),
                     ],
                   ),
                 ),

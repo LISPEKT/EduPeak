@@ -14,6 +14,8 @@ class SubscriptionScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: isDark
               ? LinearGradient(
@@ -38,6 +40,7 @@ class SubscriptionScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -349,6 +352,9 @@ class SubscriptionScreen extends StatelessWidget {
                           ),
                         ),
                       ),
+
+                      // Отступ для BottomNavigationBar
+                      SizedBox(height: 90),
                     ],
                   ),
                 ),
