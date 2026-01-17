@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'news_screen.dart';
 import '../localization.dart';
 
 class DictionaryScreen extends StatelessWidget {
@@ -303,7 +304,10 @@ class DictionaryScreen extends StatelessWidget {
                           width: double.infinity,
                           child: FilledButton(
                             onPressed: () {
-                              // TODO: Реализовать уведомления о обновлениях
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => NewsScreen()),
+                              );
                             },
                             style: FilledButton.styleFrom(
                               backgroundColor: primaryColor,

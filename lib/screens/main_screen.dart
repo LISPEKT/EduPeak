@@ -957,7 +957,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     // Если режим редактирования - используем ReorderableListView
     if (_isEditing) {
       return ReorderableListView.builder(
-        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+        padding: EdgeInsets.only(bottom: 110, top: 8),
         itemCount: _selectedSubjects.length,
         itemBuilder: (context, index) {
           final subject = _selectedSubjects[index];
@@ -1039,7 +1039,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     } else {
       // Если не режим редактирования - обычный ListView
       return ListView.builder(
-        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+        padding: EdgeInsets.only(bottom: 110, top: 8),
         itemCount: _selectedSubjects.length,
         itemBuilder: (context, index) {
           final subject = _selectedSubjects[index];

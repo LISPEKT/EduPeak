@@ -1,9 +1,9 @@
 name: "edu_peak"
-description: "Приложение для подтягивания школьных предметов"
+description: "Приложение для подтягивания знаний по школьным предметам"
 
 publish_to: 'none'
 
-version: 0.41.1
+version: 0.41.2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

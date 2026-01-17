@@ -3,7 +3,38 @@ import '../services/api_service.dart';
 import '../data/user_data_storage.dart';
 import '../localization.dart';
 
+class AchievementCount {
+  final int completed;
+  final int total;
+
+  AchievementCount({
+    required this.completed,
+    required this.total,
+  });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'completed': completed,
+      'total': total,
+    };
+  }
+
+  static AchievementCount fromJson(Map<String, dynamic> json) {
+    return AchievementCount(
+      completed: json['completed'] ?? 0,
+      total: json['total'] ?? 0,
+    );
+  }
+}
+
 class AchievementsScreen extends StatefulWidget {
+  final Function(AchievementCount)? onAchievementsLoaded;
+
+  const AchievementsScreen({
+    Key? key,
+    this.onAchievementsLoaded,
+  }) : super(key: key);
+
   @override
   State<AchievementsScreen> createState() => _AchievementsScreenState();
 }
@@ -12,11 +43,20 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
   List<Achievement> _achievements = [];
   bool _isLoading = true;
   Map<String, int> _progress = {};
+  int _completedCount = 0;
+  int _totalCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadAchievements();
+  }
+
+  AchievementCount get achievementCount {
+    return AchievementCount(
+      completed: _completedCount,
+      total: _totalCount,
+    );
   }
 
   Future<void> _loadAchievements() async {
@@ -38,7 +78,16 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
             return achievement.copyWith(currentValue: currentValue);
           }).toList();
           _progress = progressData.map((key, value) => MapEntry(key, value as int));
+
+          // Обновляем счетчики
+          _completedCount = _achievements.where((a) => a.isUnlocked).length;
+          _totalCount = _achievements.length;
         });
+
+        // Уведомляем о загрузке данных
+        if (widget.onAchievementsLoaded != null) {
+          widget.onAchievementsLoaded!(achievementCount);
+        }
       } else {
         await _loadLocalAchievements();
       }
@@ -56,349 +105,394 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     final stats = await UserDataStorage.getUserStatsOverview();
     final localizations = AppLocalizations.of(context)!;
 
+    List<Achievement> localAchievements = [
+      // Tests and learning
+      Achievement(
+        id: 'first_test',
+        name: localizations.firstStep,
+        description: localizations.completeFirstTest,
+        icon: Icons.flag_rounded,
+        iconColor: Colors.red,
+        requiredValue: 1,
+        currentValue: stats['completedTopics'] ?? 0,
+        type: AchievementType.testsCompleted,
+      ),
+      Achievement(
+        id: 'test_master',
+        name: localizations.testMaster,
+        description: localizations.complete10Tests,
+        icon: Icons.menu_book_rounded,
+        iconColor: Colors.blue,
+        requiredValue: 10,
+        currentValue: stats['completedTopics'] ?? 0,
+        type: AchievementType.testsCompleted,
+      ),
+      Achievement(
+        id: 'test_expert',
+        name: localizations.testExpert,
+        description: localizations.complete50Tests,
+        icon: Icons.emoji_events_rounded,
+        iconColor: Colors.amber,
+        requiredValue: 50,
+        currentValue: stats['completedTopics'] ?? 0,
+        type: AchievementType.testsCompleted,
+      ),
+      Achievement(
+        id: 'test_legend',
+        name: localizations.testLegend,
+        description: localizations.complete100Tests,
+        icon: Icons.king_bed_rounded,
+        iconColor: Colors.yellow[700]!,
+        requiredValue: 100,
+        currentValue: stats['completedTopics'] ?? 0,
+        type: AchievementType.testsCompleted,
+      ),
+
+      // Streaks
+      Achievement(
+        id: 'streak_3',
+        name: localizations.journeyStart,
+        description: localizations.study3Days,
+        icon: Icons.local_fire_department_rounded,
+        iconColor: Colors.orange,
+        requiredValue: 3,
+        currentValue: stats['streakDays'] ?? 0,
+        type: AchievementType.streakDays,
+      ),
+      Achievement(
+        id: 'streak_7',
+        name: localizations.weekOfStrength,
+        description: localizations.study7Days,
+        icon: Icons.fitness_center_rounded,
+        iconColor: Colors.deepOrange,
+        requiredValue: 7,
+        currentValue: stats['streakDays'] ?? 0,
+        type: AchievementType.streakDays,
+      ),
+      Achievement(
+        id: 'streak_14',
+        name: localizations.twoWeeks,
+        description: localizations.study14Days,
+        icon: Icons.star_rounded,
+        iconColor: Colors.purple,
+        requiredValue: 14,
+        currentValue: stats['streakDays'] ?? 0,
+        type: AchievementType.streakDays,
+      ),
+      Achievement(
+        id: 'streak_30',
+        name: localizations.monthOfDiscipline,
+        description: localizations.study30Days,
+        icon: Icons.military_tech_rounded,
+        iconColor: Colors.brown,
+        requiredValue: 30,
+        currentValue: stats['streakDays'] ?? 0,
+        type: AchievementType.streakDays,
+      ),
+      Achievement(
+        id: 'streak_90',
+        name: localizations.quarterChampion,
+        description: localizations.study90Days,
+        icon: Icons.workspace_premium_rounded,
+        iconColor: Colors.teal,
+        requiredValue: 90,
+        currentValue: stats['streakDays'] ?? 0,
+        type: AchievementType.streakDays,
+      ),
+
+      // Perfect results
+      Achievement(
+        id: 'perfectionist',
+        name: localizations.perfectionist,
+        description: localizations.get100Percent,
+        icon: Icons.grade_rounded,
+        iconColor: Colors.yellow[700]!,
+        requiredValue: 1,
+        currentValue: 0,
+        type: AchievementType.perfectTests,
+      ),
+      Achievement(
+        id: 'perfect_5',
+        name: localizations.flawless,
+        description: localizations.get100Percent5Tests,
+        icon: Icons.auto_awesome_rounded,
+        iconColor: Colors.pink,
+        requiredValue: 5,
+        currentValue: 0,
+        type: AchievementType.perfectTests,
+      ),
+      Achievement(
+        id: 'perfect_20',
+        name: localizations.perfectResult,
+        description: localizations.get100Percent20Tests,
+        icon: Icons.auto_awesome_motion_rounded,
+        iconColor: Colors.deepPurple,
+        requiredValue: 20,
+        currentValue: 0,
+        type: AchievementType.perfectTests,
+      ),
+
+      // Subjects
+      Achievement(
+        id: 'subject_expert',
+        name: localizations.subjectExpert,
+        description: localizations.completeAllTopics,
+        icon: Icons.school_rounded,
+        iconColor: Colors.green,
+        requiredValue: 1,
+        currentValue: 0,
+        type: AchievementType.subjectsCompleted,
+      ),
+      Achievement(
+        id: 'subject_master',
+        name: localizations.subjectMaster,
+        description: localizations.completeAllTopics3Subjects,
+        icon: Icons.psychology_rounded,
+        iconColor: Colors.deepPurple,
+        requiredValue: 3,
+        currentValue: 0,
+        type: AchievementType.subjectsCompleted,
+      ),
+      Achievement(
+        id: 'subject_grandmaster',
+        name: localizations.grandmaster,
+        description: localizations.completeAllTopics5Subjects,
+        icon: Icons.extension_rounded,
+        iconColor: Colors.indigo,
+        requiredValue: 5,
+        currentValue: 0,
+        type: AchievementType.subjectsCompleted,
+      ),
+
+      // Activity
+      Achievement(
+        id: 'fast_learner',
+        name: localizations.fastLearner,
+        description: localizations.complete5TestsDay,
+        icon: Icons.flash_on_rounded,
+        iconColor: Colors.yellow[700]!,
+        requiredValue: 5,
+        currentValue: 0,
+        type: AchievementType.testsInOneDay,
+      ),
+      Achievement(
+        id: 'marathon',
+        name: localizations.marathoner,
+        description: localizations.complete10TestsDay,
+        icon: Icons.directions_run_rounded,
+        iconColor: Colors.blue,
+        requiredValue: 10,
+        currentValue: 0,
+        type: AchievementType.testsInOneDay,
+      ),
+      Achievement(
+        id: 'daily_warrior',
+        name: localizations.dailyWarrior,
+        description: localizations.studyEveryDayWeek,
+        icon: Icons.shield_rounded,
+        iconColor: Colors.grey[700]!,
+        requiredValue: 7,
+        currentValue: 0,
+        type: AchievementType.dailyActivity,
+      ),
+
+      // XP and leagues
+      Achievement(
+        id: 'knowledge_seeker',
+        name: localizations.knowledgeSeeker,
+        description: localizations.earn1000XP,
+        icon: Icons.search_rounded,
+        iconColor: Colors.blueGrey,
+        requiredValue: 1000,
+        currentValue: stats['totalXP'] ?? 0,
+        type: AchievementType.totalXP,
+      ),
+      Achievement(
+        id: 'wisdom_keeper',
+        name: localizations.wisdomKeeper,
+        description: localizations.earn5000XP,
+        icon: Icons.book_rounded,
+        iconColor: Colors.brown,
+        requiredValue: 5000,
+        currentValue: stats['totalXP'] ?? 0,
+        type: AchievementType.totalXP,
+      ),
+      Achievement(
+        id: 'knowledge_master',
+        name: localizations.knowledgeMaster,
+        description: localizations.earn10000XP,
+        icon: Icons.celebration_rounded,
+        iconColor: Colors.orange,
+        requiredValue: 10000,
+        currentValue: stats['totalXP'] ?? 0,
+        type: AchievementType.totalXP,
+      ),
+      Achievement(
+        id: 'bronze_league',
+        name: localizations.bronzeFighter,
+        description: localizations.reachBronzeLeague,
+        icon: Icons.lens_rounded,
+        iconColor: Color(0xFFCD7F32),
+        requiredValue: 1,
+        currentValue: _isLeagueAchieved('Бронзовая', stats) ? 1 : 0,
+        type: AchievementType.league,
+      ),
+      Achievement(
+        id: 'silver_league',
+        name: localizations.silverStrategist,
+        description: localizations.reachSilverLeague,
+        icon: Icons.lens_rounded,
+        iconColor: Color(0xFFC0C0C0),
+        requiredValue: 1,
+        currentValue: _isLeagueAchieved('Серебряная', stats) ? 1 : 0,
+        type: AchievementType.league,
+      ),
+      Achievement(
+        id: 'gold_league',
+        name: localizations.goldChampion,
+        description: localizations.reachGoldLeague,
+        icon: Icons.lens_rounded,
+        iconColor: Color(0xFFFFD700),
+        requiredValue: 1,
+        currentValue: _isLeagueAchieved('Золотая', stats) ? 1 : 0,
+        type: AchievementType.league,
+      ),
+      Achievement(
+        id: 'platinum_league',
+        name: localizations.platinumGenius,
+        description: localizations.reachPlatinumLeague,
+        icon: Icons.diamond_rounded,
+        iconColor: Color(0xFFE5E4E2),
+        requiredValue: 1,
+        currentValue: _isLeagueAchieved('Платиновая', stats) ? 1 : 0,
+        type: AchievementType.league,
+      ),
+      Achievement(
+        id: 'diamond_league',
+        name: localizations.diamondMaster,
+        description: localizations.reachDiamondLeague,
+        icon: Icons.diamond_rounded,
+        iconColor: Color(0xFFB9F2FF),
+        requiredValue: 1,
+        currentValue: _isLeagueAchieved('Бриллиантовая', stats) ? 1 : 0,
+        type: AchievementType.league,
+      ),
+      Achievement(
+        id: 'elite_league',
+        name: 'Элитный воин',
+        description: 'Достигните Элитной лиги',
+        icon: Icons.star_rounded,
+        iconColor: Color(0xFF7F7F7F),
+        requiredValue: 1,
+        currentValue: _isLeagueAchieved('Элитная', stats) ? 1 : 0,
+        type: AchievementType.league,
+      ),
+      Achievement(
+        id: 'legendary_league',
+        name: 'Легендарный герой',
+        description: 'Достигните Легендарной лиги',
+        icon: Icons.whatshot_rounded,
+        iconColor: Color(0xFFFF4500),
+        requiredValue: 1,
+        currentValue: _isLeagueAchieved('Легендарная', stats) ? 1 : 0,
+        type: AchievementType.league,
+      ),
+      Achievement(
+        id: 'unreal_league',
+        name: 'Нереальный гений',
+        description: 'Достигните Нереальной лиги',
+        icon: Icons.auto_awesome_rounded,
+        iconColor: Color(0xFFE6E6FA),
+        requiredValue: 1,
+        currentValue: _isLeagueAchieved('Нереальная', stats) ? 1 : 0,
+        type: AchievementType.league,
+      ),
+
+      // Correct answers
+      Achievement(
+        id: 'correct_100',
+        name: localizations.accurateAnswer,
+        description: localizations.give100Correct,
+        icon: Icons.check_circle_rounded,
+        iconColor: Colors.green,
+        requiredValue: 100,
+        currentValue: stats['totalCorrectAnswers'] ?? 0,
+        type: AchievementType.correctAnswers,
+      ),
+      Achievement(
+        id: 'correct_500',
+        name: localizations.erudite,
+        description: localizations.give500Correct,
+        icon: Icons.assignment_rounded,
+        iconColor: Colors.blueGrey,
+        requiredValue: 500,
+        currentValue: stats['totalCorrectAnswers'] ?? 0,
+        type: AchievementType.correctAnswers,
+      ),
+      Achievement(
+        id: 'correct_1000',
+        name: localizations.knowItAll,
+        description: localizations.give1000Correct,
+        icon: Icons.workspace_premium_rounded,
+        iconColor: Colors.amber,
+        requiredValue: 1000,
+        currentValue: stats['totalCorrectAnswers'] ?? 0,
+        type: AchievementType.correctAnswers,
+      ),
+      Achievement(
+        id: 'correct_5000',
+        name: localizations.walkingEncyclopedia,
+        description: localizations.give5000Correct,
+        icon: Icons.school_rounded,
+        iconColor: Colors.purple,
+        requiredValue: 5000,
+        currentValue: stats['totalCorrectAnswers'] ?? 0,
+        type: AchievementType.correctAnswers,
+      ),
+
+      // Special
+      Achievement(
+        id: 'early_bird',
+        name: localizations.earlyBird,
+        description: localizations.studyMorning,
+        icon: Icons.wb_sunny_rounded,
+        iconColor: Colors.orange,
+        requiredValue: 1,
+        currentValue: 0,
+        type: AchievementType.special,
+      ),
+      Achievement(
+        id: 'night_owl',
+        name: localizations.nightOwl,
+        description: localizations.studyNight,
+        icon: Icons.nightlight_rounded,
+        iconColor: Colors.indigo,
+        requiredValue: 1,
+        currentValue: 0,
+        type: AchievementType.special,
+      ),
+      Achievement(
+        id: 'weekend_warrior',
+        name: localizations.weekendWarrior,
+        description: localizations.studyWeekends,
+        icon: Icons.weekend_rounded,
+        iconColor: Colors.red,
+        requiredValue: 5,
+        currentValue: 0,
+        type: AchievementType.special,
+      ),
+    ];
+
     setState(() {
-      _achievements = [
-        // Tests and learning
-        Achievement(
-          id: 'first_test',
-          name: localizations.firstStep,
-          description: localizations.completeFirstTest,
-          imageAsset: '🎯',
-          requiredValue: 1,
-          currentValue: stats['completedTopics'] ?? 0,
-          type: AchievementType.testsCompleted,
-        ),
-        Achievement(
-          id: 'test_master',
-          name: localizations.testMaster,
-          description: localizations.complete10Tests,
-          imageAsset: '📚',
-          requiredValue: 10,
-          currentValue: stats['completedTopics'] ?? 0,
-          type: AchievementType.testsCompleted,
-        ),
-        Achievement(
-          id: 'test_expert',
-          name: localizations.testExpert,
-          description: localizations.complete50Tests,
-          imageAsset: '🏆',
-          requiredValue: 50,
-          currentValue: stats['completedTopics'] ?? 0,
-          type: AchievementType.testsCompleted,
-        ),
-        Achievement(
-          id: 'test_legend',
-          name: localizations.testLegend,
-          description: localizations.complete100Tests,
-          imageAsset: '👑',
-          requiredValue: 100,
-          currentValue: stats['completedTopics'] ?? 0,
-          type: AchievementType.testsCompleted,
-        ),
-
-        // Streaks
-        Achievement(
-          id: 'streak_3',
-          name: localizations.journeyStart,
-          description: localizations.study3Days,
-          imageAsset: '🔥',
-          requiredValue: 3,
-          currentValue: stats['streakDays'] ?? 0,
-          type: AchievementType.streakDays,
-        ),
-        Achievement(
-          id: 'streak_7',
-          name: localizations.weekOfStrength,
-          description: localizations.study7Days,
-          imageAsset: '💪',
-          requiredValue: 7,
-          currentValue: stats['streakDays'] ?? 0,
-          type: AchievementType.streakDays,
-        ),
-        Achievement(
-          id: 'streak_14',
-          name: localizations.twoWeeks,
-          description: localizations.study14Days,
-          imageAsset: '🌟',
-          requiredValue: 14,
-          currentValue: stats['streakDays'] ?? 0,
-          type: AchievementType.streakDays,
-        ),
-        Achievement(
-          id: 'streak_30',
-          name: localizations.monthOfDiscipline,
-          description: localizations.study30Days,
-          imageAsset: '🎖️',
-          requiredValue: 30,
-          currentValue: stats['streakDays'] ?? 0,
-          type: AchievementType.streakDays,
-        ),
-        Achievement(
-          id: 'streak_90',
-          name: localizations.quarterChampion,
-          description: localizations.study90Days,
-          imageAsset: '🏅',
-          requiredValue: 90,
-          currentValue: stats['streakDays'] ?? 0,
-          type: AchievementType.streakDays,
-        ),
-
-        // Perfect results
-        Achievement(
-          id: 'perfectionist',
-          name: localizations.perfectionist,
-          description: localizations.get100Percent,
-          imageAsset: '⭐',
-          requiredValue: 1,
-          currentValue: 0,
-          type: AchievementType.perfectTests,
-        ),
-        Achievement(
-          id: 'perfect_5',
-          name: localizations.flawless,
-          description: localizations.get100Percent5Tests,
-          imageAsset: '✨',
-          requiredValue: 5,
-          currentValue: 0,
-          type: AchievementType.perfectTests,
-        ),
-        Achievement(
-          id: 'perfect_20',
-          name: localizations.perfectResult,
-          description: localizations.get100Percent20Tests,
-          imageAsset: '💫',
-          requiredValue: 20,
-          currentValue: 0,
-          type: AchievementType.perfectTests,
-        ),
-
-        // Subjects
-        Achievement(
-          id: 'subject_expert',
-          name: localizations.subjectExpert,
-          description: localizations.completeAllTopics,
-          imageAsset: '🎓',
-          requiredValue: 1,
-          currentValue: 0,
-          type: AchievementType.subjectsCompleted,
-        ),
-        Achievement(
-          id: 'subject_master',
-          name: localizations.subjectMaster,
-          description: localizations.completeAllTopics3Subjects,
-          imageAsset: '🧠',
-          requiredValue: 3,
-          currentValue: 0,
-          type: AchievementType.subjectsCompleted,
-        ),
-        Achievement(
-          id: 'subject_grandmaster',
-          name: localizations.grandmaster,
-          description: localizations.completeAllTopics5Subjects,
-          imageAsset: '🧩',
-          requiredValue: 5,
-          currentValue: 0,
-          type: AchievementType.subjectsCompleted,
-        ),
-
-        // Activity
-        Achievement(
-          id: 'fast_learner',
-          name: localizations.fastLearner,
-          description: localizations.complete5TestsDay,
-          imageAsset: '⚡',
-          requiredValue: 5,
-          currentValue: 0,
-          type: AchievementType.testsInOneDay,
-        ),
-        Achievement(
-          id: 'marathon',
-          name: localizations.marathoner,
-          description: localizations.complete10TestsDay,
-          imageAsset: '🏃',
-          requiredValue: 10,
-          currentValue: 0,
-          type: AchievementType.testsInOneDay,
-        ),
-        Achievement(
-          id: 'daily_warrior',
-          name: localizations.dailyWarrior,
-          description: localizations.studyEveryDayWeek,
-          imageAsset: '🛡️',
-          requiredValue: 7,
-          currentValue: 0,
-          type: AchievementType.dailyActivity,
-        ),
-
-        // XP and leagues
-        Achievement(
-          id: 'knowledge_seeker',
-          name: localizations.knowledgeSeeker,
-          description: localizations.earn1000XP,
-          imageAsset: '🔍',
-          requiredValue: 1000,
-          currentValue: stats['totalXP'] ?? 0,
-          type: AchievementType.totalXP,
-        ),
-        Achievement(
-          id: 'wisdom_keeper',
-          name: localizations.wisdomKeeper,
-          description: localizations.earn5000XP,
-          imageAsset: '📖',
-          requiredValue: 5000,
-          currentValue: stats['totalXP'] ?? 0,
-          type: AchievementType.totalXP,
-        ),
-        Achievement(
-          id: 'knowledge_master',
-          name: localizations.knowledgeMaster,
-          description: localizations.earn10000XP,
-          imageAsset: '🎇',
-          requiredValue: 10000,
-          currentValue: stats['totalXP'] ?? 0,
-          type: AchievementType.totalXP,
-        ),
-        Achievement(
-          id: 'bronze_league',
-          name: localizations.bronzeFighter,
-          description: localizations.reachBronzeLeague,
-          imageAsset: '🥉',
-          requiredValue: 1,
-          currentValue: _isLeagueAchieved('Бронзовая', stats) ? 1 : 0,
-          type: AchievementType.league,
-        ),
-        Achievement(
-          id: 'silver_league',
-          name: localizations.silverStrategist,
-          description: localizations.reachSilverLeague,
-          imageAsset: '🥈',
-          requiredValue: 1,
-          currentValue: _isLeagueAchieved('Серебряная', stats) ? 1 : 0,
-          type: AchievementType.league,
-        ),
-        Achievement(
-          id: 'gold_league',
-          name: localizations.goldChampion,
-          description: localizations.reachGoldLeague,
-          imageAsset: '🥇',
-          requiredValue: 1,
-          currentValue: _isLeagueAchieved('Золотая', stats) ? 1 : 0,
-          type: AchievementType.league,
-        ),
-        Achievement(
-          id: 'platinum_league',
-          name: localizations.platinumGenius,
-          description: localizations.reachPlatinumLeague,
-          imageAsset: '💎',
-          requiredValue: 1,
-          currentValue: _isLeagueAchieved('Платиновая', stats) ? 1 : 0,
-          type: AchievementType.league,
-        ),
-        Achievement(
-          id: 'diamond_league',
-          name: localizations.diamondMaster,
-          description: localizations.reachDiamondLeague,
-          imageAsset: '💠',
-          requiredValue: 1,
-          currentValue: _isLeagueAchieved('Бриллиантовая', stats) ? 1 : 0,
-          type: AchievementType.league,
-        ),
-        Achievement(
-          id: 'elite_league',
-          name: 'Элитный воин',
-          description: 'Достигните Элитной лиги',
-          imageAsset: '⭐',
-          requiredValue: 1,
-          currentValue: _isLeagueAchieved('Элитная', stats) ? 1 : 0,
-          type: AchievementType.league,
-        ),
-        Achievement(
-          id: 'legendary_league',
-          name: 'Легендарный герой',
-          description: 'Достигните Легендарной лиги',
-          imageAsset: '🔥',
-          requiredValue: 1,
-          currentValue: _isLeagueAchieved('Легендарная', stats) ? 1 : 0,
-          type: AchievementType.league,
-        ),
-        Achievement(
-          id: 'unreal_league',
-          name: 'Нереальный гений',
-          description: 'Достигните Нереальной лиги',
-          imageAsset: '🌌',
-          requiredValue: 1,
-          currentValue: _isLeagueAchieved('Нереальная', stats) ? 1 : 0,
-          type: AchievementType.league,
-        ),
-
-        // Correct answers
-        Achievement(
-          id: 'correct_100',
-          name: localizations.accurateAnswer,
-          description: localizations.give100Correct,
-          imageAsset: '✅',
-          requiredValue: 100,
-          currentValue: stats['totalCorrectAnswers'] ?? 0,
-          type: AchievementType.correctAnswers,
-        ),
-        Achievement(
-          id: 'correct_500',
-          name: localizations.erudite,
-          description: localizations.give500Correct,
-          imageAsset: '📝',
-          requiredValue: 500,
-          currentValue: stats['totalCorrectAnswers'] ?? 0,
-          type: AchievementType.correctAnswers,
-        ),
-        Achievement(
-          id: 'correct_1000',
-          name: localizations.knowItAll,
-          description: localizations.give1000Correct,
-          imageAsset: '🏅',
-          requiredValue: 1000,
-          currentValue: stats['totalCorrectAnswers'] ?? 0,
-          type: AchievementType.correctAnswers,
-        ),
-        Achievement(
-          id: 'correct_5000',
-          name: localizations.walkingEncyclopedia,
-          description: localizations.give5000Correct,
-          imageAsset: '🎓',
-          requiredValue: 5000,
-          currentValue: stats['totalCorrectAnswers'] ?? 0,
-          type: AchievementType.correctAnswers,
-        ),
-
-        // Special
-        Achievement(
-          id: 'early_bird',
-          name: localizations.earlyBird,
-          description: localizations.studyMorning,
-          imageAsset: '🌅',
-          requiredValue: 1,
-          currentValue: 0,
-          type: AchievementType.special,
-        ),
-        Achievement(
-          id: 'night_owl',
-          name: localizations.nightOwl,
-          description: localizations.studyNight,
-          imageAsset: '🌙',
-          requiredValue: 1,
-          currentValue: 0,
-          type: AchievementType.special,
-        ),
-        Achievement(
-          id: 'weekend_warrior',
-          name: localizations.weekendWarrior,
-          description: localizations.studyWeekends,
-          imageAsset: '🎯',
-          requiredValue: 5,
-          currentValue: 0,
-          type: AchievementType.special,
-        ),
-      ];
+      _achievements = localAchievements;
+      _completedCount = _achievements.where((a) => a.isUnlocked).length;
+      _totalCount = _achievements.length;
     });
+
+    // Уведомляем о загрузке данных
+    if (widget.onAchievementsLoaded != null) {
+      widget.onAchievementsLoaded!(achievementCount);
+    }
   }
 
   bool _isLeagueAchieved(String league, Map<String, dynamic> stats) {
@@ -465,9 +559,10 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Center(
-                child: Text(
-                  achievement.imageAsset,
-                  style: TextStyle(fontSize: 20),
+                child: Icon(
+                  achievement.icon,
+                  color: achievement.iconColor,
+                  size: 20,
                 ),
               ),
             ),
@@ -894,9 +989,10 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Center(
-                  child: Text(
-                    achievement.imageAsset,
-                    style: TextStyle(fontSize: 36),
+                  child: Icon(
+                    achievement.icon,
+                    color: achievement.iconColor,
+                    size: 36,
                   ),
                 ),
               ),
@@ -1090,14 +1186,17 @@ class _AchievementCard extends StatelessWidget {
                       height: 56,
                       decoration: BoxDecoration(
                         color: isUnlocked
-                            ? theme.colorScheme.primary.withOpacity(0.1)
+                            ? achievement.iconColor.withOpacity(0.1)
                             : theme.colorScheme.surfaceVariant,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Center(
-                        child: Text(
-                          achievement.imageAsset,
-                          style: TextStyle(fontSize: 24),
+                        child: Icon(
+                          achievement.icon,
+                          color: isUnlocked
+                              ? achievement.iconColor
+                              : achievement.iconColor.withOpacity(0.5),
+                          size: 28,
                         ),
                       ),
                     ),
@@ -1198,7 +1297,8 @@ class Achievement {
   final String id;
   final String name;
   final String description;
-  final String imageAsset;
+  final IconData icon;
+  final Color iconColor;
   final int requiredValue;
   final int currentValue;
   final AchievementType type;
@@ -1207,7 +1307,8 @@ class Achievement {
     required this.id,
     required this.name,
     required this.description,
-    required this.imageAsset,
+    required this.icon,
+    required this.iconColor,
     required this.requiredValue,
     required this.currentValue,
     required this.type,
@@ -1220,7 +1321,8 @@ class Achievement {
       id: json['id'],
       name: json['name'],
       description: json['description'],
-      imageAsset: json['image_asset'] ?? '🏆',
+      icon: _getIconFromString(json['icon'] ?? 'emoji_events'),
+      iconColor: _getColorFromString(json['icon_color'] ?? '#FFD700'),
       requiredValue: json['required_value'],
       currentValue: json['current_value'] ?? 0,
       type: AchievementType.values.firstWhere(
@@ -1237,7 +1339,8 @@ class Achievement {
       id: id,
       name: name,
       description: description,
-      imageAsset: imageAsset,
+      icon: icon,
+      iconColor: iconColor,
       requiredValue: requiredValue,
       currentValue: currentValue ?? this.currentValue,
       type: type,
@@ -1256,4 +1359,48 @@ enum AchievementType {
   correctAnswers,
   dailyActivity,
   special,
+}
+
+// Вспомогательные функции для преобразования
+IconData _getIconFromString(String iconName) {
+  switch (iconName) {
+    case 'flag_rounded': return Icons.flag_rounded;
+    case 'menu_book_rounded': return Icons.menu_book_rounded;
+    case 'emoji_events_rounded': return Icons.emoji_events_rounded;
+    case 'king_bed_rounded': return Icons.king_bed_rounded;
+    case 'local_fire_department_rounded': return Icons.local_fire_department_rounded;
+    case 'fitness_center_rounded': return Icons.fitness_center_rounded;
+    case 'star_rounded': return Icons.star_rounded;
+    case 'military_tech_rounded': return Icons.military_tech_rounded;
+    case 'workspace_premium_rounded': return Icons.workspace_premium_rounded;
+    case 'grade_rounded': return Icons.grade_rounded;
+    case 'auto_awesome_rounded': return Icons.auto_awesome_rounded;
+    case 'auto_awesome_motion_rounded': return Icons.auto_awesome_motion_rounded;
+    case 'school_rounded': return Icons.school_rounded;
+    case 'psychology_rounded': return Icons.psychology_rounded;
+    case 'extension_rounded': return Icons.extension_rounded;
+    case 'flash_on_rounded': return Icons.flash_on_rounded;
+    case 'directions_run_rounded': return Icons.directions_run_rounded;
+    case 'shield_rounded': return Icons.shield_rounded;
+    case 'search_rounded': return Icons.search_rounded;
+    case 'book_rounded': return Icons.book_rounded;
+    case 'celebration_rounded': return Icons.celebration_rounded;
+    case 'lens_rounded': return Icons.lens_rounded;
+    case 'diamond_rounded': return Icons.diamond_rounded;
+    case 'whatshot_rounded': return Icons.whatshot_rounded;
+    case 'check_circle_rounded': return Icons.check_circle_rounded;
+    case 'assignment_rounded': return Icons.assignment_rounded;
+    case 'wb_sunny_rounded': return Icons.wb_sunny_rounded;
+    case 'nightlight_rounded': return Icons.nightlight_rounded;
+    case 'weekend_rounded': return Icons.weekend_rounded;
+    default: return Icons.emoji_events_rounded;
+  }
+}
+
+Color _getColorFromString(String colorString) {
+  try {
+    return Color(int.parse(colorString.replaceFirst('#', ''), radix: 16) + 0xFF000000);
+  } catch (e) {
+    return Colors.amber;
+  }
 }

@@ -53,23 +53,69 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _completedTopics = 0;
   int _correctAnswers = 0;
   int _achievementsCompleted = 0;
-  int _totalAchievements = 41;
+  int _totalAchievements = 0;
   int _friendsCount = 0;
   Map<DateTime, int> _dailyActivity = {};
   Map<DateTime, int> _dailyXP = {};
   Map<String, double> _subjectProgress = {};
   List<Map<String, dynamic>> _friendsList = [];
-  List<Map<String, dynamic>> _achievementsList = [];
+
+  // Ключи для кэширования
+  static const String _cachedTotalXPKey = 'cached_total_xp';
+  static const String _cachedWeeklyXPKey = 'cached_weekly_xp';
+  static const String _cachedCompletedTopicsKey = 'cached_completed_topics';
+  static const String _cachedCorrectAnswersKey = 'cached_correct_answers';
+  static const String _cachedStreakDaysKey = 'cached_streak_days';
+  static const String _cachedAchievementsCompletedKey = 'cached_achievements_completed';
+  static const String _cachedTotalAchievementsKey = 'cached_total_achievements';
 
   @override
   void initState() {
     super.initState();
+    _loadCachedData();
     _loadUserData();
     _loadUserStats();
     _loadSelectedSubjects();
-    _loadFriendsData();
     _loadAchievementsData();
+    _loadFriendsData();
     _calculateSubjectProgress();
+  }
+
+  // Загрузка кэшированных данных
+  Future<void> _loadCachedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      setState(() {
+        _totalXP = prefs.getInt(_cachedTotalXPKey) ?? 0;
+        _weeklyXP = prefs.getInt(_cachedWeeklyXPKey) ?? 0;
+        _completedTopics = prefs.getInt(_cachedCompletedTopicsKey) ?? 0;
+        _correctAnswers = prefs.getInt(_cachedCorrectAnswersKey) ?? 0;
+        _userStats = _userStats.copyWith(
+          streakDays: prefs.getInt(_cachedStreakDaysKey) ?? 0,
+        );
+        _achievementsCompleted = prefs.getInt(_cachedAchievementsCompletedKey) ?? 0;
+        _totalAchievements = prefs.getInt(_cachedTotalAchievementsKey) ?? 0;
+      });
+    } catch (e) {
+      print('❌ Error loading cached data: $e');
+    }
+  }
+
+  // Сохранение данных в кэш
+  Future<void> _saveToCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_cachedTotalXPKey, _totalXP);
+      await prefs.setInt(_cachedWeeklyXPKey, _weeklyXP);
+      await prefs.setInt(_cachedCompletedTopicsKey, _completedTopics);
+      await prefs.setInt(_cachedCorrectAnswersKey, _correctAnswers);
+      await prefs.setInt(_cachedStreakDaysKey, _userStats.streakDays);
+      await prefs.setInt(_cachedAchievementsCompletedKey, _achievementsCompleted);
+      await prefs.setInt(_cachedTotalAchievementsKey, _totalAchievements);
+    } catch (e) {
+      print('❌ Error saving to cache: $e');
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -128,6 +174,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _mostPopularSubject = popularSubject;
           _username = username.isNotEmpty ? username : _username;
         });
+
+        // Сохраняем обновленные данные в кэш
+        _saveToCache();
       }
 
       _calculateSubjectProgress();
@@ -226,178 +275,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadAchievementsData() async {
     try {
-      final achievementsData = await _simulateAchievementsApiCall();
-      if (mounted) {
+      // Сначала загружаем данные из кэша
+      await _loadCachedData();
+
+      // Если в кэше 0/0, устанавливаем дефолтные значения
+      if (_totalAchievements == 0) {
         setState(() {
-          _achievementsList = achievementsData;
-          _achievementsCompleted = achievementsData.where((a) => a['isUnlocked'] == true).length;
+          _totalAchievements = 36; // Общее количество достижений
         });
       }
     } catch (e) {
       print('❌ Error loading achievements data: $e');
-      _createMockAchievementsData();
     }
   }
 
-  Future<List<Map<String, dynamic>>> _simulateAchievementsApiCall() async {
-    await Future.delayed(Duration(milliseconds: 100));
+  Future<Map<String, int>> _getAchievementsFromScreen() async {
+    // В реальном приложении здесь нужно получить данные из AchievementsScreen
+    // Сейчас эмулируем получение данных
+    await Future.delayed(Duration(milliseconds: 50));
 
-    bool isBronzeAchieved = _isLeagueAchieved('Бронзовая');
-    bool isSilverAchieved = _isLeagueAchieved('Серебряная');
-    bool isGoldAchieved = _isLeagueAchieved('Золотая');
-    bool isPlatinumAchieved = _isLeagueAchieved('Платиновая');
-    bool isDiamondAchieved = _isLeagueAchieved('Бриллиантовая');
-    bool isEliteAchieved = _isLeagueAchieved('Элитная');
-    bool isLegendaryAchieved = _isLeagueAchieved('Легендарная');
-    bool isUnrealAchieved = _isLeagueAchieved('Нереальная');
-
-    return [
-      {
-        'id': 'first_test',
-        'name': 'Первый шаг',
-        'description': 'Пройдите первый тест',
-        'imageAsset': '🎯',
-        'requiredValue': 1,
-        'currentValue': _completedTopics >= 1 ? 1 : 0,
-        'type': 'testsCompleted',
-        'isUnlocked': _completedTopics >= 1,
-      },
-      {
-        'id': 'streak_3',
-        'name': 'Начало пути',
-        'description': 'Занимайтесь 3 дня подряд',
-        'imageAsset': '🔥',
-        'requiredValue': 3,
-        'currentValue': _userStats.streakDays,
-        'type': 'streakDays',
-        'isUnlocked': _userStats.streakDays >= 3,
-      },
-      {
-        'id': 'correct_100',
-        'name': 'Точный ответ',
-        'description': 'Дайте 100 правильных ответов',
-        'imageAsset': '✅',
-        'requiredValue': 100,
-        'currentValue': _correctAnswers,
-        'type': 'correctAnswers',
-        'isUnlocked': _correctAnswers >= 100,
-      },
-      {
-        'id': 'bronze_league',
-        'name': 'Бронзовый боец',
-        'description': 'Достигните Бронзовой лиги',
-        'imageAsset': '🥉',
-        'requiredValue': 1,
-        'currentValue': isBronzeAchieved ? 1 : 0,
-        'type': 'league',
-        'isUnlocked': isBronzeAchieved,
-      },
-      {
-        'id': 'silver_league',
-        'name': 'Серебряный стратег',
-        'description': 'Достигните Серебряной лиги',
-        'imageAsset': '🥈',
-        'requiredValue': 1,
-        'currentValue': isSilverAchieved ? 1 : 0,
-        'type': 'league',
-        'isUnlocked': isSilverAchieved,
-      },
-      {
-        'id': 'gold_league',
-        'name': 'Золотой чемпион',
-        'description': 'Достигните Золотой лиги',
-        'imageAsset': '🥇',
-        'requiredValue': 1,
-        'currentValue': isGoldAchieved ? 1 : 0,
-        'type': 'league',
-        'isUnlocked': isGoldAchieved,
-      },
-      {
-        'id': 'platinum_league',
-        'name': 'Платиновый гений',
-        'description': 'Достигните Платиновой лиги',
-        'imageAsset': '💎',
-        'requiredValue': 1,
-        'currentValue': isPlatinumAchieved ? 1 : 0,
-        'type': 'league',
-        'isUnlocked': isPlatinumAchieved,
-      },
-      {
-        'id': 'diamond_league',
-        'name': 'Бриллиантовый мастер',
-        'description': 'Достигните Бриллиантовой лиги',
-        'imageAsset': '💠',
-        'requiredValue': 1,
-        'currentValue': isDiamondAchieved ? 1 : 0,
-        'type': 'league',
-        'isUnlocked': isDiamondAchieved,
-      },
-      {
-        'id': 'elite_league',
-        'name': 'Элитный воин',
-        'description': 'Достигните Элитной лиги',
-        'imageAsset': '⭐',
-        'requiredValue': 1,
-        'currentValue': isEliteAchieved ? 1 : 0,
-        'type': 'league',
-        'isUnlocked': isEliteAchieved,
-      },
-      {
-        'id': 'legendary_league',
-        'name': 'Легендарный герой',
-        'description': 'Достигните Легендарной лиги',
-        'imageAsset': '🔥',
-        'requiredValue': 1,
-        'currentValue': isLegendaryAchieved ? 1 : 0,
-        'type': 'league',
-        'isUnlocked': isLegendaryAchieved,
-      },
-      {
-        'id': 'unreal_league',
-        'name': 'Нереальный гений',
-        'description': 'Достигните Нереальной лиги',
-        'imageAsset': '🌌',
-        'requiredValue': 1,
-        'currentValue': isUnrealAchieved ? 1 : 0,
-        'type': 'league',
-        'isUnlocked': isUnrealAchieved,
-      },
-    ];
-  }
-
-  bool _isLeagueAchieved(String league) {
-    final leagueOrder = ['Бронзовая', 'Серебряная', 'Золотая', 'Платиновая', 'Бриллиантовая', 'Элитная', 'Легендарная', 'Нереальная'];
-    final currentIndex = leagueOrder.indexOf(_currentLeague);
-    final targetIndex = leagueOrder.indexOf(league);
-    return currentIndex >= targetIndex;
-  }
-
-  void _createMockAchievementsData() {
-    setState(() {
-      _achievementsList = [
-        {
-          'id': 'first_test',
-          'name': 'Первый шаг',
-          'description': 'Пройдите первый тест',
-          'imageAsset': '🎯',
-          'requiredValue': 1,
-          'currentValue': 1,
-          'type': 'testsCompleted',
-          'isUnlocked': true,
-        },
-        {
-          'id': 'bronze_league',
-          'name': 'Бронзовый боец',
-          'description': 'Достигните Бронзовой лиги',
-          'imageAsset': '🥉',
-          'requiredValue': 1,
-          'currentValue': 1,
-          'type': 'league',
-          'isUnlocked': true,
-        },
-      ];
-      _achievementsCompleted = _achievementsList.where((a) => a['isUnlocked'] == true).length;
-    });
+    // Возвращаем значения из кэша или дефолтные
+    return {
+      'completed': _achievementsCompleted,
+      'total': _totalAchievements,
+    };
   }
 
   Future<void> _loadSelectedSubjects() async {
@@ -531,9 +432,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AchievementsScreen(),
+        builder: (_) => AchievementsScreen(
+          onAchievementsLoaded: (AchievementCount count) {
+            // Обновляем данные при загрузке достижений
+            setState(() {
+              _achievementsCompleted = count.completed;
+              _totalAchievements = count.total;
+            });
+
+            // Сохраняем в кэш
+            _saveToCache();
+          },
+        ),
       ),
     ).then((_) {
+      // Обновляем данные при возвращении с экрана
       _loadAchievementsData();
     });
   }
@@ -965,39 +878,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: _getLeagueColor(),
                               isDark: isDark,
                               onTap: _openLeagueScreen,
-                            ),
-                            SizedBox(height: 12),
-
-                            // Лучший предмет
-                            _buildFeatureCard(
-                              title: 'Лучший предмет',
-                              subtitle: _mostPopularSubject,
-                              icon: Icons.school_rounded,
-                              color: Colors.purple,
-                              isDark: isDark,
-                              onTap: _openStatisticsScreen,
-                            ),
-                            SizedBox(height: 12),
-
-                            // Правильные ответы
-                            _buildFeatureCard(
-                              title: 'Правильные ответы',
-                              subtitle: '$_correctAnswers',
-                              icon: Icons.check_rounded,
-                              color: Colors.teal,
-                              isDark: isDark,
-                              onTap: _openStatisticsScreen,
-                            ),
-                            SizedBox(height: 12),
-
-                            // Еженедельный опыт
-                            _buildFeatureCard(
-                              title: 'Еженедельный опыт',
-                              subtitle: '$_weeklyXP XP',
-                              icon: Icons.timeline_rounded,
-                              color: Colors.blue,
-                              isDark: isDark,
-                              onTap: _openXPScreen,
                             ),
                           ],
                         ),
