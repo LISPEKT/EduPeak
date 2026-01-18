@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import '../data/subjects_data.dart';
 import '../data/user_data_storage.dart';
@@ -16,6 +18,73 @@ import 'xp_stats_screen.dart';
 import 'subject_info_screen.dart';
 import '../theme/app_theme.dart';
 import 'profile_editor_screen.dart';
+import 'eduleague_screen.dart';
+import 'news_screen.dart';
+
+// Модель новости (добавьте в отдельный файл models/news_item.dart или здесь)
+class NewsItem {
+  final int id;
+  final String title;
+  final String description;
+  final String date;
+  final String imageUrl;
+  final String category;
+  final bool isRead;
+
+  NewsItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.date,
+    required this.imageUrl,
+    required this.category,
+    required this.isRead,
+  });
+
+  NewsItem copyWith({
+    int? id,
+    String? title,
+    String? description,
+    String? date,
+    String? imageUrl,
+    String? category,
+    bool? isRead,
+  }) {
+    return NewsItem(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      date: date ?? this.date,
+      imageUrl: imageUrl ?? this.imageUrl,
+      category: category ?? this.category,
+      isRead: isRead ?? this.isRead,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'date': date,
+      'imageUrl': imageUrl,
+      'category': category,
+      'isRead': isRead,
+    };
+  }
+
+  factory NewsItem.fromMap(Map<String, dynamic> map) {
+    return NewsItem(
+      id: map['id'],
+      title: map['title'],
+      description: map['description'],
+      date: map['date'],
+      imageUrl: map['imageUrl'],
+      category: map['category'],
+      isRead: map['isRead'],
+    );
+  }
+}
 
 class MainScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -66,6 +135,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
   late Animation<double> _subjectListOpacity;
   late Animation<Offset> _subjectListSlide;
 
+  // Для вращающейся плашки
+  late Timer _cardRotationTimer;
+  Duration _cardRotationDuration = Duration(seconds: 10);
+  int _currentCardState = 0; // 0 = XP, 1 = новость, 2 = лига
+  double _progressValue = 0.0;
+  bool _isAnimating = false;
+  List<NewsItem> _newsItems = [];
+  late AnimationController _progressAnimationController;
+  late PageController _pageController;
+  bool _isManualScrolling = false;
+  bool _isAutoRotating = true;
+
   @override
   void initState() {
     super.initState();
@@ -96,6 +177,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
+
+    // Для прогресс бара
+    _progressAnimationController = AnimationController(
+      duration: _cardRotationDuration,
+      vsync: this,
+    );
+
+    // PageController для горизонтальной прокрутки карточек
+    _pageController = PageController(viewportFraction: 1.0);
+    _pageController.addListener(_onPageChanged);
 
     // Настройка анимаций
     _editIconScale = Tween<double>(begin: 1.0, end: 1.0).animate(
@@ -161,6 +252,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     _loadUserData();
     _loadSelectedSubjects();
     _loadAllSubjects();
+    _loadLatestNews();
 
     // Запуск анимаций при загрузке
     Future.delayed(Duration(milliseconds: 300), () {
@@ -168,6 +260,181 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
         _subjectListAppearController.forward();
       }
     });
+
+    // Запускаем автоматическую ротацию
+    _startAutoRotation();
+    _startProgressAnimation();
+  }
+
+  String _getLatestNews() {
+    if (_newsItems.isNotEmpty) {
+      return _newsItems[0].title;
+    }
+    return 'Следите за обновлениями';
+  }
+
+  Future<void> _loadLatestNews() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedNewsJson = prefs.getStringList('news_items');
+
+      if (savedNewsJson != null && savedNewsJson.isNotEmpty) {
+        _newsItems = savedNewsJson.map((json) {
+          final map = Map<String, dynamic>.from(jsonDecode(json));
+          return NewsItem.fromMap(map);
+        }).toList();
+      } else {
+        // Если нет сохраненных новостей, создаем дефолтную
+        _newsItems = [
+          NewsItem(
+            id: 1,
+            title: 'Добавлен экран новостей в обновлении 0.42.0',
+            description: 'Мы рады сообщить о выходе обновления 0.42.0! Теперь в приложении появился новый раздел "Новости", где вы можете следить за всеми обновлениями и важными анонсами.',
+            date: '18 января 2025',
+            imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Обновление+0.42.0',
+            category: 'Обновления',
+            isRead: prefs.getBool('news_1_read') ?? false,
+          ),
+        ];
+        await _saveNewsToStorage();
+      }
+    } catch (e) {
+      print('❌ Error loading news: $e');
+      // Если ошибка, создаем дефолтную новость
+      _newsItems = [
+        NewsItem(
+          id: 1,
+          title: 'Добавлен экран новостей в обновлении 0.42.0',
+          description: 'Мы рады сообщить о выходе обновления 0.42.0! Теперь в приложении появился новый раздел "Новости", где вы можете следить за всеми обновлениями и важными анонсами.',
+          date: '18 января 2025',
+          imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Обновление+0.42.0',
+          category: 'Обновления',
+          isRead: false,
+        ),
+      ];
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _saveNewsToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final newsJson = _newsItems.map((news) => jsonEncode(news.toMap())).toList();
+      await prefs.setStringList('news_items', newsJson);
+
+      // Сохраняем статус прочтения для каждой новости
+      for (final news in _newsItems) {
+        await prefs.setBool('news_${news.id}_read', news.isRead);
+      }
+    } catch (e) {
+      print('❌ Error saving news: $e');
+    }
+  }
+
+  void _startAutoRotation() {
+    _cardRotationTimer = Timer.periodic(_cardRotationDuration, (timer) {
+      if (!mounted || !_isAutoRotating || _isManualScrolling) return;
+
+      final nextPage = (_currentCardState + 1) % 3;
+      _pageController.animateToPage(
+        nextPage,
+        duration: Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _restartAutoRotation() {
+    if (_cardRotationTimer.isActive) {
+      _cardRotationTimer.cancel();
+    }
+
+    _cardRotationTimer = Timer.periodic(_cardRotationDuration, (timer) {
+      if (!mounted || !_isAutoRotating || _isManualScrolling) return;
+
+      final nextPage = (_currentCardState + 1) % 3;
+      _pageController.animateToPage(
+        nextPage,
+        duration: Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _startProgressAnimation() {
+    _progressAnimationController.duration = _cardRotationDuration;
+    _progressAnimationController.reset();
+    _progressAnimationController.forward();
+  }
+
+  void _restartProgressAnimation() {
+    _progressAnimationController.stop();
+    _progressAnimationController.value = 0.0;
+    _progressAnimationController.forward();
+  }
+
+  void _stopProgressAnimation() {
+    _progressAnimationController.stop();
+  }
+
+  void _onPageChanged() {
+    final page = _pageController.page ?? 0;
+    final newCardState = (page.round() % 3).abs();
+
+    if (newCardState != _currentCardState) {
+      setState(() {
+        _currentCardState = newCardState;
+      });
+
+      // СБРАСЫВАЕМ ТАЙМЕР ПРИ РУЧНОМ ПЕРЕКЛЮЧЕНИИ
+      _restartAutoRotation();
+      _restartProgressAnimation();
+    }
+  }
+
+  void _handleCardTap(int cardIndex) async {
+    await _triggerVibration();
+
+    // Открываем разные экраны в зависимости от карточки
+    switch (cardIndex) {
+      case 0: // XP
+        _openXPScreen();
+        break;
+      case 1: // Новость
+        _openNewsScreen();
+        break;
+      case 2: // Лига
+        _openLeagueScreen();
+        break;
+    }
+  }
+
+  void _openNewsScreen() async {
+    await _triggerVibration();
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NewsScreen(),
+      ),
+    );
+
+    // При возвращении из экрана новостей обновляем данные
+    if (mounted) {
+      await _loadLatestNews();
+    }
+  }
+
+  void _openLeagueScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EduLeagueScreen(),
+      ),
+    );
   }
 
   @override
@@ -178,6 +445,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     _xpCardController.dispose();
     _avatarScaleController.dispose();
     _subjectListAppearController.dispose();
+    _cardRotationTimer.cancel();
+    _progressAnimationController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -185,6 +455,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _currentBottomNavIndex == 0) {
       _loadUserData();
+      _loadLatestNews();
     }
   }
 
@@ -209,8 +480,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
           _username = username;
           _avatar = avatar;
           _lastDataUpdate = DateTime.now();
-          // Сбрасываем кэш прогресса при загрузке новых данных
-          _subjectProgressCache.clear();
         });
       }
     } catch (e) {
@@ -293,6 +562,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
       if (_lastDataUpdate == null ||
           now.difference(_lastDataUpdate!).inSeconds > 5) {
         _loadUserData();
+        _loadLatestNews();
       }
     }
   }
@@ -478,7 +748,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
   }
 
   double _calculateSubjectProgress(String subjectName) {
+    // Используем кэш для оптимизации
+    if (_subjectProgressCache.containsKey(subjectName)) {
+      return _subjectProgressCache[subjectName]!;
+    }
+
     if (!_userStats.topicProgress.containsKey(subjectName)) {
+      _subjectProgressCache[subjectName] = 0.0;
       return 0.0;
     }
 
@@ -494,7 +770,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
       }
     }
 
-    return totalTopics > 0 ? completedTopics / totalTopics : 0.0;
+    final progress = totalTopics > 0 ? completedTopics / totalTopics : 0.0;
+    _subjectProgressCache[subjectName] = progress;
+
+    return progress;
   }
 
   void _openXPScreen() async {
@@ -574,6 +853,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
 
     return Scaffold(
       body: Container(
@@ -678,7 +959,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                                 Text(
                                   'Привет, что будем изучать сегодня?',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: isSmallScreen ? 12 : 14,
                                     color: theme.hintColor,
                                   ),
                                   maxLines: 2,
@@ -688,7 +969,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                                 Text(
                                   _username.isNotEmpty ? _username : 'Гость',
                                   style: TextStyle(
-                                    fontSize: 20,
+                                    fontSize: isSmallScreen ? 16 : 20,
                                     fontWeight: FontWeight.bold,
                                     color: theme.textTheme.titleMedium?.color,
                                   ),
@@ -705,107 +986,144 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                 ),
               ),
 
-              // ПЛАШКА С ОПЫТОМ
+              // ВРАЩАЮЩАЯСЯ ПЛАШКА С ГОРИЗОНТАЛЬНОЙ ПРОКРУТКОЙ
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: GestureDetector(
-                  onTapDown: (_) {
-                    _xpCardController.reverse();
-                  },
-                  onTapUp: (_) {
-                    _xpCardController.forward();
-                  },
-                  onTapCancel: () {
-                    _xpCardController.forward();
-                  },
-                  onTap: () async {
-                    await _triggerVibration();
-                    _openXPScreen();
-                  },
-                  child: ScaleTransition(
-                    scale: _xpCardScale,
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: isDark ? theme.cardColor : Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          // Иконка XP
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.leaderboard_rounded,
-                              color: primaryColor,
-                              size: 36,
-                            ),
-                          ),
-                          SizedBox(width: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                child: Column(
+                  children: [
+                    // Карточка с жестами свайпа
+                    SizedBox(
+                      height: 140,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: 3,
+                        physics: const PageScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        onPageChanged: (index) {
+                          setState(() {
+                            _isManualScrolling = true;
+                          });
+                          _stopProgressAnimation();
 
-                          // Информация об опыте
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Твой опыт',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: theme.hintColor,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${_userStats.totalXP} XP',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: primaryColor,
-                                      ),
+                          Future.delayed(Duration(milliseconds: 300), () {
+                            if (mounted) {
+                              setState(() {
+                                _isManualScrolling = false;
+                              });
+                              _restartProgressAnimation();
+                            }
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: GestureDetector(
+                              onTap: () => _handleCardTap(index),
+                              onPanUpdate: (details) {
+                                // Для свайпа мышкой на ПК
+                                if (details.delta.dx.abs() > 5) {
+                                  setState(() {
+                                    _isManualScrolling = true;
+                                  });
+                                  _stopProgressAnimation();
+                                }
+                              },
+                              onPanEnd: (_) {
+                                Future.delayed(Duration(milliseconds: 300), () {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isManualScrolling = false;
+                                    });
+                                    _restartProgressAnimation();
+                                  }
+                                });
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: isDark ? theme.cardColor : Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                                      blurRadius: 12,
+                                      offset: Offset(0, 4),
                                     ),
                                   ],
                                 ),
-                                SizedBox(height: 8),
-                                LinearProgressIndicator(
-                                  value: _userStats.totalXP > 10000
-                                      ? 1.0
-                                      : _userStats.totalXP / 10000,
-                                  backgroundColor:
-                                  isDark ? Colors.grey[800] : Colors.grey[200],
-                                  color: primaryColor,
-                                  borderRadius: BorderRadius.circular(4),
-                                  minHeight: 10,
+                                child: Padding(
+                                  padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+                                  child: _buildCardContent(index, theme, isDark, primaryColor),
                                 ),
-                                SizedBox(height: 8),
-                                Text(
-                                  _getMotivationMessage(),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: theme.hintColor,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ),
-                  ),
+
+                    SizedBox(height: 16),
+
+                    // Плавный прогресс бар
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: AnimatedBuilder(
+                        animation: _progressAnimationController,
+                        builder: (context, child) {
+                          return Container(
+                            height: 4,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.grey[800] : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                width: MediaQuery.of(context).size.width * _progressAnimationController.value,
+                                decoration: BoxDecoration(
+                                  color: primaryColor,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    SizedBox(height: 8),
+
+                    // Индикаторы состояний
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (int i = 0; i < 3; i++)
+                          GestureDetector(
+                            onTap: () {
+                              _pageController.animateToPage(
+                                i,
+                                duration: Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                            child: AnimatedContainer(
+                              duration: Duration(milliseconds: 200),
+                              width: _currentCardState == i ? 24 : 8,
+                              height: 8,
+                              margin: EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.rectangle,
+                                borderRadius: BorderRadius.circular(4),
+                                color: _currentCardState == i
+                                    ? primaryColor
+                                    : (isDark ? Colors.grey[700] : Colors.grey[300]),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
 
@@ -815,21 +1133,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Название "Мои предметы" - теперь может скрываться
-                    if (!_isEditing ||
-                        MediaQuery.of(context).size.width > 400) // Показываем если достаточно места
-                      Expanded(
-                        flex: _isEditing ? 0 : 1, // В режиме редактирования меньше приоритета
-                        child: Text(
-                          'Мои предметы',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textTheme.titleMedium?.color,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                    // Название "Мои предметы"
+                    Expanded(
+                      child: Text(
+                        'Мои предметы',
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 18 : 22,
+                          fontWeight: FontWeight.bold,
+                          color: theme.textTheme.titleMedium?.color,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
 
                     // Кнопки редактирования и добавления/удаления
                     Row(
@@ -874,7 +1189,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                                           child: Text(
                                             'Управление',
                                             style: TextStyle(
-                                              fontSize: 14,
+                                              fontSize: isSmallScreen ? 12 : 14,
                                               fontWeight: FontWeight.w600,
                                               color: primaryColor,
                                             ),
@@ -934,15 +1249,27 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                 ),
               ),
 
-              // Список предметов с перетаскиванием
+              // Список предметов с перетаскиванием (ИЗОЛИРОВАН В StatefulWidget)
               Expanded(
                 child: SlideTransition(
                   position: _subjectListSlide,
                   child: FadeTransition(
                     opacity: _subjectListOpacity,
-                    child: _selectedSubjects.isEmpty
-                        ? _buildEmptyState()
-                        : _buildSubjectList(),
+                    child: _SubjectsList(
+                      selectedSubjects: _selectedSubjects,
+                      isEditing: _isEditing,
+                      calculateSubjectProgress: _calculateSubjectProgress,
+                      getSubjectColor: _getSubjectColor,
+                      onReorder: (oldIndex, newIndex) {
+                        if (oldIndex < newIndex) {
+                          newIndex -= 1;
+                        }
+                        final item = _selectedSubjects.removeAt(oldIndex);
+                        _selectedSubjects.insert(newIndex, item);
+                        _saveSelectedSubjects();
+                      },
+                      onSubjectTap: _openSubjectInfo,
+                    ),
                   ),
                 ),
               ),
@@ -953,305 +1280,342 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     );
   }
 
-  Widget _buildSubjectList() {
-    // Если режим редактирования - используем ReorderableListView
-    if (_isEditing) {
-      return ReorderableListView.builder(
-        padding: EdgeInsets.only(bottom: 110, top: 8),
-        itemCount: _selectedSubjects.length,
-        itemBuilder: (context, index) {
-          final subject = _selectedSubjects[index];
-          final progress = _calculateSubjectProgress(subject);
-          final color = _getSubjectColor(subject);
-
-          return Container(
-            key: ValueKey('$subject-$index'),
-            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-            child: Row(
-              children: [
-                // Карточка предмета - БЕЗ АНИМАЦИЙ
-                Expanded(
-                  child: _buildSubjectCard(
-                    subject: subject,
-                    progress: progress,
-                    color: color,
-                  ),
-                ),
-                // Иконка перетаскивания справа
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: GestureDetector(
-                      onTapDown: (_) async {
-                        await _triggerVibration();
-                      },
-                      child: Container(
-                        width: 36,
-                        height: 124,
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.9),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: color,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.drag_indicator_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-        onReorderStart: (index) async {
-          // Виброотдача при начале перетаскивания
-          await _triggerVibration();
-        },
-        onReorder: (oldIndex, newIndex) {
-          if (oldIndex < newIndex) {
-            newIndex -= 1;
-          }
-
-          // Без setState - изменяем список напрямую для избежания "скачка"
-          final item = _selectedSubjects.removeAt(oldIndex);
-          _selectedSubjects.insert(newIndex, item);
-
-          // Только сохраняем, но не перерисовываем
-          _saveSelectedSubjects();
-        },
-        onReorderEnd: (_) async {
-          // Виброотдача при окончании перетаскивания
-          await _triggerVibration();
-          // Сохраняем и показываем уведомление
-          _showSnackBar('Порядок предметов обновлен');
-        },
-        buildDefaultDragHandles: false,
-      );
-    } else {
-      // Если не режим редактирования - обычный ListView
-      return ListView.builder(
-        padding: EdgeInsets.only(bottom: 110, top: 8),
-        itemCount: _selectedSubjects.length,
-        itemBuilder: (context, index) {
-          final subject = _selectedSubjects[index];
-          final progress = _calculateSubjectProgress(subject);
-          final color = _getSubjectColor(subject);
-
-          return Container(
-            key: ValueKey('$subject-$index'),
-            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-            child: _buildSubjectCard(
-              subject: subject,
-              progress: progress,
-              color: color,
-            ),
-          );
-        },
-      );
+  Widget _buildCardContent(int state, ThemeData theme, bool isDark, Color primaryColor) {
+    switch (state) {
+      case 0: // XP
+        return _buildXPCardContent(theme, isDark, primaryColor);
+      case 1: // Новость
+        return _buildNewsCardContent(theme, isDark, primaryColor);
+      case 2: // Лига
+        return _buildLeagueCardContent(theme, isDark, primaryColor);
+      default:
+        return _buildXPCardContent(theme, isDark, primaryColor);
     }
   }
 
-  Widget _buildSubjectCard({
-    required String subject,
-    required double progress,
-    required Color color,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final completedPercent = (progress * 100).round();
+  Widget _buildXPCardContent(ThemeData theme, bool isDark, Color primaryColor) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth < 400;
 
-    return GestureDetector(
-      onTap: () async {
-        // Виброотдача при нажатии на карточку предмета
-        await _triggerVibration();
-        _openSubjectInfo(subject);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? theme.cardColor : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
+    return Row(
+      key: ValueKey('xp'),
+      children: [
+        // Иконка XP
+        Container(
+          width: isSmallScreen ? 50 : (isMediumScreen ? 60 : 70),
+          height: isSmallScreen ? 50 : (isMediumScreen ? 60 : 70),
+          decoration: BoxDecoration(
+            color: primaryColor.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.leaderboard_rounded,
+            color: primaryColor,
+            size: isSmallScreen ? 24 : (isMediumScreen ? 28 : 32),
+          ),
         ),
-        child: Column(
-          children: [
-            // Верхняя часть с названием и кнопками
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: Row(
+        SizedBox(width: isSmallScreen ? 12 : 16),
+
+        // Информация об опыте
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Название предмета
-                  Expanded(
-                    child: Text(
-                      subject,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: theme.textTheme.titleMedium?.color,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  Text(
+                    'Твой опыт',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 12 : 14,
+                      color: theme.hintColor,
                     ),
                   ),
-
-                  // Правая часть с кнопками
-                  Row(
-                    children: [
-                      // Кнопка перехода к предмету - как было раньше
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          onPressed: () async {
-                            // Виброотдача при нажатии на кнопку перехода
-                            await _triggerVibration();
-                            _openSubjectInfo(subject);
-                          },
-                          icon: Icon(
-                            Icons.arrow_forward_rounded,
-                            color: color,
-                            size: 20,
-                          ),
-                          padding: EdgeInsets.zero,
-                        ),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 6 : 8,
+                      vertical: isSmallScreen ? 1 : 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'XP',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 10 : 12,
+                        color: primaryColor,
+                        fontWeight: FontWeight.w500,
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
-
-            // Прогресс бар
-            Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Прогресс',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: theme.hintColor,
-                        ),
-                      ),
-                      Text(
-                        '$completedPercent%',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: color,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-                    color: color,
-                    borderRadius: BorderRadius.circular(4),
-                    minHeight: 10,
-                  ),
-                ],
+              SizedBox(height: isSmallScreen ? 4 : 8),
+              Text(
+                '${_userStats.totalXP} XP',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 18 : (isMediumScreen ? 22 : 24),
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
               ),
-            ),
-          ],
+              SizedBox(height: isSmallScreen ? 2 : 4),
+              Text(
+                _getMotivationMessage(),
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 10 : 12,
+                  color: theme.hintColor,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildEmptyState() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+  Widget _buildNewsCardContent(ThemeData theme, bool isDark, Color primaryColor) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth < 400;
 
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: isDark ? theme.cardColor : Colors.grey[100],
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.school_rounded,
-                size: 60,
-                color: isDark ? Colors.grey[600] : Colors.grey[400],
-              ),
-            ),
-            SizedBox(height: 24),
-            Text(
-              'Нет выбранных предметов',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: theme.textTheme.titleMedium?.color,
-              ),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Добавьте предметы для обучения',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: theme.hintColor,
-              ),
-            ),
-            SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () async {
-                await _triggerVibration();
-                _showSubjectsDialog();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF4CAF50),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                elevation: 0,
-                shadowColor: Colors.transparent,
-              ),
-              child: Text(
-                'Добавить предметы',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+    // Проверяем есть ли непрочитанные новости
+    bool hasUnreadNews = _newsItems.any((news) => !news.isRead);
+
+    return Row(
+      key: ValueKey('news'),
+      children: [
+        // Иконка новости
+        Container(
+          width: isSmallScreen ? 50 : (isMediumScreen ? 60 : 70),
+          height: isSmallScreen ? 50 : (isMediumScreen ? 60 : 70),
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.new_releases_rounded,
+            color: Colors.blue,
+            size: isSmallScreen ? 24 : (isMediumScreen ? 28 : 32),
+          ),
         ),
-      ),
+        SizedBox(width: isSmallScreen ? 12 : 16),
+
+        // Информация о новости
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Последняя новость',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 12 : 14,
+                      color: theme.hintColor,
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 6 : 8,
+                      vertical: isSmallScreen ? 1 : 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: hasUnreadNews ? Colors.red.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      hasUnreadNews ? 'НОВАЯ' : 'ПРОЧИТАНО',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 10 : 12,
+                        color: hasUnreadNews ? Colors.red : Colors.blue,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: isSmallScreen ? 4 : 8),
+              Text(
+                _getLatestNews(),
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 14 : (isMediumScreen ? 15 : 16),
+                  fontWeight: FontWeight.w600,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: isSmallScreen ? 2 : 4),
+              Text(
+                _newsItems.isNotEmpty ? _newsItems[0].date : 'Обновлено сегодня',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 10 : 12,
+                  color: theme.hintColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+
+  Widget _buildLeagueCardContent(ThemeData theme, bool isDark, Color primaryColor) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+    final isMediumScreen = screenWidth < 400;
+
+    String userLeague = _determineLeagueByXP(_userStats.totalXP);
+    Color leagueColor = _getLeagueColor(userLeague);
+
+    return Row(
+      key: ValueKey('league'),
+      children: [
+        // Иконка лиги
+        Container(
+          width: isSmallScreen ? 50 : (isMediumScreen ? 60 : 70),
+          height: isSmallScreen ? 50 : (isMediumScreen ? 60 : 70),
+          decoration: BoxDecoration(
+            color: leagueColor.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            _getLeagueIcon(userLeague),
+            color: leagueColor,
+            size: isSmallScreen ? 24 : (isMediumScreen ? 28 : 32),
+          ),
+        ),
+        SizedBox(width: isSmallScreen ? 12 : 16),
+
+        // Информация о лиге
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Твоя лига',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 12 : 14,
+                      color: theme.hintColor,
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isSmallScreen ? 6 : 8,
+                      vertical: isSmallScreen ? 1 : 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: leagueColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'ЛИГА',
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 10 : 12,
+                        color: leagueColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: isSmallScreen ? 4 : 8),
+              Text(
+                userLeague,
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 18 : (isMediumScreen ? 20 : 22),
+                  fontWeight: FontWeight.bold,
+                  color: leagueColor,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 2 : 4),
+              Text(
+                '${_userStats.totalXP} XP',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 10 : 12,
+                  color: theme.hintColor,
+                ),
+              ),
+              SizedBox(height: isSmallScreen ? 2 : 4),
+              Text(
+                _getLeagueMessage(userLeague),
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 10 : 12,
+                  color: theme.hintColor,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _determineLeagueByXP(int xp) {
+    if (xp >= 5000) return 'Нереальная';
+    if (xp >= 4000) return 'Легендарная';
+    if (xp >= 3000) return 'Элитная';
+    if (xp >= 2000) return 'Бриллиантовая';
+    if (xp >= 1500) return 'Платиновая';
+    if (xp >= 1000) return 'Золотая';
+    if (xp >= 500) return 'Серебряная';
+    return 'Бронзовая';
+  }
+
+  Color _getLeagueColor(String league) {
+    switch (league) {
+      case 'Нереальная': return Color(0xFFE6E6FA);
+      case 'Легендарная': return Color(0xFFFF4500);
+      case 'Элитная': return Color(0xFF7F7F7F);
+      case 'Бриллиантовая': return Color(0xFFB9F2FF);
+      case 'Платиновая': return Color(0xFFE5E4E2);
+      case 'Золотая': return Color(0xFFFFD700);
+      case 'Серебряная': return Color(0xFFC0C0C0);
+      case 'Бронзовая': return Color(0xFFCD7F32);
+      default: return Color(0xFFCD7F32);
+    }
+  }
+
+  IconData _getLeagueIcon(String league) {
+    switch (league) {
+      case 'Нереальная': return Icons.auto_awesome_rounded;
+      case 'Легендарная': return Icons.whatshot_rounded;
+      case 'Элитная': return Icons.star_rounded;
+      case 'Бриллиантовая': return Icons.diamond_rounded;
+      case 'Платиновая': return Icons.lens_rounded;
+      case 'Золотая': return Icons.lens_rounded;
+      case 'Серебряная': return Icons.lens_rounded;
+      case 'Бронзовая': return Icons.lens_rounded;
+      default: return Icons.lens_rounded;
+    }
+  }
+
+  String _getLeagueMessage(String league) {
+    switch (league) {
+      case 'Нереальная': return 'Ты легенда! Продолжай в том же духе';
+      case 'Легендарная': return 'Почти на вершине! Осталось немного';
+      case 'Элитная': return 'Отличный результат! Продолжай развиваться';
+      case 'Бриллиантовая': return 'Отличная работа! Ты в топе игроков';
+      case 'Платиновая': return 'Хороший прогресс! Двигайся дальше';
+      case 'Золотая': return 'Неплохо! Стремись к большему';
+      case 'Серебряная': return 'Хороший старт! Развивайся дальше';
+      case 'Бронзовая': return 'Начинающий! Все впереди';
+      default: return 'Начинающий! Все впереди';
+    }
   }
 
   bool _isPhotoAvatar() {
@@ -1887,6 +2251,306 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
           ),
         );
       },
+    );
+  }
+}
+
+// Изолированный StatefulWidget для списка предметов
+class _SubjectsList extends StatefulWidget {
+  final List<String> selectedSubjects;
+  final bool isEditing;
+  final double Function(String) calculateSubjectProgress;
+  final Color Function(String) getSubjectColor;
+  final void Function(int, int) onReorder;
+  final void Function(String) onSubjectTap;
+
+  const _SubjectsList({
+    required this.selectedSubjects,
+    required this.isEditing,
+    required this.calculateSubjectProgress,
+    required this.getSubjectColor,
+    required this.onReorder,
+    required this.onSubjectTap,
+  });
+
+  @override
+  State<_SubjectsList> createState() => _SubjectsListState();
+}
+
+class _SubjectsListState extends State<_SubjectsList> {
+  @override
+  Widget build(BuildContext context) {
+    if (widget.selectedSubjects.isEmpty) {
+      return _buildEmptyState();
+    }
+
+    // Если режим редактирования - используем ReorderableListView
+    if (widget.isEditing) {
+      return ReorderableListView.builder(
+        padding: EdgeInsets.only(bottom: 110, top: 8),
+        itemCount: widget.selectedSubjects.length,
+        itemBuilder: (context, index) {
+          final subject = widget.selectedSubjects[index];
+          final progress = widget.calculateSubjectProgress(subject);
+          final color = widget.getSubjectColor(subject);
+
+          return Container(
+            key: ValueKey('$subject-$index'),
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+            child: Row(
+              children: [
+                // Карточка предмета
+                Expanded(
+                  child: _buildSubjectCard(
+                    subject: subject,
+                    progress: progress,
+                    color: color,
+                  ),
+                ),
+                // Иконка перетаскивания справа
+                ReorderableDragStartListener(
+                  index: index,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      width: 36,
+                      height: 124,
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: color,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.drag_indicator_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        onReorderStart: (index) async {
+          try {
+            await HapticFeedback.lightImpact();
+          } catch (e) {}
+        },
+        onReorder: widget.onReorder,
+        onReorderEnd: (_) async {
+          try {
+            await HapticFeedback.lightImpact();
+          } catch (e) {}
+        },
+        buildDefaultDragHandles: false,
+      );
+    } else {
+      // Если не режим редактирования - обычный ListView
+      return ListView.builder(
+        padding: EdgeInsets.only(bottom: 110, top: 8),
+        itemCount: widget.selectedSubjects.length,
+        itemBuilder: (context, index) {
+          final subject = widget.selectedSubjects[index];
+          final progress = widget.calculateSubjectProgress(subject);
+          final color = widget.getSubjectColor(subject);
+
+          return Container(
+            key: ValueKey('$subject-$index'),
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+            child: _buildSubjectCard(
+              subject: subject,
+              progress: progress,
+              color: color,
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  Widget _buildSubjectCard({
+    required String subject,
+    required double progress,
+    required Color color,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final completedPercent = (progress * 100).round();
+
+    return GestureDetector(
+      onTap: () => widget.onSubjectTap(subject),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? theme.cardColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Верхняя часть с названием и кнопками
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Название предмета
+                  Expanded(
+                    child: Text(
+                      subject,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: theme.textTheme.titleMedium?.color,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
+                  // Кнопка перехода к предмету
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: () => widget.onSubjectTap(subject),
+                      icon: Icon(
+                        Icons.arrow_forward_rounded,
+                        color: color,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Прогресс бар
+            Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Прогресс',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: theme.hintColor,
+                        ),
+                      ),
+                      Text(
+                        '$completedPercent%',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
+                    minHeight: 10,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: isDark ? theme.cardColor : Colors.grey[100],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.school_rounded,
+                size: 60,
+                color: isDark ? Colors.grey[600] : Colors.grey[400],
+              ),
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Нет выбранных предметов',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: theme.textTheme.titleMedium?.color,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Добавьте предметы для обучения',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: theme.hintColor,
+              ),
+            ),
+            SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                // Открытие диалога предметов будет из родительского виджета
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF4CAF50),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                elevation: 0,
+                shadowColor: Colors.transparent,
+              ),
+              child: Text(
+                'Добавить предметы',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -298,6 +298,7 @@ class DictionaryScreen extends StatelessWidget {
                       ),
 
                       // Кнопка уведомления
+                      // Вместо существующей кнопки уведомления:
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                         child: Container(
@@ -320,10 +321,10 @@ class DictionaryScreen extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.notifications_active_rounded, size: 20),
+                                Icon(Icons.newspaper_rounded, size: 20),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Узнать о обновлениях',
+                                  'Посмотреть новости и обновления',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,

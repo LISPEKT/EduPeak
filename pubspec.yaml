@@ -3,7 +3,7 @@ description: "Приложение для подтягивания знаний 
 
 publish_to: 'none'
 
-version: 0.41.2
+version: 0.42.0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
