@@ -77,7 +77,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserStats();
     _loadSelectedSubjects();
     _loadAchievementsData();
-    _loadFriendsData();
     _calculateSubjectProgress();
   }
 
@@ -151,7 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final actualLeague = _determineLeagueByXP(totalXP);
 
-      String popularSubject = 'Нет данных';
+      String popularSubject = AppLocalizations.of(context).noData;
       int maxTopics = 0;
       if (stats.topicProgress.isNotEmpty) {
         for (final subject in stats.topicProgress.keys) {
@@ -194,83 +193,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (xp >= 1000) return 'Золотая';
     if (xp >= 500) return 'Серебряная';
     return 'Бронзовая';
-  }
-
-  Future<void> _loadFriendsData() async {
-    try {
-      final friendsData = await _simulateFriendsApiCall();
-      if (mounted) {
-        setState(() {
-          _friendsList = friendsData;
-          _friendsCount = friendsData.length;
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading friends data: $e');
-      _createMockFriendsData();
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _simulateFriendsApiCall() async {
-    await Future.delayed(Duration(milliseconds: 100));
-    return [
-      {
-        'id': '1',
-        'name': 'Александр Иванов',
-        'username': 'alex_ivanov',
-        'streakDays': 7,
-        'completedTopics': 15,
-        'correctAnswers': 120,
-        'avatar': '👨‍🎓',
-        'currentLeague': 'Серебряная',
-        'weeklyXP': 450,
-        'isOnline': true,
-      },
-      {
-        'id': '2',
-        'name': 'Мария Петрова',
-        'username': 'maria_petrova',
-        'streakDays': 14,
-        'completedTopics': 22,
-        'correctAnswers': 180,
-        'avatar': '👩‍🎓',
-        'currentLeague': 'Золотая',
-        'weeklyXP': 620,
-        'isOnline': false,
-      },
-      {
-        'id': '3',
-        'name': 'Иван Сидоров',
-        'username': 'ivan_sidorov',
-        'streakDays': 3,
-        'completedTopics': 8,
-        'correctAnswers': 65,
-        'avatar': '👨‍💼',
-        'currentLeague': 'Бронзовая',
-        'weeklyXP': 210,
-        'isOnline': true,
-      },
-    ];
-  }
-
-  void _createMockFriendsData() {
-    setState(() {
-      _friendsList = [
-        {
-          'id': '1',
-          'name': 'Тестовый друг 1',
-          'username': 'test_friend1',
-          'streakDays': 5,
-          'completedTopics': 10,
-          'correctAnswers': 80,
-          'avatar': '👤',
-          'currentLeague': 'Бронзовая',
-          'weeklyXP': 300,
-          'isOnline': true,
-        },
-      ];
-      _friendsCount = _friendsList.length;
-    });
   }
 
   Future<void> _loadAchievementsData() async {
@@ -386,9 +308,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _formatRegistrationDate() {
-    if (_registrationDate == null) return 'Неизвестно';
+    if (_registrationDate == null) return AppLocalizations.of(context).unknown;
+    final appLocalizations = AppLocalizations.of(context);
     final formatter = DateFormat('dd.MM.yyyy');
-    return 'На EduPeak с ${formatter.format(_registrationDate!)}';
+    return '${appLocalizations.since} ${formatter.format(_registrationDate!)}';
   }
 
   IconData _getLeagueIcon() {
@@ -458,7 +381,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         builder: (_) => FriendsScreen(),
       ),
     ).then((_) {
-      _loadFriendsData();
     });
   }
 
@@ -508,7 +430,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
-    final appLocalizations = AppLocalizations.of(context)!;
+    final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -553,7 +475,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Раздел',
+                          appLocalizations.section,
                           style: TextStyle(
                             fontSize: 14,
                             color: theme.hintColor,
@@ -681,7 +603,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      _username.isNotEmpty ? _username : 'Без имени',
+                                      _username.isNotEmpty ? _username : appLocalizations.noName,
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -716,7 +638,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             ),
                                             SizedBox(width: 6),
                                             Text(
-                                              '$_friendsCount друга',
+                                              '$_friendsCount ${appLocalizations.friendsCount}',
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500,
@@ -739,7 +661,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: Text(
-                          'Статистика',
+                          appLocalizations.statisticsPlural,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -754,9 +676,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Expanded(
                               child: _buildStatCard(
-                                title: 'Дней',
+                                title: appLocalizations.daysInRow,
                                 value: '${_userStats.streakDays}',
-                                subtitle: 'подряд',
+                                subtitle: appLocalizations.inRow,
                                 color: Colors.orange,
                                 icon: Icons.local_fire_department_rounded,
                                 isDark: isDark,
@@ -766,9 +688,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
-                                title: 'Опыта',
+                                title: appLocalizations.xpEarned,
                                 value: '$_totalXP',
-                                subtitle: 'получено',
+                                subtitle: appLocalizations.earned,
                                 color: Colors.green,
                                 icon: Icons.leaderboard_rounded,
                                 isDark: isDark,
@@ -778,9 +700,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
-                                title: 'Тем',
+                                title: appLocalizations.topicsCompleted,
                                 value: '$_completedTopics',
-                                subtitle: 'завершено',
+                                subtitle: appLocalizations.completed,
                                 color: Colors.blue,
                                 icon: Icons.check_circle_rounded,
                                 isDark: isDark,
@@ -798,7 +720,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Изучаемые предметы',
+                              appLocalizations.studiedSubjects,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -861,8 +783,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             // Достижения
                             _buildFeatureCard(
-                              title: 'Достижения',
-                              subtitle: '$_achievementsCompleted/$_totalAchievements завершено',
+                              title: appLocalizations.achievements,
+                              subtitle: '$_achievementsCompleted/$_totalAchievements ${appLocalizations.achievementsCompleted}',
                               icon: Icons.emoji_events_rounded,
                               color: Colors.amber,
                               isDark: isDark,
@@ -872,7 +794,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                             // Лига
                             _buildFeatureCard(
-                              title: 'Лига',
+                              title: appLocalizations.league,
                               subtitle: _currentLeague,
                               icon: _getLeagueIcon(),
                               color: _getLeagueColor(),

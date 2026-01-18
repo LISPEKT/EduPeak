@@ -6,7 +6,7 @@ class SubscriptionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appLocalizations = AppLocalizations.of(context)!;
+    final appLocalizations = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
@@ -54,14 +54,14 @@ class SubscriptionScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Раздел',
+                          appLocalizations.section,
                           style: TextStyle(
                             fontSize: 14,
                             color: theme.hintColor,
                           ),
                         ),
                         Text(
-                          'EduPeak+',
+                          appLocalizations.edupeakPlus,
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
@@ -143,7 +143,7 @@ class SubscriptionScreen extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Премиум доступ',
+                                      appLocalizations.premiumAccess,
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -152,7 +152,7 @@ class SubscriptionScreen extends StatelessWidget {
                                     ),
                                     SizedBox(height: 8),
                                     Text(
-                                      'Все возможности платформы без ограничений',
+                                      appLocalizations.allFeatures,
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: theme.hintColor,
@@ -170,7 +170,7 @@ class SubscriptionScreen extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: Text(
-                          'Тарифы',
+                          appLocalizations.pricing,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -199,9 +199,9 @@ class SubscriptionScreen extends StatelessWidget {
                             children: [
                               _buildPriceOption(
                                 context: context,
-                                title: 'Месяц',
+                                title: appLocalizations.month,
                                 price: '299₽',
-                                period: '/мес',
+                                period: '/${appLocalizations.month.toLowerCase()}',
                                 isRecommended: false,
                                 isDark: isDark,
                               ),
@@ -212,11 +212,11 @@ class SubscriptionScreen extends StatelessWidget {
                               ),
                               _buildPriceOption(
                                 context: context,
-                                title: 'Год',
+                                title: appLocalizations.year,
                                 price: '2 490₽',
-                                period: '/год',
+                                period: '/${appLocalizations.year.toLowerCase()}',
                                 isRecommended: true,
-                                savings: 'Экономия 30%',
+                                savings: '${appLocalizations.savings} 30%',
                                 isDark: isDark,
                               ),
                             ],
@@ -231,7 +231,7 @@ class SubscriptionScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Что включено',
+                              appLocalizations.whatsIncluded,
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -245,7 +245,7 @@ class SubscriptionScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                '6 преимуществ',
+                                '6 ${appLocalizations.featuresCount}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
@@ -299,8 +299,8 @@ class SubscriptionScreen extends StatelessWidget {
                             SizedBox(height: 12),
                             _buildFeatureCard(
                               context: context,
-                              title: 'Без рекламы',
-                              description: 'Полностью сосредоточьтесь на обучении',
+                              title: appLocalizations.noAds,
+                              description: appLocalizations.focusOnLearning,
                               icon: Icons.ads_click_rounded,
                               color: Colors.red,
                               isDark: isDark,
@@ -308,8 +308,8 @@ class SubscriptionScreen extends StatelessWidget {
                             SizedBox(height: 12),
                             _buildFeatureCard(
                               context: context,
-                              title: 'Расширенные материалы',
-                              description: 'Дополнительные учебные материалы и тесты',
+                              title: appLocalizations.extendedMaterials,
+                              description: appLocalizations.additionalResources,
                               icon: Icons.cloud_download_rounded,
                               color: Colors.teal,
                               isDark: isDark,
@@ -341,7 +341,7 @@ class SubscriptionScreen extends StatelessWidget {
                                 Icon(Icons.rocket_launch_rounded, size: 20),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Попробовать 7 дней бесплатно',
+                                  appLocalizations.tryFree,
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
@@ -377,6 +377,7 @@ class SubscriptionScreen extends StatelessWidget {
   }) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final appLocalizations = AppLocalizations.of(context);
 
     return Expanded(
       child: Column(
@@ -389,7 +390,7 @@ class SubscriptionScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'Рекомендуем',
+                appLocalizations.recommended,
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
@@ -558,7 +559,7 @@ class SubscriptionScreen extends StatelessWidget {
               ),
               SizedBox(height: 20),
               Text(
-                'Скоро будет доступно',
+                appLocalizations.comingSoon,
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -588,7 +589,7 @@ class SubscriptionScreen extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Понятно',
+                    appLocalizations.gotIt,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,

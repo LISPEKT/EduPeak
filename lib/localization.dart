@@ -408,6 +408,103 @@ class AppLocalizations {
       'leaderboard': 'Таблица лидеров',
       'players': 'Игроков',
       'level': 'Уровень',
+      // В разделе 'ru' добавьте:
+      'statistics_plural': 'Статистика',
+      'edupeak_plus': 'EduPeak+',
+      'premium_access': 'Премиум доступ',
+      'all_features': 'Все возможности платформы без ограничений',
+      'pricing': 'Тарифы',
+      'whats_included': 'Что включено',
+      'features_count': 'преимуществ',
+      'month': 'Месяц',
+      'year': 'Год',
+      'savings': 'Экономия',
+      'no_ads': 'Без рекламы',
+      'focus_on_learning': 'Полностью сосредоточьтесь на обучении',
+      'extended_materials': 'Расширенные материалы',
+      'additional_resources': 'Дополнительные учебные материалы и тесты',
+      'try_free': 'Попробовать 7 дней бесплатно',
+      'coming_soon': 'Скоро будет доступно',
+      'got_it': 'Понятно',
+      'terms_and_definitions': 'Термины и определения',
+      'all_concepts': 'Все важные понятия из школьной программы в одном месте',
+      'development_status': 'Статус',
+      'in_development': 'В разработке',
+      'actively_developed': 'Раздел находится в активной разработке',
+      'dictionary_preview': 'Что будет в словаре',
+      'subject_terms': 'Термины по предметам',
+      'subject_concepts': 'Все важные понятия из разных школьных предметов',
+      'detailed_definitions': 'Подробные определения',
+      'clear_explanations': 'Понятные объяснения с примерами и иллюстрациями',
+      'quick_search': 'Быстрый поиск',
+      'instant_search': 'Находите термины мгновенно по названию или теме',
+      'favorites': 'Избранное',
+      'save_important': 'Сохраняйте важные термины для быстрого доступа',
+      'see_news': 'Посмотреть новости и обновления',
+      'section': 'Раздел',
+      'hello_what_to_study': 'Привет, что будем изучать сегодня?',
+      'my_subjects': 'Мои предметы',
+      'management': 'Управление',
+      'add_subjects': 'Добавить предметы',
+      'remove_subjects': 'Удалить предметы',
+      'recommended': 'Рекомендуем',
+      'all_subjects_added': 'Все предметы добавлены',
+      'all_subjects_message': 'Вы добавили все доступные предметы',
+      'no_subjects_to_remove': 'Нет предметов для удаления',
+      'add_subjects_message': 'Добавьте предметы в список изучения',
+      'no_selected_subjects': 'Нет выбранных предметов',
+      'add_subjects_to_learn': 'Добавьте предметы для обучения',
+      'add_subjects_button': 'Добавить предметы',
+      'started_topics': 'Начатые темы',
+      'study_some_topics': 'Начните изучать темы, и они появятся здесь для повторения',
+      'start_studying': 'Начать изучение',
+      'since': 'На EduPeak с',
+      'studied_subjects': 'Изучаемые предметы',
+      'achievements_completed': 'завершено',
+      'xp_earned': 'Опыта получено',
+      'topics_completed': 'Тем завершено',
+
+// Дополнительно для main_screen:
+      'what_to_study_today': 'что будем изучать сегодня?',
+      'your_xp': 'Твой опыт',
+      'latest_news': 'Последняя новость',
+      'your_league': 'Твоя лига',
+      'new_unread': 'НОВАЯ',
+      'read': 'ПРОЧИТАНО',
+      'updated_today': 'Обновлено сегодня',
+      'youre_legend': 'Ты легенда! Продолжай в том же духе',
+      'almost_at_top': 'Почти на вершине! Осталось немного',
+      'excellent_result': 'Отличный результат! Продолжай развиваться',
+      'great_work_top': 'Отличная работа! Ты в топе игроков',
+      'good_progress': 'Хороший прогресс! Двигайся дальше',
+      'not_bad_aim_higher': 'Неплохо! Стремись к большему',
+      'good_start': 'Хороший старт! Развивайся дальше',
+      'beginner_ahead': 'Начинающий! Все впереди',
+
+// Для review_screen:
+      'review_questions': 'Вопросы для повторения',
+      'started_topics_questions': 'вопросов из начатых тем',
+      'start_learning_topics': 'Начните изучение тем',
+      'grades_active': 'Классов активно',
+      'questions_total': 'Вопросов всего',
+      'started_topics_count': 'Тем начаты',
+      'subjectAdded': 'Предмет добавлен',
+      'subjectRemoved': 'Предмет удален',
+      'excellentProgress': 'Отличный прогресс!',
+      'goodResult': 'хороший результат!',
+      'youAlreadyHave': 'У тебя уже',
+      'moveForward': 'Двигайся дальше!',
+      'passFirstTestAndGetXP': 'Пройди первый тест и получи свои первые XP!',
+      'noData': 'Нет данных',
+      'mockFriend1Name': 'Александр Иванов',
+      'mockFriend2Name': 'Мария Петрова',
+      'mockFriend3Name': 'Иван Сидоров',
+      'mockTestFriend1': 'Тестовый друг 1',
+      'unknown': 'Неизвестно',
+      'noName': 'Без имени',
+      'inRow': 'подряд',
+      'earned': 'получено',
+      'premium': 'Premium',
     },
     'en': {
       'app_title': 'EduPeak',
@@ -802,6 +899,98 @@ class AppLocalizations {
       'leaderboard': 'Leaderboard',
       'players': 'Players',
       'level': 'Level',
+      'statistics_plural': 'Statistics',
+      'edupeak_plus': 'EduPeak+',
+      'premium_access': 'Premium Access',
+      'all_features': 'All platform features without restrictions',
+      'pricing': 'Pricing',
+      'whats_included': 'What\'s Included',
+      'features_count': 'features',
+      'month': 'Month',
+      'year': 'Year',
+      'savings': 'Savings',
+      'no_ads': 'No Ads',
+      'focus_on_learning': 'Focus completely on learning',
+      'extended_materials': 'Extended Materials',
+      'additional_resources': 'Additional learning materials and tests',
+      'try_free': 'Try 7 days free',
+      'coming_soon': 'Coming Soon',
+      'got_it': 'Got it',
+      'terms_and_definitions': 'Terms and Definitions',
+      'all_concepts': 'All important concepts from the school curriculum in one place',
+      'development_status': 'Status',
+      'in_development': 'In Development',
+      'actively_developed': 'Section is actively being developed',
+      'dictionary_preview': 'What will be in the dictionary',
+      'subject_terms': 'Subject Terms',
+      'subject_concepts': 'All important concepts from different school subjects',
+      'detailed_definitions': 'Detailed Definitions',
+      'clear_explanations': 'Clear explanations with examples and illustrations',
+      'quick_search': 'Quick Search',
+      'instant_search': 'Find terms instantly by name or topic',
+      'favorites': 'Favorites',
+      'save_important': 'Save important terms for quick access',
+      'see_news': 'See news and updates',
+      'section': 'Section',
+      'hello_what_to_study': 'Hello, what shall we study today?',
+      'my_subjects': 'My Subjects',
+      'management': 'Management',
+      'add_subjects': 'Add Subjects',
+      'remove_subjects': 'Remove Subjects',
+      'recommended': 'Recommended',
+      'all_subjects_added': 'All subjects added',
+      'all_subjects_message': 'You have added all available subjects',
+      'no_subjects_to_remove': 'No subjects to remove',
+      'add_subjects_message': 'Add subjects to study list',
+      'no_selected_subjects': 'No selected subjects',
+      'add_subjects_to_learn': 'Add subjects for learning',
+      'add_subjects_button': 'Add Subjects',
+      'started_topics': 'Started Topics',
+      'study_some_topics': 'Start studying topics and they will appear here for review',
+      'start_studying': 'Start Studying',
+      'since': 'On EduPeak since',
+      'studied_subjects': 'Studied Subjects',
+      'achievements_completed': 'completed',
+      'xp_earned': 'XP earned',
+      'topics_completed': 'Topics completed',
+      'what_to_study_today': 'what shall we study today?',
+      'your_xp': 'Your XP',
+      'latest_news': 'Latest News',
+      'your_league': 'Your League',
+      'new_unread': 'NEW',
+      'read': 'READ',
+      'updated_today': 'Updated today',
+      'youre_legend': 'You are a legend! Keep it up',
+      'almost_at_top': 'Almost at the top! A little left',
+      'excellent_result': 'Excellent result! Keep developing',
+      'great_work_top': 'Great work! You are in top players',
+      'good_progress': 'Good progress! Move forward',
+      'not_bad_aim_higher': 'Not bad! Aim higher',
+      'good_start': 'Good start! Develop further',
+      'beginner_ahead': 'Beginner! Everything ahead',
+      'review_questions': 'Review Questions',
+      'started_topics_questions': 'questions from started topics',
+      'start_learning_topics': 'Start Learning Topics',
+      'grades_active': 'Grades active',
+      'questions_total': 'Questions total',
+      'started_topics_count': 'Topics started',
+      'subjectAdded': 'Subject added',
+      'subjectRemoved': 'Subject removed',
+      'excellentProgress': 'Excellent progress!',
+      'goodResult': 'good result!',
+      'youAlreadyHave': 'You already have',
+      'moveForward': 'Move forward!',
+      'passFirstTestAndGetXP': 'Pass the first test and get your first XP!',
+      'noData': 'No data',
+      'mockFriend1Name': 'Alexander Ivanov',
+      'mockFriend2Name': 'Maria Petrova',
+      'mockFriend3Name': 'Ivan Sidorov',
+      'mockTestFriend1': 'Test friend 1',
+      'unknown': 'Unknown',
+      'noName': 'No name',
+      'inRow': 'in a row',
+      'earned': 'earned',
+      'premium': 'Premium',
     },
     'de': {
       'app_title': 'EduPeak',
@@ -1196,6 +1385,98 @@ class AppLocalizations {
       'leaderboard': 'Bestenliste',
       'players': 'Spieler',
       'level': 'Level',
+      'statistics_plural': 'Statistiken',
+      'edupeak_plus': 'EduPeak+',
+      'premium_access': 'Premium-Zugang',
+      'all_features': 'Alle Plattformfunktionen ohne Einschränkungen',
+      'pricing': 'Preise',
+      'whats_included': 'Was enthalten ist',
+      'features_count': 'Vorteile',
+      'month': 'Monat',
+      'year': 'Jahr',
+      'savings': 'Einsparung',
+      'no_ads': 'Keine Werbung',
+      'focus_on_learning': 'Konzentrieren Sie sich vollständig auf das Lernen',
+      'extended_materials': 'Erweiterte Materialien',
+      'additional_resources': 'Zusätzliche Lernmaterialien und Tests',
+      'try_free': '7 Tage kostenlos testen',
+      'coming_soon': 'Demnächst verfügbar',
+      'got_it': 'Verstanden',
+      'terms_and_definitions': 'Begriffe und Definitionen',
+      'all_concepts': 'Alle wichtigen Konzepte des Schullehrplans an einem Ort',
+      'development_status': 'Status',
+      'in_development': 'In Entwicklung',
+      'actively_developed': 'Bereich wird aktiv entwickelt',
+      'dictionary_preview': 'Was wird im Wörterbuch sein',
+      'subject_terms': 'Fachbegriffe',
+      'subject_concepts': 'Alle wichtigen Konzepte aus verschiedenen Schulfächern',
+      'detailed_definitions': 'Detaillierte Definitionen',
+      'clear_explanations': 'Klar verständliche Erklärungen mit Beispielen und Illustrationen',
+      'quick_search': 'Schnellsuche',
+      'instant_search': 'Finden Sie Begriffe sofort nach Name oder Thema',
+      'favorites': 'Favoriten',
+      'save_important': 'Speichern Sie wichtige Begriffe für schnellen Zugriff',
+      'see_news': 'Neuigkeiten und Updates ansehen',
+      'section': 'Bereich',
+      'hello_what_to_study': 'Hallo, was wollen wir heute lernen?',
+      'my_subjects': 'Meine Fächer',
+      'management': 'Verwaltung',
+      'add_subjects': 'Fächer hinzufügen',
+      'remove_subjects': 'Fächer entfernen',
+      'recommended': 'Empfohlen',
+      'all_subjects_added': 'Alle Fächer hinzugefügt',
+      'all_subjects_message': 'Sie haben alle verfügbaren Fächer hinzugefügt',
+      'no_subjects_to_remove': 'Keine Fächer zum Entfernen',
+      'add_subjects_message': 'Fügen Sie Fächer zur Lernliste hinzu',
+      'no_selected_subjects': 'Keine ausgewählten Fächer',
+      'add_subjects_to_learn': 'Fügen Sie Fächer zum Lernen hinzu',
+      'add_subjects_button': 'Fächer hinzufügen',
+      'started_topics': 'Begonnene Themen',
+      'study_some_topics': 'Beginnen Sie mit dem Lernen von Themen, und sie erscheinen hier zur Wiederholung',
+      'start_studying': 'Lernen beginnen',
+      'since': 'Auf EduPeak seit',
+      'studied_subjects': 'Gelernte Fächer',
+      'achievements_completed': 'abgeschlossen',
+      'xp_earned': 'XP verdient',
+      'topics_completed': 'Themen abgeschlossen',
+      'what_to_study_today': 'was wollen wir heute lernen?',
+      'your_xp': 'Deine XP',
+      'latest_news': 'Letzte Neuigkeit',
+      'your_league': 'Deine Liga',
+      'new_unread': 'NEU',
+      'read': 'GELESEN',
+      'updated_today': 'Heute aktualisiert',
+      'youre_legend': 'Du bist eine Legende! Weiter so',
+      'almost_at_top': 'Fast oben! Noch ein wenig',
+      'excellent_result': 'Ausgezeichnetes Ergebnis! Entwickle dich weiter',
+      'great_work_top': 'Großartige Arbeit! Du bist unter den Top-Spielern',
+      'good_progress': 'Guter Fortschritt! Geh weiter',
+      'not_bad_aim_higher': 'Nicht schlecht! Strebe nach Höherem',
+      'good_start': 'Guter Start! Entwickle dich weiter',
+      'beginner_ahead': 'Anfänger! Alles liegt vor dir',
+      'review_questions': 'Wiederholungsfragen',
+      'started_topics_questions': 'Fragen aus begonnenen Themen',
+      'start_learning_topics': 'Themen lernen beginnen',
+      'grades_active': 'Klassen aktiv',
+      'questions_total': 'Fragen insgesamt',
+      'started_topics_count': 'Themen begonnen',
+      'subjectAdded': 'Fach hinzugefügt',
+      'subjectRemoved': 'Fach entfernt',
+      'excellentProgress': 'Ausgezeichneter Fortschritt!',
+      'goodResult': 'gutes Ergebnis!',
+      'youAlreadyHave': 'Du hast bereits',
+      'moveForward': 'Weitergehen!',
+      'passFirstTestAndGetXP': 'Bestehe den ersten Test und erhalte deine ersten XP!',
+      'noData': 'Keine Daten',
+      'mockFriend1Name': 'Alexander Iwanow',
+      'mockFriend2Name': 'Maria Petrova',
+      'mockFriend3Name': 'Iwan Sidorow',
+      'mockTestFriend1': 'Testfreund 1',
+      'unknown': 'Unbekannt',
+      'noName': 'Kein Name',
+      'inRow': 'hintereinander',
+      'earned': 'verdient',
+      'premium': 'Premium',
       '':'',
     },
   };
@@ -1600,6 +1881,99 @@ class AppLocalizations {
   String get leaderboard => _localizedValues[locale.languageCode]?['leaderboard'] ?? 'Leaderboard';
   String get players => _localizedValues[locale.languageCode]?['players'] ?? 'Players';
   String get level => _localizedValues[locale.languageCode]?['level'] ?? 'Level';
+  // Добавьте эти геттеры в класс AppLocalizations:
+
+  String get statisticsPlural => _localizedValues[locale.languageCode]?['statistics_plural'] ?? 'Statistics';
+  String get edupeakPlus => _localizedValues[locale.languageCode]?['edupeak_plus'] ?? 'EduPeak+';
+  String get premiumAccess => _localizedValues[locale.languageCode]?['premium_access'] ?? 'Premium Access';
+  String get allFeatures => _localizedValues[locale.languageCode]?['all_features'] ?? 'All features';
+  String get pricing => _localizedValues[locale.languageCode]?['pricing'] ?? 'Pricing';
+  String get whatsIncluded => _localizedValues[locale.languageCode]?['whats_included'] ?? 'What\'s Included';
+  String get featuresCount => _localizedValues[locale.languageCode]?['features_count'] ?? 'features';
+  String get month => _localizedValues[locale.languageCode]?['month'] ?? 'Month';
+  String get year => _localizedValues[locale.languageCode]?['year'] ?? 'Year';
+  String get savings => _localizedValues[locale.languageCode]?['savings'] ?? 'Savings';
+  String get noAds => _localizedValues[locale.languageCode]?['no_ads'] ?? 'No Ads';
+  String get focusOnLearning => _localizedValues[locale.languageCode]?['focus_on_learning'] ?? 'Focus on learning';
+  String get extendedMaterials => _localizedValues[locale.languageCode]?['extended_materials'] ?? 'Extended Materials';
+  String get additionalResources => _localizedValues[locale.languageCode]?['additional_resources'] ?? 'Additional resources';
+  String get tryFree => _localizedValues[locale.languageCode]?['try_free'] ?? 'Try free';
+  String get comingSoon => _localizedValues[locale.languageCode]?['coming_soon'] ?? 'Coming soon';
+  String get gotIt => _localizedValues[locale.languageCode]?['got_it'] ?? 'Got it';
+  String get termsAndDefinitions => _localizedValues[locale.languageCode]?['terms_and_definitions'] ?? 'Terms and Definitions';
+  String get allConcepts => _localizedValues[locale.languageCode]?['all_concepts'] ?? 'All concepts';
+  String get developmentStatus => _localizedValues[locale.languageCode]?['development_status'] ?? 'Status';
+  String get inDevelopment => _localizedValues[locale.languageCode]?['in_development'] ?? 'In Development';
+  String get activelyDeveloped => _localizedValues[locale.languageCode]?['actively_developed'] ?? 'Actively developed';
+  String get dictionaryPreview => _localizedValues[locale.languageCode]?['dictionary_preview'] ?? 'Dictionary Preview';
+  String get subjectTerms => _localizedValues[locale.languageCode]?['subject_terms'] ?? 'Subject Terms';
+  String get subjectConcepts => _localizedValues[locale.languageCode]?['subject_concepts'] ?? 'Subject concepts';
+  String get detailedDefinitions => _localizedValues[locale.languageCode]?['detailed_definitions'] ?? 'Detailed Definitions';
+  String get clearExplanations => _localizedValues[locale.languageCode]?['clear_explanations'] ?? 'Clear explanations';
+  String get quickSearch => _localizedValues[locale.languageCode]?['quick_search'] ?? 'Quick Search';
+  String get instantSearch => _localizedValues[locale.languageCode]?['instant_search'] ?? 'Instant search';
+  String get favorites => _localizedValues[locale.languageCode]?['favorites'] ?? 'Favorites';
+  String get saveImportant => _localizedValues[locale.languageCode]?['save_important'] ?? 'Save important';
+  String get seeNews => _localizedValues[locale.languageCode]?['see_news'] ?? 'See news';
+  String get section => _localizedValues[locale.languageCode]?['section'] ?? 'Section';
+  String get helloWhatToStudy => _localizedValues[locale.languageCode]?['hello_what_to_study'] ?? 'Hello, what to study?';
+  String get mySubjects => _localizedValues[locale.languageCode]?['my_subjects'] ?? 'My Subjects';
+  String get management => _localizedValues[locale.languageCode]?['management'] ?? 'Management';
+  String get addSubjects => _localizedValues[locale.languageCode]?['add_subjects'] ?? 'Add Subjects';
+  String get removeSubjects => _localizedValues[locale.languageCode]?['remove_subjects'] ?? 'Remove Subjects';
+  String get recommended => _localizedValues[locale.languageCode]?['recommended'] ?? 'Recommended';
+  String get allSubjectsAdded => _localizedValues[locale.languageCode]?['all_subjects_added'] ?? 'All subjects added';
+  String get allSubjectsMessage => _localizedValues[locale.languageCode]?['all_subjects_message'] ?? 'All subjects message';
+  String get noSubjectsToRemove => _localizedValues[locale.languageCode]?['no_subjects_to_remove'] ?? 'No subjects to remove';
+  String get addSubjectsMessage => _localizedValues[locale.languageCode]?['add_subjects_message'] ?? 'Add subjects message';
+  String get noSelectedSubjects => _localizedValues[locale.languageCode]?['no_selected_subjects'] ?? 'No selected subjects';
+  String get addSubjectsToLearn => _localizedValues[locale.languageCode]?['add_subjects_to_learn'] ?? 'Add subjects to learn';
+  String get addSubjectsButton => _localizedValues[locale.languageCode]?['add_subjects_button'] ?? 'Add Subjects';
+  String get startedTopics => _localizedValues[locale.languageCode]?['started_topics'] ?? 'Started Topics';
+  String get studySomeTopics => _localizedValues[locale.languageCode]?['study_some_topics'] ?? 'Study some topics';
+  String get startStudying => _localizedValues[locale.languageCode]?['start_studying'] ?? 'Start Studying';
+  String get friendsCount => _localizedValues[locale.languageCode]?['friends'] ?? 'friends';
+  String get since => _localizedValues[locale.languageCode]?['since'] ?? 'Since';
+  String get studiedSubjects => _localizedValues[locale.languageCode]?['studied_subjects'] ?? 'Studied Subjects';
+  String get achievementsCompleted => _localizedValues[locale.languageCode]?['achievements_completed'] ?? 'completed';
+  String get xpEarned => _localizedValues[locale.languageCode]?['xp_earned'] ?? 'XP earned';
+  String get topicsCompleted => _localizedValues[locale.languageCode]?['topics_completed'] ?? 'Topics completed';
+  String get yourXp => _localizedValues[locale.languageCode]?['your_xp'] ?? 'Your XP';
+  String get latestNews => _localizedValues[locale.languageCode]?['latest_news'] ?? 'Latest News';
+  String get newUnread => _localizedValues[locale.languageCode]?['new_unread'] ?? 'NEW';
+  String get read => _localizedValues[locale.languageCode]?['read'] ?? 'READ';
+  String get updatedToday => _localizedValues[locale.languageCode]?['updated_today'] ?? 'Updated today';
+  String get youreLegend => _localizedValues[locale.languageCode]?['youre_legend'] ?? 'You\'re legend';
+  String get almostAtTop => _localizedValues[locale.languageCode]?['almost_at_top'] ?? 'Almost at top';
+  String get excellentResult => _localizedValues[locale.languageCode]?['excellent_result'] ?? 'Excellent result';
+  String get greatWorkTop => _localizedValues[locale.languageCode]?['great_work_top'] ?? 'Great work top';
+  String get goodProgress => _localizedValues[locale.languageCode]?['good_progress'] ?? 'Good progress';
+  String get notBadAimHigher => _localizedValues[locale.languageCode]?['not_bad_aim_higher'] ?? 'Not bad aim higher';
+  String get goodStart => _localizedValues[locale.languageCode]?['good_start'] ?? 'Good start';
+  String get beginnerAhead => _localizedValues[locale.languageCode]?['beginner_ahead'] ?? 'Beginner ahead';
+  String get reviewQuestions => _localizedValues[locale.languageCode]?['review_questions'] ?? 'Review Questions';
+  String get startedTopicsQuestions => _localizedValues[locale.languageCode]?['started_topics_questions'] ?? 'Started topics questions';
+  String get startLearningTopics => _localizedValues[locale.languageCode]?['start_learning_topics'] ?? 'Start learning topics';
+  String get gradesActive => _localizedValues[locale.languageCode]?['grades_active'] ?? 'Grades active';
+  String get questionsTotal => _localizedValues[locale.languageCode]?['questions_total'] ?? 'Questions total';
+  String get startedTopicsCount => _localizedValues[locale.languageCode]?['started_topics_count'] ?? 'Started topics count';
+  String get subjectAdded => _localizedValues[locale.languageCode]?['subjectAdded'] ?? 'Subject added';
+  String get subjectRemoved => _localizedValues[locale.languageCode]?['subjectRemoved'] ?? 'Subject removed';
+  String get excellentProgress => _localizedValues[locale.languageCode]?['excellentProgress'] ?? 'Excellent progress';
+  String get goodResult => _localizedValues[locale.languageCode]?['goodResult'] ?? 'Good result';
+  String get youAlreadyHave => _localizedValues[locale.languageCode]?['youAlreadyHave'] ?? 'You already have';
+  String get moveForward => _localizedValues[locale.languageCode]?['moveForward'] ?? 'Move forward';
+  String get passFirstTestAndGetXP => _localizedValues[locale.languageCode]?['passFirstTestAndGetXP'] ?? 'Pass first test';
+  String get noData => _localizedValues[locale.languageCode]?['noData'] ?? 'No data';
+  String get mockFriend1Name => _localizedValues[locale.languageCode]?['mockFriend1Name'] ?? 'Alexander Ivanov';
+  String get mockFriend2Name => _localizedValues[locale.languageCode]?['mockFriend2Name'] ?? 'Maria Petrova';
+  String get mockFriend3Name => _localizedValues[locale.languageCode]?['mockFriend3Name'] ?? 'Ivan Sidorov';
+  String get mockTestFriend1 => _localizedValues[locale.languageCode]?['mockTestFriend1'] ?? 'Test friend 1';
+  String get unknown => _localizedValues[locale.languageCode]?['unknown'] ?? 'Unknown';
+  String get noName => _localizedValues[locale.languageCode]?['noName'] ?? 'No name';
+  String get inRow => _localizedValues[locale.languageCode]?['inRow'] ?? 'in a row';
+  String get earned => _localizedValues[locale.languageCode]?['earned'] ?? 'earned';
+  String get premium => _localizedValues[locale.languageCode]?['premium'] ?? 'Premium';
 }
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

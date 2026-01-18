@@ -14,7 +14,7 @@ class DictionaryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appLocalizations = AppLocalizations.of(context)!;
+    final appLocalizations = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
@@ -62,7 +62,7 @@ class DictionaryScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Раздел',
+                          appLocalizations.section,
                           style: TextStyle(
                             fontSize: 14,
                             color: theme.hintColor,
@@ -151,7 +151,7 @@ class DictionaryScreen extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Термины и определения',
+                                      appLocalizations.termsAndDefinitions,
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
@@ -160,7 +160,7 @@ class DictionaryScreen extends StatelessWidget {
                                     ),
                                     SizedBox(height: 8),
                                     Text(
-                                      'Все важные понятия из школьной программы в одном месте',
+                                      appLocalizations.allConcepts,
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: theme.hintColor,
@@ -178,7 +178,7 @@ class DictionaryScreen extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: Text(
-                          'Статус',
+                          appLocalizations.developmentStatus,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -219,7 +219,7 @@ class DictionaryScreen extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'В разработке',
+                                      appLocalizations.inDevelopment,
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
@@ -227,7 +227,7 @@ class DictionaryScreen extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      'Раздел находится в активной разработке',
+                                      appLocalizations.activelyDeveloped,
                                       style: TextStyle(
                                         fontSize: 13,
                                         color: theme.hintColor,
@@ -245,7 +245,7 @@ class DictionaryScreen extends StatelessWidget {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
                         child: Text(
-                          'Что будет в словаре',
+                          appLocalizations.dictionaryPreview,
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -260,8 +260,8 @@ class DictionaryScreen extends StatelessWidget {
                           children: [
                             _buildFeatureCard(
                               context: context,
-                              title: 'Термины по предметам',
-                              description: 'Все важные понятия из разных школьных предметов',
+                              title: appLocalizations.subjectTerms,
+                              description: appLocalizations.subjectConcepts,
                               icon: Icons.category_rounded,
                               color: Colors.blue,
                               isDark: isDark,
@@ -269,8 +269,8 @@ class DictionaryScreen extends StatelessWidget {
                             SizedBox(height: 12),
                             _buildFeatureCard(
                               context: context,
-                              title: 'Подробные определения',
-                              description: 'Понятные объяснения с примерами и иллюстрациями',
+                              title: appLocalizations.detailedDefinitions,
+                              description: appLocalizations.clearExplanations,
                               icon: Icons.article_rounded,
                               color: Colors.green,
                               isDark: isDark,
@@ -278,8 +278,8 @@ class DictionaryScreen extends StatelessWidget {
                             SizedBox(height: 12),
                             _buildFeatureCard(
                               context: context,
-                              title: 'Быстрый поиск',
-                              description: 'Находите термины мгновенно по названию или теме',
+                              title: appLocalizations.quickSearch,
+                              description: appLocalizations.instantSearch,
                               icon: Icons.search_rounded,
                               color: Colors.purple,
                               isDark: isDark,
@@ -287,8 +287,8 @@ class DictionaryScreen extends StatelessWidget {
                             SizedBox(height: 12),
                             _buildFeatureCard(
                               context: context,
-                              title: 'Избранное',
-                              description: 'Сохраняйте важные термины для быстрого доступа',
+                              title: appLocalizations.favorites,
+                              description: appLocalizations.saveImportant,
                               icon: Icons.star_rounded,
                               color: Colors.amber,
                               isDark: isDark,
@@ -298,7 +298,6 @@ class DictionaryScreen extends StatelessWidget {
                       ),
 
                       // Кнопка уведомления
-                      // Вместо существующей кнопки уведомления:
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                         child: Container(
@@ -324,7 +323,7 @@ class DictionaryScreen extends StatelessWidget {
                                 Icon(Icons.newspaper_rounded, size: 20),
                                 SizedBox(width: 8),
                                 Text(
-                                  'Посмотреть новости и обновления',
+                                  appLocalizations.seeNews,
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,

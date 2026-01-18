@@ -291,7 +291,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
             title: 'Добавлен экран новостей в обновлении 0.42.0',
             description: 'Мы рады сообщить о выходе обновления 0.42.0! Теперь в приложении появился новый раздел "Новости", где вы можете следить за всеми обновлениями и важными анонсами.',
             date: '18 января 2025',
-            imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Обновление+0.42.0',
+            imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Update+0.42.0',
             category: 'Обновления',
             isRead: prefs.getBool('news_1_read') ?? false,
           ),
@@ -307,7 +307,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
           title: 'Добавлен экран новостей в обновлении 0.42.0',
           description: 'Мы рады сообщить о выходе обновления 0.42.0! Теперь в приложении появился новый раздел "Новости", где вы можете следить за всеми обновлениями и важными анонсами.',
           date: '18 января 2025',
-          imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Обновление+0.42.0',
+          imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Update+0.42.0',
           category: 'Обновления',
           isRead: false,
         ),
@@ -606,7 +606,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
         _selectedSubjects.add(subject);
       });
       _saveSelectedSubjects();
-      _showSnackBar('Предмет "$subject" добавлен');
+      _showSnackBar('${AppLocalizations.of(context).subjectAdded}: "$subject"');
     }
   }
 
@@ -620,7 +620,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
         _selectedSubjects.removeAt(index);
       });
       _saveSelectedSubjects();
-      _showSnackBar('Предмет "$subject" удален');
+      _showSnackBar('${AppLocalizations.of(context).subjectRemoved}: "$subject"');
     }
   }
 
@@ -630,6 +630,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final appLocalizations = AppLocalizations.of(context);
 
     showModalBottomSheet(
       context: context,
@@ -654,6 +655,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
           await _triggerVibration();
           _removeSubject(subject);
         },
+        appLocalizations: appLocalizations,
       ),
     ).then((_) {
       // После закрытия диалога обновляем список предметов
@@ -855,6 +857,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     final primaryColor = theme.colorScheme.primary;
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
+    final appLocalizations = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -957,7 +960,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Привет, что будем изучать сегодня?',
+                                  appLocalizations.helloWhatToStudy,
                                   style: TextStyle(
                                     fontSize: isSmallScreen ? 12 : 14,
                                     color: theme.hintColor,
@@ -967,7 +970,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  _username.isNotEmpty ? _username : 'Гость',
+                                  _username.isNotEmpty ? _username : appLocalizations.guest,
                                   style: TextStyle(
                                     fontSize: isSmallScreen ? 16 : 20,
                                     fontWeight: FontWeight.bold,
@@ -1136,7 +1139,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                     // Название "Мои предметы"
                     Expanded(
                       child: Text(
-                        'Мои предметы',
+                        appLocalizations.mySubjects,
                         style: TextStyle(
                           fontSize: isSmallScreen ? 18 : 22,
                           fontWeight: FontWeight.bold,
@@ -1187,7 +1190,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                                         SizedBox(width: 8),
                                         Flexible(
                                           child: Text(
-                                            'Управление',
+                                            appLocalizations.management,
                                             style: TextStyle(
                                               fontSize: isSmallScreen ? 12 : 14,
                                               fontWeight: FontWeight.w600,
@@ -1269,6 +1272,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                         _saveSelectedSubjects();
                       },
                       onSubjectTap: _openSubjectInfo,
+                      appLocalizations: appLocalizations,
                     ),
                   ),
                 ),
@@ -1281,6 +1285,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
   }
 
   Widget _buildCardContent(int state, ThemeData theme, bool isDark, Color primaryColor) {
+    final appLocalizations = AppLocalizations.of(context);
+
     switch (state) {
       case 0: // XP
         return _buildXPCardContent(theme, isDark, primaryColor);
@@ -1297,6 +1303,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     final isMediumScreen = screenWidth < 400;
+    final appLocalizations = AppLocalizations.of(context);
 
     return Row(
       key: ValueKey('xp'),
@@ -1327,7 +1334,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Твой опыт',
+                    appLocalizations.yourXp,
                     style: TextStyle(
                       fontSize: isSmallScreen ? 12 : 14,
                       color: theme.hintColor,
@@ -1383,6 +1390,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     final isMediumScreen = screenWidth < 400;
+    final appLocalizations = AppLocalizations.of(context);
 
     // Проверяем есть ли непрочитанные новости
     bool hasUnreadNews = _newsItems.any((news) => !news.isRead);
@@ -1416,7 +1424,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Последняя новость',
+                    appLocalizations.latestNews,
                     style: TextStyle(
                       fontSize: isSmallScreen ? 12 : 14,
                       color: theme.hintColor,
@@ -1432,7 +1440,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      hasUnreadNews ? 'НОВАЯ' : 'ПРОЧИТАНО',
+                      hasUnreadNews ? appLocalizations.newUnread : appLocalizations.read,
                       style: TextStyle(
                         fontSize: isSmallScreen ? 10 : 12,
                         color: hasUnreadNews ? Colors.red : Colors.blue,
@@ -1455,7 +1463,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
               ),
               SizedBox(height: isSmallScreen ? 2 : 4),
               Text(
-                _newsItems.isNotEmpty ? _newsItems[0].date : 'Обновлено сегодня',
+                _newsItems.isNotEmpty ? _newsItems[0].date : appLocalizations.updatedToday,
                 style: TextStyle(
                   fontSize: isSmallScreen ? 10 : 12,
                   color: theme.hintColor,
@@ -1472,6 +1480,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
     final isMediumScreen = screenWidth < 400;
+    final appLocalizations = AppLocalizations.of(context);
 
     String userLeague = _determineLeagueByXP(_userStats.totalXP);
     Color leagueColor = _getLeagueColor(userLeague);
@@ -1505,7 +1514,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Твоя лига',
+                    appLocalizations.yourLeague,
                     style: TextStyle(
                       fontSize: isSmallScreen ? 12 : 14,
                       color: theme.hintColor,
@@ -1521,7 +1530,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'ЛИГА',
+                      appLocalizations.league,
                       style: TextStyle(
                         fontSize: isSmallScreen ? 10 : 12,
                         color: leagueColor,
@@ -1605,16 +1614,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
   }
 
   String _getLeagueMessage(String league) {
+    final appLocalizations = AppLocalizations.of(context);
+
     switch (league) {
-      case 'Нереальная': return 'Ты легенда! Продолжай в том же духе';
-      case 'Легендарная': return 'Почти на вершине! Осталось немного';
-      case 'Элитная': return 'Отличный результат! Продолжай развиваться';
-      case 'Бриллиантовая': return 'Отличная работа! Ты в топе игроков';
-      case 'Платиновая': return 'Хороший прогресс! Двигайся дальше';
-      case 'Золотая': return 'Неплохо! Стремись к большему';
-      case 'Серебряная': return 'Хороший старт! Развивайся дальше';
-      case 'Бронзовая': return 'Начинающий! Все впереди';
-      default: return 'Начинающий! Все впереди';
+      case 'Нереальная': return appLocalizations.youreLegend;
+      case 'Легендарная': return appLocalizations.almostAtTop;
+      case 'Элитная': return appLocalizations.excellentResult;
+      case 'Бриллиантовая': return appLocalizations.greatWorkTop;
+      case 'Платиновая': return appLocalizations.goodProgress;
+      case 'Золотая': return appLocalizations.notBadAimHigher;
+      case 'Серебряная': return appLocalizations.goodStart;
+      case 'Бронзовая': return appLocalizations.beginnerAhead;
+      default: return appLocalizations.beginnerAhead;
     }
   }
 
@@ -1623,16 +1634,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
   }
 
   String _getMotivationMessage() {
+    final appLocalizations = AppLocalizations.of(context);
+
     if (_userStats.totalXP >= 5000) {
-      return 'Отличная работа! Ты набрал уже ${_userStats.totalXP} XP';
+      return '${appLocalizations.excellentWork} ${appLocalizations.youEarnedXP} ${_userStats.totalXP} XP';
     } else if (_userStats.totalXP >= 1000) {
-      return 'У тебя ${_userStats.totalXP} XP. Отличный прогресс!';
+      return '${appLocalizations.youEarnedXP} ${_userStats.totalXP} XP. ${appLocalizations.excellentProgress}';
     } else if (_userStats.totalXP >= 500) {
-      return '${_userStats.totalXP} XP - хороший результат!';
+      return '${_userStats.totalXP} XP - ${appLocalizations.goodResult}';
     } else if (_userStats.totalXP >= 100) {
-      return 'У тебя уже ${_userStats.totalXP} XP. Двигайся дальше!';
+      return '${appLocalizations.youAlreadyHave} ${_userStats.totalXP} XP. ${appLocalizations.moveForward}';
     } else {
-      return 'Пройди первый тест и получи свои первые XP!';
+      return appLocalizations.passFirstTestAndGetXP;
     }
   }
 
@@ -1681,7 +1694,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
             _buildBottomNavItem(
               index: 3,
               icon: Icons.star_rounded,
-              label: 'Premium',
+              label: appLocalizations.premium,
               isDark: isDark,
             ),
             _buildBottomNavItem(
@@ -1768,6 +1781,7 @@ class _SubjectsDialog extends StatefulWidget {
   final IconData Function(String) getSubjectIcon;
   final Function(String) onAddSubject;
   final Function(String) onRemoveSubject;
+  final AppLocalizations appLocalizations;
 
   const _SubjectsDialog({
     required this.theme,
@@ -1778,6 +1792,7 @@ class _SubjectsDialog extends StatefulWidget {
     required this.getSubjectIcon,
     required this.onAddSubject,
     required this.onRemoveSubject,
+    required this.appLocalizations,
   });
 
   @override
@@ -1875,7 +1890,7 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _isAddingMode ? 'Добавить предметы' : 'Удалить предметы',
+                  _isAddingMode ? widget.appLocalizations.addSubjects : widget.appLocalizations.removeSubjects,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1915,7 +1930,7 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
                         ),
                         child: Center(
                           child: Text(
-                            'Добавить',
+                            widget.appLocalizations.addSubjects,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -1939,7 +1954,7 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
                         ),
                         child: Center(
                           child: Text(
-                            'Удалить',
+                            widget.appLocalizations.removeSubjects,
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -2011,7 +2026,7 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
               Align(
                 alignment: Alignment.center,
                 child: Text(
-                  'Все предметы добавлены',
+                  widget.appLocalizations.allSubjectsAdded,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -2023,7 +2038,7 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
               Align(
                 alignment: Alignment.center,
                 child: Text(
-                  'Вы добавили все доступные предметы',
+                  widget.appLocalizations.allSubjectsMessage,
                   style: TextStyle(
                     fontSize: 14,
                     color: widget.theme.hintColor,
@@ -2147,7 +2162,7 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
               Align(
                 alignment: Alignment.center,
                 child: Text(
-                  'Нет предметов для удаления',
+                  widget.appLocalizations.noSubjectsToRemove,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -2159,7 +2174,7 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
               Align(
                 alignment: Alignment.center,
                 child: Text(
-                  'Добавьте предметы в список изучения',
+                  widget.appLocalizations.addSubjectsMessage,
                   style: TextStyle(
                     fontSize: 14,
                     color: widget.theme.hintColor,
@@ -2263,6 +2278,7 @@ class _SubjectsList extends StatefulWidget {
   final Color Function(String) getSubjectColor;
   final void Function(int, int) onReorder;
   final void Function(String) onSubjectTap;
+  final AppLocalizations appLocalizations;
 
   const _SubjectsList({
     required this.selectedSubjects,
@@ -2271,6 +2287,7 @@ class _SubjectsList extends StatefulWidget {
     required this.getSubjectColor,
     required this.onReorder,
     required this.onSubjectTap,
+    required this.appLocalizations,
   });
 
   @override
@@ -2451,7 +2468,7 @@ class _SubjectsListState extends State<_SubjectsList> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Прогресс',
+                        widget.appLocalizations.progress,
                         style: TextStyle(
                           fontSize: 14,
                           color: theme.hintColor,
@@ -2509,7 +2526,7 @@ class _SubjectsListState extends State<_SubjectsList> {
             ),
             SizedBox(height: 24),
             Text(
-              'Нет выбранных предметов',
+              widget.appLocalizations.noSelectedSubjects,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -2518,7 +2535,7 @@ class _SubjectsListState extends State<_SubjectsList> {
             ),
             SizedBox(height: 12),
             Text(
-              'Добавьте предметы для обучения',
+              widget.appLocalizations.addSubjectsToLearn,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -2541,7 +2558,7 @@ class _SubjectsListState extends State<_SubjectsList> {
                 shadowColor: Colors.transparent,
               ),
               child: Text(
-                'Добавить предметы',
+                widget.appLocalizations.addSubjectsButton,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
