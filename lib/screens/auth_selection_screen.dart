@@ -79,6 +79,44 @@ class AuthSelectionScreen extends StatelessWidget {
               // Кнопки авторизации
               Column(
                 children: [
+                  // Кнопка Google
+                  OutlinedButton(
+                    onPressed: () async {
+                      // TODO: Добавить логику Google Sign-In
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('Google Sign-In (в разработке)'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.black87,
+                      side: BorderSide(color: Colors.grey[300]!),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      minimumSize: const Size(double.infinity, 56),
+                      backgroundColor: Colors.white,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SimpleGoogleIcon(),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Продолжить с Google',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
                   // Кнопка входа
                   FilledButton(
                     onPressed: () {
@@ -91,7 +129,9 @@ class AuthSelectionScreen extends StatelessWidget {
                       backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       minimumSize: const Size(double.infinity, 56),
                     ),
                     child: Text(
@@ -116,7 +156,9 @@ class AuthSelectionScreen extends StatelessWidget {
                       foregroundColor: Theme.of(context).colorScheme.onBackground,
                       side: BorderSide(color: Theme.of(context).colorScheme.outline),
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       minimumSize: const Size(double.infinity, 56),
                     ),
                     child: Text(
@@ -132,6 +174,32 @@ class AuthSelectionScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SimpleGoogleIcon extends StatelessWidget {
+  const SimpleGoogleIcon({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.grey[200], // Серый фон
+      ),
+      child: const Center(
+        child: Text(
+          'G',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
           ),
         ),
       ),

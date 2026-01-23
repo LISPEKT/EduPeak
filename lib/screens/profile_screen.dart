@@ -678,7 +678,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: _buildStatCard(
                                 title: appLocalizations.daysInRow,
                                 value: '${_userStats.streakDays}',
-                                subtitle: appLocalizations.inRow,
                                 color: Colors.orange,
                                 icon: Icons.local_fire_department_rounded,
                                 isDark: isDark,
@@ -690,7 +689,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: _buildStatCard(
                                 title: appLocalizations.xpEarned,
                                 value: '$_totalXP',
-                                subtitle: appLocalizations.earned,
                                 color: Colors.green,
                                 icon: Icons.leaderboard_rounded,
                                 isDark: isDark,
@@ -702,7 +700,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: _buildStatCard(
                                 title: appLocalizations.topicsCompleted,
                                 value: '$_completedTopics',
-                                subtitle: appLocalizations.completed,
                                 color: Colors.blue,
                                 icon: Icons.check_circle_rounded,
                                 isDark: isDark,
@@ -821,7 +818,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildStatCard({
     required String title,
     required String value,
-    required String subtitle,
     required Color color,
     required IconData icon,
     required bool isDark,
@@ -879,13 +875,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: theme.textTheme.titleMedium?.color,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.hintColor,
               ),
             ),
           ],

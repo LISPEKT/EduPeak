@@ -19,9 +19,36 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models/user_stats.dart';
 import 'screens/get_xp_screen.dart'; // Экран после теста (XPScreen)
 import 'screens/xp_stats_screen.dart'; // График опыта (XPStatsScreen)
+import 'firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+// Фоновая обработка сообщений - должна быть объявлена на верхнем уровне
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print("Handling a background message: ${message.messageId}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    // Инициализируем Firebase
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print('✅ Firebase initialized successfully');
+
+    // Настраиваем Firebase Messaging
+    await _setupFirebaseMessaging();
+
+  } catch (e) {
+    print('❌ Firebase initialization error: $e');
+    print('⚠️ Continuing without Firebase...');
+  }
 
   runApp(MultiProvider(
     providers: [
@@ -33,6 +60,56 @@ void main() async {
     ],
     child: const MyApp(),
   ));
+}
+
+Future<void> _setupFirebaseMessaging() async {
+  try {
+    final messaging = FirebaseMessaging.instance;
+
+    // Запрашиваем разрешения (для iOS)
+    NotificationSettings settings = await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+
+    print('User granted permission: ${settings.authorizationStatus}');
+
+    // Регистрируем обработчик фоновых сообщений
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // Получаем токен устройства и сохраняем его
+    String? token = await messaging.getToken();
+    print('FCM Token: $token');
+
+    // Сохраняем токен в SharedPreferences
+    if (token != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('fcm_token', token);
+      print('✅ FCM token saved to SharedPreferences');
+    }
+
+    // Обработка сообщений, когда приложение в foreground
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('Got a message whilst in the foreground!');
+      print('Message data: ${message.data}');
+
+      if (message.notification != null) {
+        print('Message also contained a notification: ${message.notification}');
+      }
+    });
+
+    // Обработка сообщений, когда приложение было открыто из фонового состояния
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print('A new onMessageOpenedApp event was published!');
+      print('Message data: ${message.data}');
+    });
+
+    print('✅ Firebase Messaging configured successfully');
+  } catch (e) {
+    print('⚠️ Firebase Messaging setup failed: $e');
+  }
 }
 
 class MyApp extends StatelessWidget {

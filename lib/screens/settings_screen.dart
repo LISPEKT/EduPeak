@@ -12,6 +12,8 @@ import '../localization.dart';
 import '../language_manager.dart';
 import '../services/region_manager.dart';
 import '../models/region.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -30,9 +32,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isSendingFeedback = false;
   bool _isResettingProgress = false;
+  bool _showDeveloperOptions = false;
+  int _aboutAppTapCount = 0;
+  String? _fcmToken;
+  bool _isLoadingToken = false;
 
   static const String _botToken = '8326804174:AAE0KfB3X1MIuW4YE9mT2zbl7eAnw4OHDJ4';
   static const String _chatId = '1236849662';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDeveloperSettings();
+  }
+
+  Future<void> _loadDeveloperSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _showDeveloperOptions = prefs.getBool('show_developer_options') ?? false;
+    });
+  }
+
+  Future<void> _loadFCMToken() async {
+    setState(() {
+      _isLoadingToken = true;
+    });
+
+    try {
+      // Сначала пробуем получить из SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      String? savedToken = prefs.getString('fcm_token');
+
+      if (savedToken != null && savedToken.isNotEmpty) {
+        print('📱 FCM Token из SharedPreferences: $savedToken');
+        setState(() {
+          _fcmToken = savedToken;
+        });
+        return;
+      }
+
+      // Если нет в SharedPreferences, получаем новый
+      final messaging = FirebaseMessaging.instance;
+      final token = await messaging.getToken();
+      print('📱 FCM Token получен из Firebase: $token');
+
+      // Сохраняем для будущего использования
+      if (token != null) {
+        await prefs.setString('fcm_token', token);
+      }
+
+      setState(() {
+        _fcmToken = token;
+      });
+    } catch (e) {
+      print('❌ Ошибка получения FCM токена: $e');
+      setState(() {
+        _fcmToken = 'Ошибка: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoadingToken = false;
+      });
+    }
+  }
+
+  void _handleAboutAppTap() async {
+    setState(() {
+      _aboutAppTapCount++;
+    });
+
+    if (_aboutAppTapCount >= 20 && !_showDeveloperOptions) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('show_developer_options', true);
+
+      setState(() {
+        _showDeveloperOptions = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Опции разработчика разблокированы!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -449,37 +535,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 16),
 
                     // Информация о приложении
-                    _buildSectionCard(
-                      title: appLocalizations.aboutApp,
-                      subtitle: 'Версия и контактная информация',
-                      icon: Icons.info_rounded,
-                      iconColor: primaryColor,
-                      isDark: isDark,
-                      child: Column(
-                        children: [
-                          _buildInfoRow(
-                            title: appLocalizations.version,
-                            value: 'alpha 0.42.1',
-                          ),
-                          const SizedBox(height: 12),
-                          _buildInfoRow(
-                            title: appLocalizations.developer,
-                            value: 'Murlit Studio',
-                          ),
-                          const SizedBox(height: 12),
-                          _buildInfoRow(
-                            title: appLocalizations.support,
-                            value: 'Telegram: @lispekt',
-                          ),
-                          const SizedBox(height: 12),
-                          _buildInfoRow(
-                            title: appLocalizations.buildDate,
-                            value: '18.01.2026',
-                          ),
-                        ],
+                    GestureDetector(
+                      onTap: _handleAboutAppTap,
+                      child: _buildSectionCard(
+                        title: appLocalizations.aboutApp,
+                        subtitle: 'Версия и контактная информация',
+                        icon: Icons.info_rounded,
+                        iconColor: primaryColor,
+                        isDark: isDark,
+                        child: Column(
+                          children: [
+                            _buildInfoRow(
+                              title: appLocalizations.version,
+                              value: 'alpha 0.42.1',
+                            ),
+                            const SizedBox(height: 12),
+                            _buildInfoRow(
+                              title: appLocalizations.developer,
+                              value: 'Murlit Studio',
+                            ),
+                            const SizedBox(height: 12),
+                            _buildInfoRow(
+                              title: appLocalizations.support,
+                              value: 'Telegram: @lispekt',
+                            ),
+                            const SizedBox(height: 12),
+                            _buildInfoRow(
+                              title: appLocalizations.buildDate,
+                              value: '18.01.2026',
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Параметры разработчика (появляется после 20 нажатий)
+                    if (_showDeveloperOptions)
+                      _buildSectionCard(
+                        title: 'Параметры разработчика',
+                        subtitle: 'Служебные настройки для отладки',
+                        icon: Icons.developer_mode_rounded,
+                        iconColor: Colors.deepPurple,
+                        isDark: isDark,
+                        child: Column(
+                          children: [
+                            // Показать FCM токен
+                            _buildDeveloperOption(
+                              title: 'FCM Токен',
+                              subtitle: 'Токен Firebase Cloud Messaging',
+                              icon: Icons.notifications_active_rounded,
+                              color: Colors.deepPurple,
+                              onTap: () {
+                                if (_fcmToken == null && !_isLoadingToken) {
+                                  _loadFCMToken();
+                                }
+                                _showFCMTokenDialog();
+                              },
+                              showLoading: _isLoadingToken,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    if (_showDeveloperOptions) const SizedBox(height: 16),
 
                     // Выход из аккаунта
                     _buildSectionCard(
@@ -717,6 +836,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildDeveloperOption({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    bool showLoading = false,
+  }) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 18,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textTheme.titleMedium?.color,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.hintColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showLoading)
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: color,
+                ),
+              )
+            else
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: theme.hintColor,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildInfoRow({
     required String title,
     required String value,
@@ -742,6 +939,159 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showFCMTokenDialog() {
+    final theme = Theme.of(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.notifications_active_rounded,
+                  color: Colors.deepPurple,
+                  size: 30,
+                ),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'FCM Токен устройства',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+              ),
+              SizedBox(height: 12),
+              if (_isLoadingToken)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: CircularProgressIndicator(
+                    color: Colors.deepPurple,
+                  ),
+                )
+              else if (_fcmToken != null && _fcmToken!.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.deepPurple.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Токен:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.hintColor,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      GestureDetector(
+                        onLongPress: () {
+                          Clipboard.setData(ClipboardData(text: _fcmToken!));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Токен скопирован в буфер обмена'),
+                              backgroundColor: Colors.green,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          );
+                        },
+                        child: SelectableText(
+                          _fcmToken!,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontFamily: 'monospace',
+                            color: theme.textTheme.titleMedium?.color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Column(
+                  children: [
+                    Text(
+                      'Не удалось получить токен',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: theme.hintColor,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: () {
+                        _loadFCMToken();
+                        Navigator.pop(context);
+                        _showFCMTokenDialog();
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text('Попробовать снова'),
+                    ),
+                  ],
+                ),
+              SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Закрыть',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

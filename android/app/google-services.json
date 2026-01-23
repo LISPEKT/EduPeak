@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "172492669144",
+    "project_id": "edupeak-studyapp",
+    "storage_bucket": "edupeak-studyapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:172492669144:android:f3b1fa06caaf1ea66617ad",
+        "android_client_info": {
+          "package_name": "com.example.edupeak"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWHTjplTxDi6sk0OAteBTtLZJL9bya9c0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

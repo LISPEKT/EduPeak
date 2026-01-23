@@ -27,9 +27,22 @@ dependencies:
   cookie_jar: ^4.0.8
   dio_cookie_manager: ^3.0.0
   cookie_store: ^0.4.0
-  google_sign_in: ^6.2.0
-  firebase_core: ^2.25.0
-  firebase_auth: ^4.18.2
+
+  # Google Sign-In и Firebase
+  google_sign_in: ^7.2.0
+  firebase_core: ^4.3.0
+  firebase_auth: ^6.1.4
+
+  # Дополнительно для Firebase (совместимые версии)
+  firebase_core_platform_interface: ^6.0.0
+  firebase_auth_platform_interface: ^8.1.5
+
+  # Дополнительные пакеты которые могут быть полезны
+  cached_network_image: ^3.3.0
+  connectivity_plus: ^7.0.0
+  flutter_svg: ^2.0.9
+  intl: ^0.20.2
+  firebase_messaging: ^16.1.0
 
 dev_dependencies:
   flutter_test:
