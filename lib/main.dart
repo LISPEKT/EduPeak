@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+
+// Основные импорты приложения
 import 'theme/app_theme.dart';
 import 'screens/main_screen.dart';
 import 'screens/auth_screen.dart';
@@ -17,38 +19,19 @@ import 'data/repositories/auth_repository.dart';
 import 'services/session_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'models/user_stats.dart';
-import 'screens/get_xp_screen.dart'; // Экран после теста (XPScreen)
-import 'screens/xp_stats_screen.dart'; // График опыта (XPStatsScreen)
-import 'firebase_options.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-
-// Фоновая обработка сообщений - должна быть объявлена на верхнем уровне
-@pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print("Handling a background message: ${message.messageId}");
-}
+import 'screens/get_xp_screen.dart';
+import 'screens/xp_stats_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    // Инициализируем Firebase
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    print('✅ Firebase initialized successfully');
+  // Настройка ориентации (опционально)
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
-    // Настраиваем Firebase Messaging
-    await _setupFirebaseMessaging();
-
-  } catch (e) {
-    print('❌ Firebase initialization error: $e');
-    print('⚠️ Continuing without Firebase...');
-  }
+  print('🚀 Запуск EduPeak без Firebase');
 
   runApp(MultiProvider(
     providers: [
@@ -60,56 +43,6 @@ void main() async {
     ],
     child: const MyApp(),
   ));
-}
-
-Future<void> _setupFirebaseMessaging() async {
-  try {
-    final messaging = FirebaseMessaging.instance;
-
-    // Запрашиваем разрешения (для iOS)
-    NotificationSettings settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
-
-    print('User granted permission: ${settings.authorizationStatus}');
-
-    // Регистрируем обработчик фоновых сообщений
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-    // Получаем токен устройства и сохраняем его
-    String? token = await messaging.getToken();
-    print('FCM Token: $token');
-
-    // Сохраняем токен в SharedPreferences
-    if (token != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('fcm_token', token);
-      print('✅ FCM token saved to SharedPreferences');
-    }
-
-    // Обработка сообщений, когда приложение в foreground
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print('Got a message whilst in the foreground!');
-      print('Message data: ${message.data}');
-
-      if (message.notification != null) {
-        print('Message also contained a notification: ${message.notification}');
-      }
-    });
-
-    // Обработка сообщений, когда приложение было открыто из фонового состояния
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('A new onMessageOpenedApp event was published!');
-      print('Message data: ${message.data}');
-    });
-
-    print('✅ Firebase Messaging configured successfully');
-  } catch (e) {
-    print('⚠️ Firebase Messaging setup failed: $e');
-  }
 }
 
 class MyApp extends StatelessWidget {
@@ -151,7 +84,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/* ----------  Splash / Auth flow – без изменений  ---------- */
+/* ----------  Splash / Auth flow  ---------- */
 class SplashWrapper extends StatefulWidget {
   const SplashWrapper({super.key});
   @override
@@ -176,7 +109,32 @@ class _SplashWrapperState extends State<SplashWrapper> {
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 800),
         child: _showSplash
-            ? Container(key: const ValueKey('splash'), color: Colors.black)
+            ? Container(
+          key: const ValueKey('splash'),
+          color: Colors.black,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Здесь можно добавить логотип
+                Icon(
+                  Icons.school,
+                  size: 80,
+                  color: Colors.white,
+                ),
+                SizedBox(height: 20),
+                Text(
+                  'EduPeak',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
             : const AuthWrapper(key: ValueKey('auth')),
       ),
     );
@@ -201,29 +159,29 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkAuth() async {
     try {
-      print('🔍 Checking authentication...');
+      print('🔍 Проверка аутентификации...');
 
-      // 1. Проверяем через SharedPreferences напрямую
+      // Проверяем через SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      print('📊 isLoggedIn from SharedPreferences: $isLoggedIn');
+      print('📊 isLoggedIn из SharedPreferences: $isLoggedIn');
 
       if (isLoggedIn) {
-        // 2. Проверяем валидность сессии
+        // Проверяем валидность сессии
         final isSessionValid = await SessionManager.isSessionValid();
-        print('📊 Session valid: $isSessionValid');
+        print('📊 Сессия действительна: $isSessionValid');
 
         if (isSessionValid) {
-          // 3. Обновляем сессию
+          // Обновляем сессию
           await SessionManager.initializeSession();
 
-          // 4. Проверяем тип аккаунта
+          // Проверяем тип аккаунта
           final authMethod = prefs.getString('auth_method');
 
           if (authMethod == 'local') {
-            print('🔐 Local account detected - quick access');
+            print('🔐 Обнаружен локальный аккаунт');
 
-            // 5. Для локального аккаунта создаем UserStats если нет
+            // Для локального аккаунта создаем UserStats если нет
             try {
               final userStats = await UserDataStorage.getUserStats();
               if (userStats.username.isEmpty) {
@@ -240,10 +198,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
                 );
 
                 await UserDataStorage.saveUserStats(initialStats);
-                print('✅ Created minimal user stats for local account');
+                print('✅ Создана базовая статистика для локального аккаунта');
               }
             } catch (e) {
-              print('⚠️ Could not create user stats: $e');
+              print('⚠️ Не удалось создать статистику пользователя: $e');
             }
           }
 
@@ -255,21 +213,21 @@ class _AuthWrapperState extends State<AuthWrapper> {
           return;
         } else {
           // Сессия истекла
-          print('❌ Session expired, clearing...');
+          print('❌ Сессия истекла, очистка...');
           await prefs.remove('isLoggedIn');
           await SessionManager.clearSession();
         }
       }
 
       // Если нет сессии
-      print('❌ No active session');
+      print('❌ Нет активной сессии');
       setState(() {
         _isAuthenticated = false;
         _isLoading = false;
       });
 
     } catch (e) {
-      print('❌ Auth check error: $e');
+      print('❌ Ошибка проверки аутентификации: $e');
       setState(() {
         _isAuthenticated = false;
         _isLoading = false;

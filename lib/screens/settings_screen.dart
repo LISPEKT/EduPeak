@@ -12,7 +12,6 @@ import '../localization.dart';
 import '../language_manager.dart';
 import '../services/region_manager.dart';
 import '../models/region.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/services.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -34,7 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isResettingProgress = false;
   bool _showDeveloperOptions = false;
   int _aboutAppTapCount = 0;
-  String? _fcmToken;
+  String? _deviceToken;
   bool _isLoadingToken = false;
 
   static const String _botToken = '8326804174:AAE0KfB3X1MIuW4YE9mT2zbl7eAnw4OHDJ4';
@@ -53,41 +52,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  Future<void> _loadFCMToken() async {
+  Future<void> _loadDeviceToken() async {
     setState(() {
       _isLoadingToken = true;
     });
 
     try {
-      // Сначала пробуем получить из SharedPreferences
+      // Пробуем получить из SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      String? savedToken = prefs.getString('fcm_token');
+      String? savedToken = prefs.getString('device_token');
 
       if (savedToken != null && savedToken.isNotEmpty) {
-        print('📱 FCM Token из SharedPreferences: $savedToken');
+        print('📱 Device Token из SharedPreferences: $savedToken');
         setState(() {
-          _fcmToken = savedToken;
+          _deviceToken = savedToken;
         });
         return;
       }
 
-      // Если нет в SharedPreferences, получаем новый
-      final messaging = FirebaseMessaging.instance;
-      final token = await messaging.getToken();
-      print('📱 FCM Token получен из Firebase: $token');
+      // Генерируем новый токен устройства
+      final newToken = 'DEVICE_${DateTime.now().millisecondsSinceEpoch}_${UniqueKey().hashCode}';
+      print('📱 Сгенерирован новый Device Token: $newToken');
 
       // Сохраняем для будущего использования
-      if (token != null) {
-        await prefs.setString('fcm_token', token);
-      }
+      await prefs.setString('device_token', newToken);
 
       setState(() {
-        _fcmToken = token;
+        _deviceToken = newToken;
       });
     } catch (e) {
-      print('❌ Ошибка получения FCM токена: $e');
+      print('❌ Ошибка получения токена устройства: $e');
       setState(() {
-        _fcmToken = 'Ошибка: $e';
+        _deviceToken = 'Ошибка: $e';
       });
     } finally {
       setState(() {
@@ -580,17 +576,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         isDark: isDark,
                         child: Column(
                           children: [
-                            // Показать FCM токен
+                            // Показать токен устройства
                             _buildDeveloperOption(
-                              title: 'FCM Токен',
-                              subtitle: 'Токен Firebase Cloud Messaging',
-                              icon: Icons.notifications_active_rounded,
+                              title: 'Токен устройства',
+                              subtitle: 'Уникальный идентификатор устройства',
+                              icon: Icons.device_hub_rounded,
                               color: Colors.deepPurple,
                               onTap: () {
-                                if (_fcmToken == null && !_isLoadingToken) {
-                                  _loadFCMToken();
+                                if (_deviceToken == null && !_isLoadingToken) {
+                                  _loadDeviceToken();
                                 }
-                                _showFCMTokenDialog();
+                                _showDeviceTokenDialog();
                               },
                               showLoading: _isLoadingToken,
                             ),
@@ -942,7 +938,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showFCMTokenDialog() {
+  void _showDeviceTokenDialog() {
     final theme = Theme.of(context);
 
     showDialog(
@@ -973,14 +969,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.notifications_active_rounded,
+                  Icons.device_hub_rounded,
                   color: Colors.deepPurple,
                   size: 30,
                 ),
               ),
               SizedBox(height: 20),
               Text(
-                'FCM Токен устройства',
+                'Токен устройства',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -995,7 +991,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: Colors.deepPurple,
                   ),
                 )
-              else if (_fcmToken != null && _fcmToken!.isNotEmpty)
+              else if (_deviceToken != null && _deviceToken!.isNotEmpty)
                 Container(
                   width: double.infinity,
                   padding: EdgeInsets.all(16),
@@ -1017,7 +1013,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       SizedBox(height: 8),
                       GestureDetector(
                         onLongPress: () {
-                          Clipboard.setData(ClipboardData(text: _fcmToken!));
+                          Clipboard.setData(ClipboardData(text: _deviceToken!));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Токен скопирован в буфер обмена'),
@@ -1028,7 +1024,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                         child: SelectableText(
-                          _fcmToken!,
+                          _deviceToken!,
                           style: TextStyle(
                             fontSize: 13,
                             fontFamily: 'monospace',
@@ -1052,9 +1048,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     SizedBox(height: 16),
                     FilledButton(
                       onPressed: () {
-                        _loadFCMToken();
+                        _loadDeviceToken();
                         Navigator.pop(context);
-                        _showFCMTokenDialog();
+                        _showDeviceTokenDialog();
                       },
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.deepPurple,
