@@ -543,7 +543,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           children: [
                             _buildInfoRow(
                               title: appLocalizations.version,
-                              value: 'alpha 0.42.1',
+                              value: 'alpha 0.42.2',
                             ),
                             const SizedBox(height: 12),
                             _buildInfoRow(

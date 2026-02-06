@@ -3,7 +3,7 @@ description: "Приложение для подтягивания знаний 
 
 publish_to: 'none'
 
-version: 0.42.1
+version: 0.42.2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -27,7 +27,6 @@ dependencies:
   cookie_jar: ^4.0.8
   dio_cookie_manager: ^3.0.0
   cookie_store: ^0.4.0
-  # УДАЛЕНО: google_sign_in, firebase_core, firebase_messaging
   cached_network_image: ^3.3.0
   connectivity_plus: ^7.0.0
   flutter_svg: ^2.0.9
