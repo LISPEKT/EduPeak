@@ -1,8 +1,7 @@
-// friends_screen.dart - РЕДИЗАЙН В MD3 БЕЗ ЗАГЛУШЕК
+// friends_screen.dart - МИНИМАЛИСТИЧНЫЙ МОДЕРН ДИЗАЙН
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../data/user_data_storage.dart';
 import '../localization.dart';
 import 'chat_screen.dart';
 
@@ -11,18 +10,36 @@ class FriendsScreen extends StatefulWidget {
   State<FriendsScreen> createState() => _FriendsScreenState();
 }
 
-class _FriendsScreenState extends State<FriendsScreen> {
+class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProviderStateMixin {
   List<Friend> _friends = [];
   List<FriendRequest> _pendingRequests = [];
-  bool _isLoading = true;
-  final TextEditingController _usernameController = TextEditingController();
   List<User> _searchResults = [];
+  bool _isLoading = true;
   bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+
+  late TabController _tabController;
+  int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleTabChange);
     _loadFriends();
+  }
+
+  void _handleTabChange() {
+    setState(() {
+      _currentTabIndex = _tabController.index;
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFriends() async {
@@ -30,7 +47,6 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
     try {
       final response = await ApiService.getFriends();
-
       if (response['success'] == true) {
         final friendsData = response['friends'] as List;
         final requestsData = response['pending_requests'] as List;
@@ -39,961 +55,626 @@ class _FriendsScreenState extends State<FriendsScreen> {
           _friends = friendsData.map((data) => Friend.fromJson(data)).toList();
           _pendingRequests = requestsData.map((data) => FriendRequest.fromJson(data)).toList();
         });
-      } else {
-        setState(() {
-          _friends = [];
-          _pendingRequests = [];
-        });
       }
     } catch (e) {
       print('Error loading friends: $e');
-      setState(() {
-        _friends = [];
-        _pendingRequests = [];
-      });
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
   Future<void> _searchUsers() async {
-    final username = _usernameController.text.trim();
-    if (username.isEmpty) return;
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
 
     setState(() => _isSearching = true);
 
     try {
-      final response = await ApiService.searchUsers(username);
-
+      final response = await ApiService.searchUsers(query);
       if (response['success'] == true) {
         final usersData = response['users'] as List;
         setState(() {
           _searchResults = usersData.map((data) => User.fromJson(data)).toList();
         });
-      } else {
-        setState(() {
-          _searchResults = [];
-        });
-        _showMessage(AppLocalizations.of(context)!.usersNotFound);
       }
     } catch (e) {
       print('Error searching users: $e');
-      setState(() {
-        _searchResults = [];
-      });
-      _showMessage(AppLocalizations.of(context)!.searchError);
     } finally {
       setState(() => _isSearching = false);
     }
   }
 
   Future<void> _sendFriendRequest(String username) async {
-    final localizations = AppLocalizations.of(context)!;
-
     try {
       final response = await ApiService.sendFriendRequest(username);
-
       if (response['success'] == true) {
-        _showSuccessMessage(localizations.friendRequestSent.replaceFirst('%s', username));
-        _usernameController.clear();
+        _showSnackBar('Запрос отправлен');
+        _searchController.clear();
         _searchResults.clear();
         await _loadFriends();
-      } else {
-        _showErrorMessage(response['message'] ?? localizations.requestFailed);
       }
     } catch (e) {
-      _showErrorMessage('${localizations.error}: $e');
+      _showSnackBar('Ошибка: $e', isError: true);
     }
   }
 
   Future<void> _acceptFriendRequest(String requestId) async {
-    final localizations = AppLocalizations.of(context)!;
-
     try {
       final response = await ApiService.acceptFriendRequest(requestId);
-
       if (response['success'] == true) {
-        _showSuccessMessage(localizations.requestAccepted);
+        _showSnackBar('Запрос принят');
         await _loadFriends();
-      } else {
-        _showErrorMessage(response['message'] ?? localizations.acceptFailed);
       }
     } catch (e) {
-      _showErrorMessage('${localizations.error}: $e');
+      _showSnackBar('Ошибка: $e', isError: true);
     }
   }
 
   Future<void> _declineFriendRequest(String requestId) async {
-    final localizations = AppLocalizations.of(context)!;
-
     try {
       final response = await ApiService.declineFriendRequest(requestId);
-
       if (response['success'] == true) {
-        _showSuccessMessage(localizations.requestDeclined);
+        _showSnackBar('Запрос отклонен');
         await _loadFriends();
-      } else {
-        _showErrorMessage(response['message'] ?? localizations.declineFailed);
       }
     } catch (e) {
-      _showErrorMessage('${localizations.error}: $e');
+      _showSnackBar('Ошибка: $e', isError: true);
     }
   }
 
   Future<void> _removeFriend(String friendId) async {
-    final localizations = AppLocalizations.of(context)!;
-
-    showDialog(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(localizations.removeFriend),
-        content: Text(localizations.removeFriend),
+        title: Text('Удалить друга'),
+        content: Text('Вы уверены, что хотите удалить этого друга?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(localizations.cancel),
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Отмена'),
           ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                final response = await ApiService.removeFriend(friendId);
-                if (response['success'] == true) {
-                  _showSuccessMessage(localizations.friendRemoved);
-                  await _loadFriends();
-                } else {
-                  _showErrorMessage(response['message'] ?? localizations.removeFailed);
-                }
-              } catch (e) {
-                _showErrorMessage('${localizations.error}: $e');
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text(localizations.removeFriend),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Удалить', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
+
+    if (confirmed == true) {
+      try {
+        final response = await ApiService.removeFriend(friendId);
+        if (response['success'] == true) {
+          _showSnackBar('Друг удален');
+          await _loadFriends();
+        }
+      } catch (e) {
+        _showSnackBar('Ошибка: $e', isError: true);
+      }
+    }
   }
 
   void _openChat(Friend friend) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ChatScreen(friend: friend),
-      ),
+      MaterialPageRoute(builder: (context) => ChatScreen(friend: friend)),
     );
   }
 
-  void _showSuccessMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  void _showErrorMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.error_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Theme.of(context).colorScheme.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  void _showMessage(String message) {
+  void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: isError ? Colors.red : Colors.green,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
-  }
-
-  void _clearSearch() {
-    _usernameController.clear();
-    _searchResults.clear();
-    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: theme.colorScheme.background,
-        appBar: AppBar(
-          title: Text(
-            localizations.friends,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          backgroundColor: theme.colorScheme.surface,
-          foregroundColor: theme.colorScheme.onSurface,
-          elevation: 0,
-          centerTitle: true,
-          bottom: TabBar(
-            indicatorColor: theme.colorScheme.primary,
-            labelColor: theme.colorScheme.primary,
-            unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-            labelStyle: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-            tabs: [
-              Tab(
-                text: 'Друзья',
-                icon: Badge(
-                  label: Text(_friends.length.toString()),
-                  isLabelVisible: _friends.isNotEmpty,
-                  child: Icon(Icons.people_rounded),
-                ),
-              ),
-              Tab(
-                text: 'Заявки',
-                icon: Badge(
-                  label: Text(_pendingRequests.length.toString()),
-                  isLabelVisible: _pendingRequests.isNotEmpty,
-                  backgroundColor: Colors.orange,
-                  child: Icon(Icons.person_add_rounded),
-                ),
+    return Scaffold(
+      body: CustomScrollView(
+        slivers: [
+          // AppBar
+          SliverAppBar(
+            floating: true,
+            pinned: true,
+            snap: true,
+            title: Text('Друзья', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            actions: [
+              IconButton(
+                icon: Icon(Icons.refresh_rounded),
+                onPressed: _isLoading ? null : _loadFriends,
               ),
             ],
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.refresh_rounded),
-              onPressed: _isLoading ? null : _loadFriends,
-              tooltip: 'Обновить',
+            bottom: PreferredSize(
+              preferredSize: Size.fromHeight(100),
+              child: Column(
+                children: [
+                  // Search bar
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[800] : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Поиск пользователей...',
+                          border: InputBorder.none,
+                          prefixIcon: Icon(Icons.search_rounded, color: theme.hintColor),
+                          suffixIcon: _searchController.text.isNotEmpty
+                              ? IconButton(
+                            icon: Icon(Icons.clear_rounded, size: 20),
+                            onPressed: () {
+                              _searchController.clear();
+                              _searchResults.clear();
+                              setState(() {});
+                            },
+                          )
+                              : null,
+                        ),
+                        onChanged: (value) {
+                          if (value.isEmpty) {
+                            _searchResults.clear();
+                            setState(() {});
+                          }
+                        },
+                        onSubmitted: (_) => _searchUsers(),
+                      ),
+                    ),
+                  ),
+                  // Tabs
+                  TabBar(
+                    controller: _tabController,
+                    tabs: [
+                      Tab(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Друзья'),
+                            if (_friends.isNotEmpty) ...[
+                              SizedBox(width: 6),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  _friends.length.toString(),
+                                  style: TextStyle(fontSize: 10, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Tab(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Заявки'),
+                            if (_pendingRequests.isNotEmpty) ...[
+                              SizedBox(width: 6),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  _pendingRequests.length.toString(),
+                                  style: TextStyle(fontSize: 10, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        body: _isLoading
-            ? _buildLoadingState()
-            : TabBarView(
-          children: [
-            _buildFriendsTab(localizations, theme),
-            _buildRequestsTab(localizations, theme),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            color: Theme.of(context).colorScheme.primary,
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Загрузка...',
-            style: Theme.of(context).textTheme.bodyMedium,
+
+          // Content
+          SliverFillRemaining(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Friends tab
+                _buildFriendsContent(),
+
+                // Requests tab
+                _buildRequestsContent(),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFriendsTab(AppLocalizations localizations, ThemeData theme) {
-    return Column(
-      children: [
-        // Search section
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            border: Border(
-              bottom: BorderSide(color: theme.colorScheme.outline.withOpacity(0.1)),
-            ),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(24), // Закругление поиска
-                      ),
-                      child: TextField(
-                        controller: _usernameController,
-                        decoration: InputDecoration(
-                          hintText: 'Введите имя пользователя',
-                          border: InputBorder.none,
-                          prefixIcon: Icon(Icons.search_rounded),
-                          suffixIcon: _usernameController.text.isNotEmpty
-                              ? IconButton(
-                            icon: Icon(Icons.clear_rounded),
-                            onPressed: _clearSearch,
-                          )
-                              : null,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        ),
-                        onSubmitted: (_) => _searchUsers(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      onPressed: _searchUsers,
-                      icon: _isSearching
-                          ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                          : Icon(Icons.search_rounded, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-              if (_searchResults.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Результаты поиска (${_searchResults.length})',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+  Widget _buildFriendsContent() {
+    if (_isLoading) return _buildLoading();
+    if (_friends.isEmpty) return _buildEmptyState('Нет друзей', 'Добавьте друзей, чтобы общаться');
 
-        // Friends list or search results
-        Expanded(
-          child: _searchResults.isNotEmpty
-              ? _buildSearchResults(localizations, theme)
-              : _friends.isEmpty
-              ? _buildEmptyFriendsState(localizations, theme)
-              : _buildFriendsList(localizations, theme),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchResults(AppLocalizations localizations, ThemeData theme) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _searchResults.length,
-      itemBuilder: (context, index) {
-        final user = _searchResults[index];
-        return _UserSearchCard(
-          user: user,
-          onAddFriend: () => _sendFriendRequest(user.username),
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyFriendsState(AppLocalizations localizations, ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.people_outline_rounded,
-                size: 48,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Пока нет друзей',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Найдите пользователей и добавьте их в друзья',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+    return RefreshIndicator(
+      onRefresh: _loadFriends,
+      child: ListView.builder(
+        padding: EdgeInsets.all(16),
+        itemCount: _friends.length,
+        itemBuilder: (context, index) => _buildFriendCard(_friends[index]),
       ),
     );
   }
 
-  Widget _buildFriendsList(AppLocalizations localizations, ThemeData theme) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _friends.length,
-      itemBuilder: (context, index) {
-        final friend = _friends[index];
-        return _FriendCard(
-          friend: friend,
-          onRemove: () => _removeFriend(friend.id),
-          onMessage: () => _openChat(friend),
-        );
-      },
-    );
-  }
+  Widget _buildRequestsContent() {
+    if (_isLoading) return _buildLoading();
+    if (_pendingRequests.isEmpty) return _buildEmptyState('Нет заявок', 'Здесь будут ваши входящие заявки');
 
-  Widget _buildRequestsTab(AppLocalizations localizations, ThemeData theme) {
-    return _pendingRequests.isEmpty
-        ? _buildEmptyRequestsState(localizations, theme)
-        : ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _pendingRequests.length,
-      itemBuilder: (context, index) {
-        final request = _pendingRequests[index];
-        return _PendingRequestCard(
-          request: request,
-          onAccept: () => _acceptFriendRequest(request.id),
-          onDecline: () => _declineFriendRequest(request.id),
-        );
-      },
-    );
-  }
-
-  Widget _buildEmptyRequestsState(AppLocalizations localizations, ThemeData theme) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.person_add_rounded,
-                size: 48,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Нет заявок в друзья',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Здесь будут отображаться входящие заявки',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+    return RefreshIndicator(
+      onRefresh: _loadFriends,
+      child: ListView.builder(
+        padding: EdgeInsets.all(16),
+        itemCount: _pendingRequests.length,
+        itemBuilder: (context, index) => _buildRequestCard(_pendingRequests[index]),
       ),
     );
   }
-}
 
-class _UserSearchCard extends StatelessWidget {
-  final User user;
-  final VoidCallback onAddFriend;
-
-  const _UserSearchCard({required this.user, required this.onAddFriend});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildFriendCard(Friend friend) {
     final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: theme.colorScheme.surface,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            _buildUserAvatar(user.avatar, user.username, 48),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    user.name,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '@${user.username}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _getLeagueColor(user.currentLeague).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      user.currentLeague,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: _getLeagueColor(user.currentLeague),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            FilledButton(
-              onPressed: onAddFriend,
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('Добавить'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FriendCard extends StatelessWidget {
-  final Friend friend;
-  final VoidCallback onRemove;
-  final VoidCallback onMessage;
-
-  const _FriendCard({
-    required this.friend,
-    required this.onRemove,
-    required this.onMessage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final localizations = AppLocalizations.of(context)!;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: theme.colorScheme.surface,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Stack(
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _openChat(friend),
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Row(
               children: [
-                _buildUserAvatar(friend.avatar, friend.username, 52),
-                if (friend.isOnline)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: theme.colorScheme.surface,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          friend.name,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      if (friend.isOnline)
-                        Text(
-                          'online',
-                          style: theme.textTheme.labelSmall?.copyWith(
+                // Avatar
+                Stack(
+                  children: [
+                    _buildAvatar(friend.avatar, friend.username, 52),
+                    if (friend.isOnline)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
                             color: Colors.green,
-                            fontWeight: FontWeight.w500,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: theme.cardColor, width: 2),
                           ),
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '@${friend.username}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
+                      ),
+                  ],
+                ),
+                SizedBox(width: 16),
+
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _StatItem(
-                        icon: Icons.local_fire_department_rounded,
-                        value: '${friend.streakDays}д',
-                        color: Colors.orange,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              friend.name,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          if (friend.isOnline)
+                            Text(
+                              'online',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      _StatItem(
-                        icon: Icons.check_circle_rounded,
-                        value: '${friend.completedTopics}т',
-                        color: Colors.green,
+                      SizedBox(height: 4),
+                      Text(
+                        '@${friend.username}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: theme.hintColor,
+                        ),
                       ),
-                      const SizedBox(width: 12),
-                      _StatItem(
-                        icon: Icons.emoji_events_rounded,
-                        value: '${friend.weeklyXP}XP',
-                        color: theme.colorScheme.primary,
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _buildStatChip(
+                            icon: Icons.local_fire_department_rounded,
+                            label: '${friend.streakDays} дн.',
+                            color: Colors.orange,
+                          ),
+                          SizedBox(width: 8),
+                          _buildStatChip(
+                            icon: Icons.check_circle_rounded,
+                            label: '${friend.completedTopics} тем',
+                            color: Colors.green,
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  onPressed: onMessage,
-                  icon: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.chat_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onPrimaryContainer,
-                    ),
                   ),
                 ),
+
+                // Actions
                 PopupMenuButton(
-                  icon: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.more_vert_rounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
                   itemBuilder: (context) => [
                     PopupMenuItem(
                       child: Row(
                         children: [
-                          Icon(Icons.person_remove_rounded, size: 20),
-                          const SizedBox(width: 8),
-                          Text(localizations.removeFriend),
+                          Icon(Icons.chat_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text('Написать'),
                         ],
                       ),
-                      onTap: onRemove,
+                      onTap: () => _openChat(friend),
+                    ),
+                    PopupMenuItem(
+                      child: Row(
+                        children: [
+                          Icon(Icons.person_remove_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text('Удалить', style: TextStyle(color: Colors.red)),
+                        ],
+                      ),
+                      onTap: () => _removeFriend(friend.id),
                     ),
                   ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
-}
 
-class _PendingRequestCard extends StatelessWidget {
-  final FriendRequest request;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
-
-  const _PendingRequestCard({
-    required this.request,
-    required this.onAccept,
-    required this.onDecline,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildRequestCard(FriendRequest request) {
     final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      color: theme.colorScheme.surface,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            _buildUserAvatar(request.avatar, request.username, 52),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    request.name,
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Avatar
+              _buildAvatar(request.avatar, request.username, 52),
+              SizedBox(width: 16),
+
+              // Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      request.name,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '@${request.username}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    SizedBox(height: 4),
+                    Text(
+                      '@${request.username}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.hintColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _getLeagueColor(request.currentLeague).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          request.currentLeague,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: _getLeagueColor(request.currentLeague),
-                            fontWeight: FontWeight.w500,
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _getLeagueColor(request.currentLeague).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            request.currentLeague,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _getLeagueColor(request.currentLeague),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Actions
+              Row(
+                children: [
+                  IconButton(
+                    icon: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${request.weeklyXP} XP',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.check_rounded, color: Colors.green, size: 20),
+                    ),
+                    onPressed: () => _acceptFriendRequest(request.id),
+                  ),
+                  SizedBox(width: 4),
+                  IconButton(
+                    icon: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
                       ),
-                    ],
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.close_rounded, color: Colors.red, size: 20),
+                    ),
+                    onPressed: () => _declineFriendRequest(request.id),
                   ),
                 ],
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Загрузка...', style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String title, String subtitle) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.people_outline_rounded, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              title,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(width: 8),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: onAccept,
-                    icon: Icon(
-                      Icons.check_rounded,
-                      size: 20,
-                      color: Colors.green,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: onDecline,
-                    icon: Icon(
-                      Icons.close_rounded,
-                      size: 20,
-                      color: Colors.red,
-                    ),
-                  ),
-                ),
-              ],
+            SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
             ),
           ],
         ),
       ),
     );
   }
-}
 
-Widget _buildUserAvatar(String avatar, String username, double size) {
-  if (avatar.startsWith('/') || (avatar.contains('.') && !avatar.contains('👤'))) {
-    try {
-      final file = File(avatar);
-      if (file.existsSync()) {
-        return CircleAvatar(
-          radius: size / 2,
-          backgroundColor: Colors.transparent,
-          backgroundImage: FileImage(file),
-        );
-      }
-    } catch (e) {
-      print('Error loading avatar file: $e');
-    }
-  }
-
-  return Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [
-          _getAvatarColor(username),
-          _getAvatarColor(username + '2'),
-        ],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+  Widget _buildStatChip({required IconData icon, required String label, required Color color}) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
       ),
-      shape: BoxShape.circle,
-    ),
-    child: Center(
-      child: Text(
-        avatar.length > 2 ? avatar.substring(0, 2) : avatar,
-        style: TextStyle(
-          fontSize: size * 0.4,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-      ),
-    ),
-  );
-}
-
-Color _getAvatarColor(String username) {
-  final colors = [
-    Color(0xFFF44336), Color(0xFFE91E63), Color(0xFF9C27B0), Color(0xFF673AB7),
-    Color(0xFF3F51B5), Color(0xFF2196F3), Color(0xFF03A9F4), Color(0xFF00BCD4),
-    Color(0xFF009688), Color(0xFF4CAF50), Color(0xFF8BC34A), Color(0xFFCDDC39),
-    Color(0xFFFFC107), Color(0xFFFF9800), Color(0xFFFF5722),
-  ];
-
-  final index = username.codeUnits.fold(0, (a, b) => a + b) % colors.length;
-  return colors[index];
-}
-
-Color _getLeagueColor(String league) {
-  switch (league.toLowerCase()) {
-    case 'золото':
-      return Colors.amber.shade700;
-    case 'серебро':
-      return Colors.grey.shade600;
-    case 'бронза':
-      return Colors.orange.shade800;
-    default:
-      return Colors.blue;
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final Color color;
-
-  const _StatItem({
-    required this.icon,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+
+  Widget _buildAvatar(String avatar, String username, double size) {
+    if (avatar.startsWith('/') || (avatar.contains('.') && !avatar.contains('👤'))) {
+      try {
+        final file = File(avatar);
+        if (file.existsSync()) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(size / 2),
+            child: Image.file(
+              file,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+            ),
+          );
+        }
+      } catch (e) {
+        print('Error loading avatar: $e');
+      }
+    }
+
+    // Fallback to colored circle with initials
+    final colors = [
+      Color(0xFFF44336), Color(0xFFE91E63), Color(0xFF9C27B0),
+      Color(0xFF673AB7), Color(0xFF3F51B5), Color(0xFF2196F3),
+    ];
+    final index = username.codeUnits.fold(0, (a, b) => a + b) % colors.length;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: colors[index],
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          username.length > 2 ? username.substring(0, 2).toUpperCase() : username,
+          style: TextStyle(
+            fontSize: size * 0.3,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getLeagueColor(String league) {
+    switch (league.toLowerCase()) {
+      case 'золото': return Colors.amber.shade700;
+      case 'серебро': return Colors.grey.shade600;
+      case 'бронза': return Colors.orange.shade800;
+      default: return Colors.blue;
+    }
+  }
 }
 
+// Модели данных (без изменений)
 class Friend {
   final String id;
   final String name;

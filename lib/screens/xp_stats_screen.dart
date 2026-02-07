@@ -1,8 +1,8 @@
 // lib/screens/xp_stats_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../localization.dart';
 import '../data/user_data_storage.dart';
+import '../models/user_stats.dart';
 
 enum TimePeriod {
   week,
@@ -11,11 +11,8 @@ enum TimePeriod {
 }
 
 class XPStatsScreen extends StatefulWidget {
-  final Map<DateTime, int>? dailyXP;
-
   const XPStatsScreen({
     Key? key,
-    this.dailyXP,
   }) : super(key: key);
 
   @override
@@ -24,11 +21,12 @@ class XPStatsScreen extends StatefulWidget {
 
 class _XPStatsScreenState extends State<XPStatsScreen> {
   TimePeriod _selectedPeriod = TimePeriod.week;
-  Map<DateTime, int> _dailyXP = {};
+  Map<DateTime, int> _filteredData = {};
   int _maxXP = 0;
   int _totalXP = 0;
-  int _weeklyXP = 0;
+  int _currentWeeklyXP = 0;
   bool _isLoading = true;
+  UserStats? _userStats;
 
   @override
   void initState() {
@@ -38,46 +36,118 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
 
   Future<void> _loadXPData() async {
     try {
-      final stats = await UserDataStorage.getUserStats();
-      final statsOverview = await UserDataStorage.getUserStatsOverview();
-
+      _userStats = await UserDataStorage.getUserStats();
       setState(() {
-        _totalXP = stats.totalXP;
-        _weeklyXP = stats.weeklyXP;
-        _dailyXP = widget.dailyXP ?? _generateXPHistory();
+        _totalXP = _userStats!.totalXP;
+        _currentWeeklyXP = _userStats!.weeklyXP;
         _isLoading = false;
       });
+
+      // Обновляем отфильтрованные данные
+      _updateFilteredData();
     } catch (e) {
       print('❌ Error loading XP data: $e');
       setState(() {
-        _totalXP = 0;
-        _weeklyXP = 0;
-        _dailyXP = {};
         _isLoading = false;
       });
     }
   }
 
-  Map<DateTime, int> _generateXPHistory() {
-    final today = DateTime.now();
-    final history = <DateTime, int>{};
+  void _updateFilteredData() {
+    if (_userStats == null) return;
 
-    // Простая генерация данных
-    for (int i = 0; i < 30; i++) {
-      final date = today.subtract(Duration(days: i));
-      final dateKey = DateTime(date.year, date.month, date.day);
+    final now = DateTime.now();
+    Map<DateTime, int> data = {};
 
-      // Случайные значения для демонстрации
-      if (i % 3 == 0) {
-        history[dateKey] = (50 + i * 10) % 200;
-      }
+    switch (_selectedPeriod) {
+      case TimePeriod.week:
+      // 7 последних дней
+        for (int i = 6; i >= 0; i--) {
+          final date = now.subtract(Duration(days: i));
+          final xp = _userStats!.getDailyXP(date);
+          data[DateTime(date.year, date.month, date.day)] = xp;
+        }
+        break;
+
+      case TimePeriod.month:
+      // 4 последние недели
+        final today = DateTime.now();
+        for (int week = 0; week < 4; week++) {
+          final weekStart = today.subtract(Duration(days: week * 7 + 6));
+          final weekEnd = today.subtract(Duration(days: week * 7));
+
+          int weeklyXP = 0;
+          for (int day = 0; day < 7; day++) {
+            final date = weekStart.add(Duration(days: day));
+            weeklyXP += _userStats!.getDailyXP(date);
+          }
+          data[DateTime(weekEnd.year, weekEnd.month, weekEnd.day)] = weeklyXP;
+        }
+        break;
+
+      case TimePeriod.year:
+      // 12 последних месяцев
+        final today = DateTime.now();
+        for (int month = 0; month < 12; month++) {
+          final monthDate = DateTime(today.year, today.month - month, 1);
+          final monthlyXP = _userStats!.getMonthlyXP(forDate: monthDate);
+          data[DateTime(monthDate.year, monthDate.month, monthDate.day)] = monthlyXP;
+        }
+        break;
     }
 
-    // Сегодняшний день - текущий weeklyXP
-    final todayKey = DateTime(today.year, today.month, today.day);
-    history[todayKey] = _weeklyXP;
+    setState(() {
+      _filteredData = data;
+      // Находим максимальное значение для масштабирования графика
+      if (data.isNotEmpty) {
+        _maxXP = data.values.reduce((a, b) => a > b ? a : b);
+        // Минимальная высота 100 для лучшей визуализации
+        if (_maxXP < 100) _maxXP = 100;
+      } else {
+        _maxXP = 100;
+      }
+    });
+  }
 
-    return history;
+  List<Map<String, dynamic>> _prepareChartData() {
+    final entries = _filteredData.entries.toList();
+    // Сортируем по дате
+    entries.sort((a, b) => a.key.compareTo(b.key));
+
+    final List<Map<String, dynamic>> data = [];
+
+    for (final entry in entries) {
+      final date = entry.key;
+      final xp = entry.value;
+
+      String label = '';
+      String? subLabel = '';
+
+      switch (_selectedPeriod) {
+        case TimePeriod.week:
+          label = DateFormat('E').format(date)[0]; // Пн, Вт и т.д.
+          subLabel = '${date.day}';
+          break;
+        case TimePeriod.month:
+          final weekNumber = entries.indexOf(entry) + 1;
+          label = 'Н$weekNumber';
+          subLabel = '${date.day}.${date.month}';
+          break;
+        case TimePeriod.year:
+          label = DateFormat('MMM').format(date);
+          subLabel = '${date.year}';
+          break;
+      }
+
+      data.add({
+        'date': date,
+        'xp': xp,
+        'label': label,
+        'subLabel': subLabel,
+      });
+    }
+
+    return data;
   }
 
   @override
@@ -94,10 +164,6 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
     }
 
     final chartData = _prepareChartData();
-    _maxXP = chartData.fold(0, (max, data) {
-      final xp = data['xp'] as int;
-      return xp > max ? xp : max;
-    });
 
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
@@ -113,7 +179,7 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Карточка с общей информацией
+            // Карточка с общей информацией - ТОЛЬКО ОПЫТ
             _buildTotalXPInfo(),
             const SizedBox(height: 24),
 
@@ -250,6 +316,7 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
         onTap: () {
           setState(() {
             _selectedPeriod = period;
+            _updateFilteredData();
           });
         },
         child: Container(
@@ -347,7 +414,7 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
                 final barHeight = _maxXP > 0
                     ? (xp / _maxXP) * 160
                     : 0;
-                final height = barHeight > 0 ? barHeight + 4 : 4;
+                final height = barHeight > 4 ? barHeight : 4;
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -393,7 +460,7 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
                     ),
 
                     // Дополнительная метка
-                    if (subLabel != null) ...[
+                    if (subLabel != null && subLabel.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         subLabel,
@@ -423,6 +490,11 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
       final xp = data['xp'] as int;
       return xp > max ? xp : max;
     });
+
+    // Получаем дополнительные статистики
+    final xpStats = _userStats?.getXpStatistics() ?? {};
+    final last7DaysXP = xpStats['last7DaysXP'] ?? 0;
+    final last30DaysXP = xpStats['last30DaysXP'] ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -480,6 +552,27 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
                 Icons.timeline_rounded,
                 Colors.purple,
               ),
+              if (_selectedPeriod == TimePeriod.week)
+                _buildStatItem(
+                  'Недельный XP',
+                  '$_currentWeeklyXP',
+                  Icons.weekend_rounded,
+                  Colors.amber,
+                ),
+              if (_selectedPeriod == TimePeriod.month)
+                _buildStatItem(
+                  'За 7 дней',
+                  '$last7DaysXP',
+                  Icons.today_rounded,
+                  Colors.lightBlue,
+                ),
+              if (_selectedPeriod == TimePeriod.year)
+                _buildStatItem(
+                  'За 30 дней',
+                  '$last30DaysXP',
+                  Icons.calendar_month_rounded,
+                  Colors.deepOrange,
+                ),
             ],
           ),
         ],
@@ -538,86 +631,14 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _prepareChartData() {
-    final now = DateTime.now();
-    final List<Map<String, dynamic>> data = [];
-
-    switch (_selectedPeriod) {
-      case TimePeriod.week:
-      // 7 дней назад
-        for (int i = 6; i >= 0; i--) {
-          final date = now.subtract(Duration(days: i));
-          final dayKey = DateTime(date.year, date.month, date.day);
-          final xp = _dailyXP[dayKey] ?? 0;
-
-          data.add({
-            'date': date,
-            'xp': xp,
-            'label': DateFormat('E').format(date)[0], // Пн, Вт и т.д.
-            'subLabel': '${date.day}',
-          });
-        }
-        break;
-
-      case TimePeriod.month:
-      // 4 недели назад
-        for (int i = 3; i >= 0; i--) {
-          final startDate = now.subtract(Duration(days: i * 7 + 6));
-          final endDate = now.subtract(Duration(days: i * 7));
-
-          // Суммируем XP за неделю
-          int weeklyXP = 0;
-          for (int day = 0; day < 7; day++) {
-            final date = startDate.add(Duration(days: day));
-            final dayKey = DateTime(date.year, date.month, date.day);
-            weeklyXP += _dailyXP[dayKey] ?? 0;
-          }
-
-          data.add({
-            'date': endDate,
-            'xp': weeklyXP,
-            'label': 'Н${i + 1}',
-            'subLabel': '${startDate.day}.${startDate.month}',
-          });
-        }
-        break;
-
-      case TimePeriod.year:
-      // 12 месяцев назад
-        for (int i = 11; i >= 0; i--) {
-          final monthDate = DateTime(now.year, now.month - i, 1);
-
-          // Суммируем XP за месяц
-          int monthlyXP = 0;
-          final daysInMonth = DateTime(monthDate.year, monthDate.month + 1, 0).day;
-
-          for (int day = 1; day <= daysInMonth; day++) {
-            final date = DateTime(monthDate.year, monthDate.month, day);
-            final dayKey = DateTime(date.year, date.month, date.day);
-            monthlyXP += _dailyXP[dayKey] ?? 0;
-          }
-
-          data.add({
-            'date': monthDate,
-            'xp': monthlyXP,
-            'label': DateFormat('MMM').format(monthDate),
-            'subLabel': '${monthDate.year}',
-          });
-        }
-        break;
-    }
-
-    return data;
-  }
-
   String _getTitleForPeriod() {
     switch (_selectedPeriod) {
       case TimePeriod.week:
         return 'Опыт за 7 дней';
       case TimePeriod.month:
-        return 'Опыт за месяц';
+        return 'Опыт за 4 недели';
       case TimePeriod.year:
-        return 'Опыт за год';
+        return 'Опыт за 12 месяцев';
     }
   }
 

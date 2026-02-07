@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_selection_screen.dart';
-import 'main_screen.dart';
-import '../theme/app_theme.dart';
 import '../localization.dart';
 import '../language_manager.dart';
-import '../data/user_data_storage.dart'; // ДОБАВЬТЕ ЭТОТ ИМПОРТ
+import '../data/user_data_storage.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -18,34 +15,39 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  late Animation<double> _slideAnimation;
   late Animation<double> _scaleAnimation;
   bool _isLoading = false;
-  bool _showLanguageMenu = false;
 
   @override
   void initState() {
     super.initState();
 
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeInOut),
+      ),
+    );
 
-    _scaleAnimation = Tween<double>(
-      begin: 0.9,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutBack,
-    ));
+    _slideAnimation = Tween<double>(begin: 30.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.2, 0.8, curve: Curves.easeOut),
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.elasticOut),
+      ),
+    );
 
     _animationController.forward();
     _checkExistingAuth();
@@ -53,66 +55,28 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
 
   Future<void> _checkExistingAuth() async {
     try {
-      print('🔍 Checking existing auth in AuthScreen...');
       final isValid = await UserDataStorage.isLoggedIn();
-      print('📊 Auth validation result: $isValid');
-
       if (isValid && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
-        );
+        // Уже авторизован
       }
     } catch (e) {
       print('❌ Error checking existing auth: $e');
     }
   }
 
-  void _toggleLanguageMenu() {
-    setState(() {
-      _showLanguageMenu = !_showLanguageMenu;
-    });
-  }
-
-  Future<void> _changeLanguage(String languageCode) async {
-    final languageManager = Provider.of<LanguageManager>(context, listen: false);
-    await languageManager.setLanguage(languageCode);
-
-    setState(() {
-      _showLanguageMenu = false;
-    });
-  }
-
-  Future<void> _startLearning() async {
+  void _startLearning() {
     if (_isLoading) return;
 
     setState(() => _isLoading = true);
 
-    try {
-      await Future.delayed(const Duration(milliseconds: 800));
-
+    Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const AuthSelectionScreen()),
         );
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${AppLocalizations.of(context).error}: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+    });
   }
 
   @override
@@ -124,351 +88,395 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context)!;
-    final languageManager = Provider.of<LanguageManager>(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: isDark ? Colors.grey.shade900 : Colors.white,
       body: Stack(
         children: [
-          // Основной контент
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
+          // Фоновая иконка снизу
+          Positioned(
+            bottom: -60,
+            left: -60,
+            child: Opacity(
+              opacity: 0.05,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: primaryColor,
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.school_rounded,
+                    size: 150,
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                  ),
+                ),
+              ),
+            ),
+          ),
 
-                  // Заголовок с анимацией
-                  ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
+          SafeArea(
+            child: AnimatedBuilder(
+              animation: _animationController,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(0, _slideAnimation.value),
+                  child: Opacity(
+                    opacity: _fadeAnimation.value,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.primary,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Icon(
-                              Icons.school_rounded,
-                              size: 32,
-                              color: Theme.of(context).colorScheme.onPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            appLocalizations.appTitle,
-                            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.onBackground,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            appLocalizations.conquerKnowledge,
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Статистика с анимацией
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _StatItem(
-                            value: '1+',
-                            label: appLocalizations.students,
-                          ),
-                          _StatItem(
-                            value: '50+',
-                            label: appLocalizations.topics,
-                          ),
-                          _StatItem(
-                            value: '95%',
-                            label: appLocalizations.success,
-                          ),
-                          _StatItem(
-                            value: '14+',
-                            label: appLocalizations.subjects,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Описание с анимацией
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          appLocalizations.joinAndImprove,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          appLocalizations.examPreparation,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onBackground.withOpacity(0.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const Spacer(),
-
-                  // Кнопка начать обучение с анимацией
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Column(
-                      children: [
-                        FilledButton(
-                          onPressed: _isLoading ? null : _startLearning,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            minimumSize: const Size(double.infinity, 56),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation(Colors.white),
-                            ),
-                          )
-                              : Row(
-                            mainAxisSize: MainAxisSize.min,
+                          // Кнопка языка в правом верхнем углу
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              Icon(Icons.arrow_forward_rounded, size: 20),
-                              const SizedBox(width: 12),
-                              Text(
-                                appLocalizations.startLearning,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.grey.shade800
+                                      : Colors.grey.shade100,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.language_rounded),
+                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+                                  onPressed: () {
+                                    _showLanguageBottomSheet(context);
+                                  },
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+
+                          const SizedBox(height: 40),
+
+                          // Заголовок и описание
+                          Transform.scale(
+                            scale: _scaleAnimation.value,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  appLocalizations.appTitle,
+                                  style: TextStyle(
+                                    fontSize: 42,
+                                    fontWeight: FontWeight.w800,
+                                    color: isDark ? Colors.white : Colors.black87,
+                                    letterSpacing: -0.5,
+                                    height: 1.0,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  appLocalizations.conquerKnowledge,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 60),
+
+                          // Цифры статистики
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 24,
+                              horizontal: 24,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.grey.shade800
+                                  : Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _StatItem(
+                                  value: '10K+',
+                                  label: appLocalizations.students,
+                                  color: primaryColor,
+                                ),
+                                _StatItem(
+                                  value: '500+',
+                                  label: appLocalizations.topics,
+                                  color: Colors.blue,
+                                ),
+                                _StatItem(
+                                  value: '96%',
+                                  label: appLocalizations.success,
+                                  color: Colors.green,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 40),
+
+                          // Описание
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                appLocalizations.joinAndImprove,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: isDark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade700,
+                                  height: 1.6,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                appLocalizations.examPreparation,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isDark
+                                      ? Colors.grey.shade500
+                                      : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const Spacer(),
+
+                          // Кнопка начала (в самом низу)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _startLearning,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 20,
+                                  horizontal: 32,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                elevation: 0,
+                                shadowColor: primaryColor.withOpacity(0.3),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                                  : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    appLocalizations.startLearning,
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Icon(Icons.arrow_forward_rounded, size: 22),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          // Кнопка языка
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: _ExpandingLanguageButton(
-              isExpanded: _showLanguageMenu,
-              currentLanguage: languageManager.currentLocale.languageCode,
-              onToggle: _toggleLanguageMenu,
-              onChangeLanguage: _changeLanguage,
+                );
+              },
             ),
           ),
         ],
       ),
     );
   }
-}
 
-class _ExpandingLanguageButton extends StatelessWidget {
-  final bool isExpanded;
-  final String currentLanguage;
-  final VoidCallback onToggle;
-  final Function(String) onChangeLanguage;
+  void _showLanguageBottomSheet(BuildContext context) {
+    final languageManager = Provider.of<LanguageManager>(context, listen: false);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-  const _ExpandingLanguageButton({
-    required this.isExpanded,
-    required this.currentLanguage,
-    required this.onToggle,
-    required this.onChangeLanguage,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-      height: 48,
-      width: isExpanded ? 160 : 48,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: isExpanded ? _buildExpandedMenu(context) : _buildCollapsedButton(context),
-    );
-  }
-
-  Widget _buildCollapsedButton(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onToggle,
-        child: Center(
-          child: Icon(
-            Icons.language_rounded,
-            color: Theme.of(context).colorScheme.onSurface,
-            size: 20,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExpandedMenu(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _LanguageItem(
-            code: 'ru',
-            label: 'RU',
-            isSelected: currentLanguage == 'ru',
-            onTap: () => onChangeLanguage('ru'),
-          ),
-          _LanguageItem(
-            code: 'en',
-            label: 'EN',
-            isSelected: currentLanguage == 'en',
-            onTap: () => onChangeLanguage('en'),
-          ),
-          _LanguageItem(
-            code: 'de',
-            label: 'DE',
-            isSelected: currentLanguage == 'de',
-            onTap: () => onChangeLanguage('de'),
-          ),
-          GestureDetector(
-            onTap: onToggle,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.close_rounded,
-                size: 14,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          margin: const EdgeInsets.only(top: 60),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.grey.shade900 : Colors.white,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(32),
             ),
           ),
-        ],
-      ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 16, bottom: 24),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Выберите язык',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  'Выбранный язык будет применен ко всему приложению',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ...['ru', 'en', 'de'].map((langCode) {
+                return ListTile(
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: languageManager.currentLocale.languageCode == langCode
+                          ? theme.colorScheme.primary.withOpacity(0.1)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        langCode.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: languageManager.currentLocale.languageCode == langCode
+                              ? theme.colorScheme.primary
+                              : isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    _getLanguageName(langCode),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: languageManager.currentLocale.languageCode == langCode
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  trailing: languageManager.currentLocale.languageCode == langCode
+                      ? Icon(
+                    Icons.check_circle_rounded,
+                    color: theme.colorScheme.primary,
+                  )
+                      : null,
+                  onTap: () {
+                    languageManager.setLanguage(langCode);
+                    Navigator.pop(context);
+                  },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  tileColor: languageManager.currentLocale.languageCode == langCode
+                      ? theme.colorScheme.primary.withOpacity(0.05)
+                      : null,
+                );
+              }),
+              const SizedBox(height: 32),
+            ],
+          ),
+        );
+      },
     );
   }
-}
 
-class _LanguageItem extends StatelessWidget {
-  final String code;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _LanguageItem({
-    required this.code,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isSelected
-                ? Theme.of(context).colorScheme.onPrimary
-                : Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-          ),
-        ),
-      ),
-    );
+  String _getLanguageName(String code) {
+    switch (code) {
+      case 'ru':
+        return 'Русский';
+      case 'en':
+        return 'English';
+      case 'de':
+        return 'Deutsch';
+      default:
+        return 'Русский';
+    }
   }
 }
 
 class _StatItem extends StatelessWidget {
   final String value;
   final String label;
+  final Color color;
 
   const _StatItem({
     required this.value,
     required this.label,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Column(
       children: [
         Text(
           value,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Theme.of(context).colorScheme.onSurface,
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: color,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
           ),
         ),
       ],

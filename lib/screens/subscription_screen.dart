@@ -213,10 +213,10 @@ class SubscriptionScreen extends StatelessWidget {
                               _buildPriceOption(
                                 context: context,
                                 title: appLocalizations.year,
-                                price: '2 490₽',
+                                price: '2 990₽',
                                 period: '/${appLocalizations.year.toLowerCase()}',
                                 isRecommended: true,
-                                savings: '${appLocalizations.savings} 30%',
+                                savings: '${appLocalizations.savings} 20%',
                                 isDark: isDark,
                               ),
                             ],

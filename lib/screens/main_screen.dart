@@ -851,6 +851,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     });
   }
 
+  bool _isPhotoAvatar() {
+    return _avatar.startsWith('/') || _avatar.contains('.');
+  }
+
   Widget _buildHomeScreenContent() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -1629,10 +1633,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     }
   }
 
-  bool _isPhotoAvatar() {
-    return _avatar.startsWith('/') || _avatar.contains('.');
-  }
-
   String _getMotivationMessage() {
     final appLocalizations = AppLocalizations.of(context);
 
@@ -1649,6 +1649,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Scaffold(
+          body: _getCurrentScreen(),
+        ),
+        _buildBottomNavigationBar(),
+      ],
+    );
+  }
+
   Widget _buildBottomNavigationBar() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -1659,7 +1671,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
       right: 20,
       bottom: 20,
       child: Container(
-        height: 70,
+        height: 60,
         decoration: BoxDecoration(
           color: isDark ? theme.cardColor : Colors.white,
           borderRadius: BorderRadius.circular(35),
@@ -1699,7 +1711,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
             ),
             _buildBottomNavItem(
               index: 4,
-              icon: Icons.person_rounded,
               label: appLocalizations.profile,
               isDark: isDark,
             ),
@@ -1709,26 +1720,97 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          body: _getCurrentScreen(),
-        ),
-        _buildBottomNavigationBar(),
-      ],
-    );
-  }
-
   Widget _buildBottomNavItem({
     required int index,
-    required IconData icon,
+    IconData? icon,
     required String label,
     required bool isDark,
   }) {
     final isSelected = index == _currentBottomNavIndex;
-    final color = isSelected ? Color(0xFF4CAF50) : (isDark ? Colors.grey[500]! : Colors.grey[400]!);
+    final inactiveColor = isDark ? Colors.grey[500]! : Colors.grey[400]!;
+    final textColor = isSelected ? Colors.white : inactiveColor;
+
+    // Для элемента профиля (index = 4) показываем аватар вместо иконки
+    if (index == 4) {
+      return Expanded(
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _onBottomNavTap(index),
+            borderRadius: BorderRadius.circular(35),
+            child: Container(
+              height: 70,
+              margin: EdgeInsets.all(isSelected ? 4 : 0),
+              decoration: isSelected
+                  ? BoxDecoration(
+                color: Color(0xFF4CAF50),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0xFF4CAF50).withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              )
+                  : null,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Аватар пользователя вместо иконки
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected ? Colors.white : inactiveColor,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: _isPhotoAvatar()
+                        ? ClipOval(
+                      child: Image.file(
+                        File(_avatar),
+                        fit: BoxFit.cover,
+                        width: 22,
+                        height: 22,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.person_rounded,
+                            color: isSelected ? Colors.white : inactiveColor,
+                            size: 16,
+                          );
+                        },
+                      ),
+                    )
+                        : Center(
+                      child: Icon(
+                        Icons.person_rounded,
+                        color: isSelected ? Colors.white : inactiveColor,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Для остальных элементов - стандартная иконка
+    final iconColor = isSelected ? Colors.white : inactiveColor;
 
     return Expanded(
       child: Material(
@@ -1738,29 +1820,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
           borderRadius: BorderRadius.circular(35),
           child: Container(
             height: 70,
+            margin: EdgeInsets.all(isSelected ? 4 : 0),
+            decoration: isSelected
+                ? BoxDecoration(
+              color: Color(0xFF4CAF50),
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0xFF4CAF50).withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            )
+                : null,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 20,
-                    color: color,
-                  ),
+                Icon(
+                  icon!,
+                  size: 20,
+                  color: iconColor,
                 ),
-                SizedBox(height: 4),
+                SizedBox(height: 2),
                 Text(
                   label,
                   style: TextStyle(
                     fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: color,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
                   ),
                 ),
               ],
