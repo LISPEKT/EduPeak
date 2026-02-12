@@ -6,7 +6,7 @@ import '../../models/subject.dart';
 import '../../services/region_manager.dart';
 import '../../language_manager.dart';
 
-// import 'russian_ru_ru.dart' as ru_ru;
+// import 'russian_data.dart' as ru_ru;
 
 class RussianData {
   static final Map<String, Map<int, List<Subject>>> _regionalData = {

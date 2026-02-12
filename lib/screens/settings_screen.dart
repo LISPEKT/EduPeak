@@ -543,7 +543,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           children: [
                             _buildInfoRow(
                               title: appLocalizations.version,
-                              value: 'alpha 0.42.3',
+                              value: 'alpha 0.42.4',
                             ),
                             const SizedBox(height: 12),
                             _buildInfoRow(
@@ -558,7 +558,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             const SizedBox(height: 12),
                             _buildInfoRow(
                               title: appLocalizations.buildDate,
-                              value: '18.01.2026',
+                              value: '12.02.2026',
                             ),
                           ],
                         ),

@@ -688,21 +688,30 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
 
   IconData _getSubjectIcon(String subject) {
     final icons = {
+      'Русский язык': Icons.text_fields_rounded,
       'Математика': Icons.calculate_rounded,
       'Алгебра': Icons.functions_rounded,
       'Геометрия': Icons.square_foot_rounded,
-      'Русский язык': Icons.text_fields_rounded,
-      'Литература': Icons.menu_book_rounded,
+      'Английский язык': Icons.language_rounded,
       'История': Icons.history_rounded,
-      'Обществознание': Icons.people_rounded,
       'География': Icons.public_rounded,
       'Биология': Icons.psychology_rounded,
       'Физика': Icons.science_rounded,
       'Химия': Icons.biotech_rounded,
-      'Английский язык': Icons.language_rounded,
+      'Литература': Icons.menu_book_rounded,
+      'Обществознание': Icons.people_rounded,
+      'Информатика': Icons.computer_rounded,
+      'Статистика и вероятность': Icons.trending_up_rounded,
+      'Литовский язык': Icons.language_rounded,
+      'Казахский язык': Icons.language_rounded,
+      'Вьетнамский язык': Icons.language_rounded,
+      'История Литвы': Icons.history_edu_rounded,
+      'История Казахстана': Icons.history_edu_rounded,
+      'История Вьетнама': Icons.history_edu_rounded,
     };
     return icons[subject] ?? Icons.school_rounded;
   }
+
 
   Widget _getCurrentScreen() {
     switch (_currentBottomNavIndex) {
@@ -733,20 +742,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
 
   Color _getSubjectColor(String subject) {
     final colors = {
+      // Языки
+      'Русский язык': Color(0xFFEA4335),
+      'Английский язык': Color(0xFFE91E63),
+      'Литовский язык': Color(0xFF9C27B0),
+      'Казахский язык': Color(0xFF673AB7),
+      'Вьетнамский язык': Color(0xFF3F51B5),
       'Математика': Color(0xFF4285F4),
       'Алгебра': Color(0xFF2196F3),
       'Геометрия': Color(0xFF3F51B5),
-      'Русский язык': Color(0xFFEA4335),
-      'Литература': Color(0xFFFBBC05),
-      'История': Color(0xFF34A853),
-      'Обществознание': Color(0xFF8E44AD),
-      'География': Color(0xFF00BCD4),
-      'Биология': Color(0xFF4CAF50),
+      'Статистика и вероятность': Color(0xFF00BCD4),
       'Физика': Color(0xFF9C27B0),
       'Химия': Color(0xFFFF9800),
-      'Английский язык': Color(0xFFE91E63),
+      'Биология': Color(0xFF4CAF50),
+      'География': Color(0xFF00BCD4),
+      'История': Color(0xFF34A853),
+      'История Литвы': Color(0xFF009688),
+      'История Казахстана': Color(0xFF0097A7),
+      'История Вьетнама': Color(0xFF00796B),
+      'Обществознание': Color(0xFF8E44AD),
+      'Литература': Color(0xFFFBBC05),
+      'Информатика': Color(0xFF607D8B),
     };
-    return colors[subject] ?? Colors.grey;
+    if (!colors.containsKey(subject)) {
+      final hash = subject.hashCode;
+      return HSLColor.fromAHSL(1.0, (hash % 360).toDouble(), 0.7, 0.6).toColor();
+    }
+
+    return colors[subject]!;
   }
 
   double _calculateSubjectProgress(String subjectName) {

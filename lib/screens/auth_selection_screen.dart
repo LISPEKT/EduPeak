@@ -323,7 +323,6 @@ class _AuthSelectionScreenState extends State<AuthSelectionScreen>
                           ),
                           const SizedBox(height: 16),
 
-                          // Кнопка входа/регистрации по email
                           ElevatedButton(
                             onPressed: () {
                               Navigator.push(

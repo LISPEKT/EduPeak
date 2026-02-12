@@ -505,6 +505,23 @@ class AppLocalizations {
       'inRow': 'подряд',
       'earned': 'получено',
       'premium': 'Premium',
+      'searchTerm': 'Найти термин...',
+      'sort': 'Сортировка',
+      'allTerms': 'Все термины',
+      'results': 'результатов',
+      'noResults': 'Ничего не найдено',
+      'definition': 'Определение',
+      'example': 'Пример использования',
+      'relatedTerms': 'Связанные термины',
+      'addedDate': 'Добавлено',
+      'sortBy': 'Сортировать по',
+      'alphabetical': 'По алфавиту',
+      'byCategory': 'По категории',
+      'favoritesFirst': 'Избранные вначале',
+      'viewFavorites': 'Показать избранное',
+      'removeFromFavorites': 'Удалить из избранного',
+      'addToFavorites': 'Добавить в избранное',
+      'noFavorites': 'Нет избранных терминов',
     },
     'en': {
       'app_title': 'EduPeak',
@@ -991,6 +1008,23 @@ class AppLocalizations {
       'inRow': 'in a row',
       'earned': 'earned',
       'premium': 'Premium',
+      'searchTerm': 'Search term...',
+      'sort': 'Sort',
+      'allTerms': 'All Terms',
+      'results': 'results',
+      'noResults': 'No results found',
+      'definition': 'Definition',
+      'example': 'Example Usage',
+      'relatedTerms': 'Related Terms',
+      'addedDate': 'Added',
+      'sortBy': 'Sort by',
+      'alphabetical': 'Alphabetical',
+      'byCategory': 'By Category',
+      'favoritesFirst': 'Favorites First',
+      'viewFavorites': 'View Favorites',
+      'removeFromFavorites': 'Remove from Favorites',
+      'addToFavorites': 'Add to Favorites',
+      'noFavorites': 'No favorite terms',
     },
     'de': {
       'app_title': 'EduPeak',
@@ -1477,6 +1511,23 @@ class AppLocalizations {
       'inRow': 'hintereinander',
       'earned': 'verdient',
       'premium': 'Premium',
+      'searchTerm': 'Begriff suchen...',
+      'sort': 'Sortieren',
+      'allTerms': 'Alle Begriffe',
+      'results': 'Ergebnisse',
+      'noResults': 'Keine Ergebnisse gefunden',
+      'definition': 'Definition',
+      'example': 'Beispielverwendung',
+      'relatedTerms': 'Verwandte Begriffe',
+      'addedDate': 'Hinzugefügt',
+      'sortBy': 'Sortieren nach',
+      'alphabetical': 'Alphabetisch',
+      'byCategory': 'Nach Kategorie',
+      'favoritesFirst': 'Favoriten zuerst',
+      'viewFavorites': 'Favoriten anzeigen',
+      'removeFromFavorites': 'Aus Favoriten entfernen',
+      'addToFavorites': 'Zu Favoriten hinzufügen',
+      'noFavorites': 'Keine favorisierten Begriffe',
       '':'',
     },
   };
@@ -1974,6 +2025,23 @@ class AppLocalizations {
   String get inRow => _localizedValues[locale.languageCode]?['inRow'] ?? 'in a row';
   String get earned => _localizedValues[locale.languageCode]?['earned'] ?? 'earned';
   String get premium => _localizedValues[locale.languageCode]?['premium'] ?? 'Premium';
+  String get searchTerm => _localizedValues[locale.languageCode]?['searchTerm'] ?? 'Search term...';
+  String get sort => _localizedValues[locale.languageCode]?['sort'] ?? 'Sort';
+  String get allTerms => _localizedValues[locale.languageCode]?['allTerms'] ?? 'All Terms';
+  String get results => _localizedValues[locale.languageCode]?['results'] ?? 'results';
+  String get noResults => _localizedValues[locale.languageCode]?['noResults'] ?? 'No results found';
+  String get definition => _localizedValues[locale.languageCode]?['definition'] ?? 'Definition';
+  String get example => _localizedValues[locale.languageCode]?['example'] ?? 'Example Usage';
+  String get relatedTerms => _localizedValues[locale.languageCode]?['relatedTerms'] ?? 'Related Terms';
+  String get addedDate => _localizedValues[locale.languageCode]?['addedDate'] ?? 'Added';
+  String get sortBy => _localizedValues[locale.languageCode]?['sortBy'] ?? 'Sort by';
+  String get alphabetical => _localizedValues[locale.languageCode]?['alphabetical'] ?? 'Alphabetical';
+  String get byCategory => _localizedValues[locale.languageCode]?['byCategory'] ?? 'By Category';
+  String get favoritesFirst => _localizedValues[locale.languageCode]?['favoritesFirst'] ?? 'Favorites First';
+  String get viewFavorites => _localizedValues[locale.languageCode]?['viewFavorites'] ?? 'View Favorites';
+  String get removeFromFavorites => _localizedValues[locale.languageCode]?['removeFromFavorites'] ?? 'Remove from Favorites';
+  String get addToFavorites => _localizedValues[locale.languageCode]?['addToFavorites'] ?? 'Add to Favorites';
+  String get noFavorites => _localizedValues[locale.languageCode]?['noFavorites'] ?? 'No favorite terms';
 }
 
 class AppLocalizationsDelegate extends LocalizationsDelegate<AppLocalizations> {

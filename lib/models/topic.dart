@@ -1,6 +1,5 @@
 import 'question.dart';
 
-// topic.dart
 class Topic {
   final String id;
   final String name;
