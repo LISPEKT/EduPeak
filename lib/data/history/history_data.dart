@@ -26,12 +26,12 @@ class HistoryData {
     // Россия
     'ru_ru': {
       5: ru_ru.historySubjects5,
-      //6: ru_ru.histotySubjects6,
-      //7: ru_ru.socialStudiesSubjects7,
-      //8: ru_ru.socialStudiesSubjects8,
-      //9: ru_ru.socialStudiesSubjects9,
-      //10: ru_ru.socialStudiesSubjects10,
-      //11: ru_ru.socialStudiesSubjects11,
+      6: ru_ru.historySubjects6,
+      7: ru_ru.historySubjects7,
+      //8: ru_ru.historySubjects8,
+      //9: ru_ru.historySubjects9,
+      //10: ru_ru.historySubjects10,
+      //11: ru_ru.historySubjects11,
     },
     'ru_en': {
       //6: ru_en.socialStudiesSubjects6,

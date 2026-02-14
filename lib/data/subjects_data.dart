@@ -234,10 +234,11 @@ void _addRussianSubjects(List<Subject> subjects, int grade) {
       name: 'Литература',
       topicsByGrade: {grade: []},
     ));
-    subjects.add(Subject(
-      name: 'Обществознание',
-      topicsByGrade: {grade: []},
-    ));
+    // Убираем Обществознание для 5-6 классов
+    // subjects.add(Subject(
+    //   name: 'Обществознание',
+    //   topicsByGrade: {grade: []},
+    // ));
   } else if (grade >= 7 && grade <= 9) {
     subjects.add(Subject(
       name: 'Русский язык',
@@ -279,10 +280,13 @@ void _addRussianSubjects(List<Subject> subjects, int grade) {
       name: 'Литература',
       topicsByGrade: {grade: []},
     ));
-    subjects.add(Subject(
-      name: 'Обществознание',
-      topicsByGrade: {grade: []},
-    ));
+    // Добавляем Обществознание только с 8 класса
+    if (grade >= 8) {
+      subjects.add(Subject(
+        name: 'Обществознание',
+        topicsByGrade: {grade: []},
+      ));
+    }
     subjects.add(Subject(
       name: 'Информатика',
       topicsByGrade: {grade: []},
@@ -332,6 +336,7 @@ void _addRussianSubjects(List<Subject> subjects, int grade) {
       name: 'Литература',
       topicsByGrade: {grade: []},
     ));
+    // Обществознание для 10-11 классов (оставляем)
     subjects.add(Subject(
       name: 'Обществознание',
       topicsByGrade: {grade: []},

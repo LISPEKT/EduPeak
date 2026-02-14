@@ -94,6 +94,8 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
       'Физика': Color(0xFF9C27B0), // Пурпурный
       'Химия': Color(0xFFFF9800), // Оранжевый
       'Английский язык': Color(0xFFE91E63), // Розовый
+      'Статистика и вероятность': Color(0xFF00BCD4),
+      'Информатика': Color(0xFF607D8B),
     };
     return colors[widget.subjectName] ?? Color(0xFF9E9E9E); // Серый
   }
@@ -112,6 +114,8 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
       'Физика': Icons.science_rounded,
       'Химия': Icons.science_rounded,
       'Английский язык': Icons.language_rounded,
+      'Информатика': Icons.computer_rounded,
+      'Статистика и вероятность': Icons.trending_up_rounded,
     };
     return icons[widget.subjectName] ?? Icons.subject_rounded;
   }

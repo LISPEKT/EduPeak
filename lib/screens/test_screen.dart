@@ -41,6 +41,10 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   late TextEditingController _textController;
   bool _testCompleted = false;
 
+  // Хранилище для перемешанных опций и соответствий правильных ответов
+  final Map<int, List<String>> _shuffledOptions = {};
+  final Map<int, List<int>> _correctIndexMap = {};
+
   @override
   void initState() {
     super.initState();
@@ -70,12 +74,85 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       return;
     }
 
+    // Создаем копию вопросов и перемешиваем их
     final questions = List<Question>.from(widget.topic.questions);
     questions.shuffle();
+
+    // Для каждого вопроса перемешиваем варианты ответов
+    for (int i = 0; i < questions.length; i++) {
+      final originalQuestion = questions[i];
+
+      if (!originalQuestion.isTextAnswer) {
+        // Создаем список пар (индекс, текст) для перемешивания
+        List<MapEntry<int, String>> optionsWithIndices = [];
+        for (int j = 0; j < originalQuestion.options.length; j++) {
+          optionsWithIndices.add(MapEntry(j, originalQuestion.options[j]));
+        }
+
+        // Перемешиваем варианты
+        optionsWithIndices.shuffle();
+
+        // Сохраняем перемешанные варианты
+        _shuffledOptions[i] = optionsWithIndices.map((e) => e.value).toList();
+
+        // Создаем карту соответствия старых индексов новым
+        if (originalQuestion.isSingleChoice) {
+          final oldCorrectIndex = originalQuestion.correctIndex is List<int>
+              ? (originalQuestion.correctIndex as List<int>)[0]
+              : originalQuestion.correctIndex as int;
+
+          // Находим новый индекс правильного ответа
+          int newCorrectIndex = -1;
+          for (int k = 0; k < optionsWithIndices.length; k++) {
+            if (optionsWithIndices[k].key == oldCorrectIndex) {
+              newCorrectIndex = k;
+              break;
+            }
+          }
+          _correctIndexMap[i] = [newCorrectIndex];
+        }
+        else if (originalQuestion.isMultipleChoice) {
+          final oldCorrectIndices = originalQuestion.correctIndex as List<int>;
+          final List<int> newCorrectIndices = [];
+
+          for (int oldIndex in oldCorrectIndices) {
+            for (int k = 0; k < optionsWithIndices.length; k++) {
+              if (optionsWithIndices[k].key == oldIndex) {
+                newCorrectIndices.add(k);
+                break;
+              }
+            }
+          }
+          // Сортируем новые индексы для удобства сравнения
+          newCorrectIndices.sort();
+          _correctIndexMap[i] = newCorrectIndices;
+        }
+      }
+    }
 
     setState(() {
       _shuffledQuestions = questions;
     });
+  }
+
+  // Получить перемешанные опции для текущего вопроса
+  List<String> _getShuffledOptionsForQuestion(Question question, int index) {
+    if (question.isTextAnswer) {
+      return question.options;
+    }
+    return _shuffledOptions[index] ?? question.options;
+  }
+
+  // Получить правильные индексы для текущего вопроса с учетом перемешивания
+  dynamic _getCorrectIndicesForQuestion(int index) {
+    if (index < _shuffledQuestions.length) {
+      final question = _shuffledQuestions[index];
+      if (question.isTextAnswer) {
+        return 0;
+      }
+      return _correctIndexMap[index] ?? question.correctIndex;
+    }
+    return null;
   }
 
   Question? get _currentQuestion {
@@ -164,16 +241,15 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       if (question.isTextAnswer) {
         return _textAnswer.trim().toLowerCase() == question.options[0].toLowerCase();
       } else if (question.isSingleChoice) {
-        final correctIndex = question.correctIndex is List<int>
-            ? (question.correctIndex as List<int>)[0]
-            : question.correctIndex as int;
+        final correctIndices = _getCorrectIndicesForQuestion(_currentQuestionIndex);
+        final correctIndex = correctIndices is List<int> ? correctIndices[0] : correctIndices as int;
         return _selectedAnswerIndex == correctIndex;
       } else if (question.isMultipleChoice) {
-        final correctAnswers = question.correctIndex as List<int>;
-        if (_selectedMultipleAnswers.length != correctAnswers.length) return false;
+        final correctIndices = _getCorrectIndicesForQuestion(_currentQuestionIndex) as List<int>;
+        if (_selectedMultipleAnswers.length != correctIndices.length) return false;
 
         final userAnswersSorted = List<int>.from(_selectedMultipleAnswers)..sort();
-        final correctAnswersSorted = List<int>.from(correctAnswers)..sort();
+        final correctAnswersSorted = List<int>.from(correctIndices)..sort();
 
         for (int i = 0; i < userAnswersSorted.length; i++) {
           if (userAnswersSorted[i] != correctAnswersSorted[i]) return false;
@@ -218,7 +294,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     }
   }
 
-  // В test_screen.dart добавьте этот метод
   Future<void> _completeTest() async {
     if (_testCompleted) return;
 
@@ -284,7 +359,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     }
   }
 
-// Метод для расчета XP
+  // Метод для расчета XP
   int _calculateEarnedXP(int newProgress, int oldProgress) {
     if (newProgress <= oldProgress) return 0;
 
@@ -343,6 +418,9 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildAnswerOptions(Question question) {
+    // Получаем перемешанные опции для текущего вопроса
+    final options = _getShuffledOptionsForQuestion(question, _currentQuestionIndex);
+
     if (question.isTextAnswer) {
       return TextField(
         controller: _textController,
@@ -362,7 +440,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       );
     } else if (question.isSingleChoice) {
       return Column(
-        children: List.generate(question.options.length, (index) {
+        children: List.generate(options.length, (index) {
           final isSelected = _selectedAnswerIndex == index;
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -389,7 +467,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                 ),
               ),
               child: Text(
-                question.options[index],
+                options[index],
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
@@ -425,7 +503,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
             ),
           ),
           const SizedBox(height: 16),
-          ...List.generate(question.options.length, (index) {
+          ...List.generate(options.length, (index) {
             final isSelected = _selectedMultipleAnswers.contains(index);
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -471,7 +549,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        question.options[index],
+                        options[index],
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
@@ -682,13 +760,16 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   }
 
   String _getSelectedAnswerText(Question question) {
+    // Получаем перемешанные опции для текущего вопроса
+    final options = _getShuffledOptionsForQuestion(question, _currentQuestionIndex);
+
     if (question.isTextAnswer) {
       return _textAnswer.isNotEmpty ? _textAnswer : AppLocalizations.of(context).noAnswerProvided;
     } else if (question.isSingleChoice) {
-      return _selectedAnswerIndex >= 0 ? question.options[_selectedAnswerIndex] : AppLocalizations.of(context).noAnswerSelected;
+      return _selectedAnswerIndex >= 0 ? options[_selectedAnswerIndex] : AppLocalizations.of(context).noAnswerSelected;
     } else if (question.isMultipleChoice) {
       if (_selectedMultipleAnswers.isEmpty) return AppLocalizations.of(context).noAnswerSelected;
-      final selectedOptions = _selectedMultipleAnswers.map((index) => question.options[index]).toList();
+      final selectedOptions = _selectedMultipleAnswers.map((index) => options[index]).toList();
       return selectedOptions.join(', ');
     }
     return AppLocalizations.of(context).unknownAnswerType;

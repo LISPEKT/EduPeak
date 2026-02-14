@@ -288,10 +288,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
         _newsItems = [
           NewsItem(
             id: 1,
-            title: 'Добавлен экран новостей в обновлении 0.42.0',
-            description: 'Мы рады сообщить о выходе обновления 0.42.0! Теперь в приложении появился новый раздел "Новости", где вы можете следить за всеми обновлениями и важными анонсами.',
-            date: '18 января 2025',
-            imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Update+0.42.0',
+            title: 'Полностью добавлен предмет обществознание 0.42.4',
+            description: '',
+            date: '14 февраля 2026',
+            imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Update+0.42.4',
             category: 'Обновления',
             isRead: prefs.getBool('news_1_read') ?? false,
           ),
@@ -304,10 +304,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
       _newsItems = [
         NewsItem(
           id: 1,
-          title: 'Добавлен экран новостей в обновлении 0.42.0',
-          description: 'Мы рады сообщить о выходе обновления 0.42.0! Теперь в приложении появился новый раздел "Новости", где вы можете следить за всеми обновлениями и важными анонсами.',
-          date: '18 января 2025',
-          imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Update+0.42.0',
+          title: 'Полностью добавлен предмет обществознание 0.42.4',
+          description: '',
+          date: '14 февраля 2026',
+          imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Update+0.42.4',
           category: 'Обновления',
           isRead: false,
         ),
@@ -688,26 +688,20 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
 
   IconData _getSubjectIcon(String subject) {
     final icons = {
-      'Русский язык': Icons.text_fields_rounded,
       'Математика': Icons.calculate_rounded,
       'Алгебра': Icons.functions_rounded,
-      'Геометрия': Icons.square_foot_rounded,
-      'Английский язык': Icons.language_rounded,
+      'Геометрия': Icons.shape_line_rounded,
+      'Русский язык': Icons.menu_book_rounded,
+      'Литература': Icons.book_rounded,
       'История': Icons.history_rounded,
-      'География': Icons.public_rounded,
-      'Биология': Icons.psychology_rounded,
-      'Физика': Icons.science_rounded,
-      'Химия': Icons.biotech_rounded,
-      'Литература': Icons.menu_book_rounded,
       'Обществознание': Icons.people_rounded,
+      'География': Icons.public_rounded,
+      'Биология': Icons.eco_rounded,
+      'Физика': Icons.science_rounded,
+      'Химия': Icons.science_rounded,
+      'Английский язык': Icons.language_rounded,
       'Информатика': Icons.computer_rounded,
       'Статистика и вероятность': Icons.trending_up_rounded,
-      'Литовский язык': Icons.language_rounded,
-      'Казахский язык': Icons.language_rounded,
-      'Вьетнамский язык': Icons.language_rounded,
-      'История Литвы': Icons.history_edu_rounded,
-      'История Казахстана': Icons.history_edu_rounded,
-      'История Вьетнама': Icons.history_edu_rounded,
     };
     return icons[subject] ?? Icons.school_rounded;
   }
@@ -742,26 +736,19 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver, Ti
 
   Color _getSubjectColor(String subject) {
     final colors = {
-      // Языки
-      'Русский язык': Color(0xFFEA4335),
-      'Английский язык': Color(0xFFE91E63),
-      'Литовский язык': Color(0xFF9C27B0),
-      'Казахский язык': Color(0xFF673AB7),
-      'Вьетнамский язык': Color(0xFF3F51B5),
-      'Математика': Color(0xFF4285F4),
-      'Алгебра': Color(0xFF2196F3),
-      'Геометрия': Color(0xFF3F51B5),
+      'Математика': Color(0xFF4285F4), // Синий Google
+      'Алгебра': Color(0xFF2196F3), // Голубой
+      'Геометрия': Color(0xFF3F51B5), // Индиго
+      'Русский язык': Color(0xFFEA4335), // Красный Google
+      'Литература': Color(0xFFFBBC05), // Желтый Google
+      'История': Color(0xFF34A853), // Зеленый Google
+      'Обществознание': Color(0xFF8E44AD), // Фиолетовый
+      'География': Color(0xFF00BCD4), // Бирюзовый
+      'Биология': Color(0xFF4CAF50), // Зеленый
+      'Физика': Color(0xFF9C27B0), // Пурпурный
+      'Химия': Color(0xFFFF9800), // Оранжевый
+      'Английский язык': Color(0xFFE91E63), // Розовый
       'Статистика и вероятность': Color(0xFF00BCD4),
-      'Физика': Color(0xFF9C27B0),
-      'Химия': Color(0xFFFF9800),
-      'Биология': Color(0xFF4CAF50),
-      'География': Color(0xFF00BCD4),
-      'История': Color(0xFF34A853),
-      'История Литвы': Color(0xFF009688),
-      'История Казахстана': Color(0xFF0097A7),
-      'История Вьетнама': Color(0xFF00796B),
-      'Обществознание': Color(0xFF8E44AD),
-      'Литература': Color(0xFFFBBC05),
       'Информатика': Color(0xFF607D8B),
     };
     if (!colors.containsKey(subject)) {

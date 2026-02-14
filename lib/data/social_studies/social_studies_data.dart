@@ -26,12 +26,10 @@ class SocialStudiesData {
   static final Map<String, Map<int, List<Subject>>> _regionalData = {
     // Россия
     'ru_ru': {
-      6: ru_ru.socialStudiesSubjects6,
-      7: ru_ru.socialStudiesSubjects7,
-      //8: ru_ru.socialStudiesSubjects8,
-      //9: ru_ru.socialStudiesSubjects9,
-      //10: ru_ru.socialStudiesSubjects10,
-      //11: ru_ru.socialStudiesSubjects11,
+      8: ru_ru.socialStudiesSubjects8,
+      9: ru_ru.socialStudiesSubjects9,
+      10: ru_ru.socialStudiesSubjects10,
+      11: ru_ru.socialStudiesSubjects11,
     },
     'ru_en': {
       6: ru_en.socialStudiesSubjects6,
