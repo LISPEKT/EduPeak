@@ -1,3 +1,5 @@
+// lib/screens/achievements_screen.dart
+
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../data/user_data_storage.dart';
@@ -63,21 +65,33 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Получаем достижения с сервера
       final response = await ApiService.getAchievements();
-      final progressResponse = await ApiService.getAchievementProgress();
 
-      if (response['success'] == true && progressResponse['success'] == true) {
+      // Получаем прогресс (может быть отдельным запросом или встроенным)
+      Map<String, dynamic> progressResponse;
+      try {
+        progressResponse = await ApiService.getAchievementProgress();
+      } catch (e) {
+        progressResponse = {'success': false};
+      }
+
+      if (response['success'] == true) {
         final achievementsData = response['achievements'] as List;
-        final progressData = progressResponse['progress'] as Map<String, dynamic>;
+
+        // Получаем прогресс из ответа или отдельного запроса
+        final progressData = response['progress'] ??
+            (progressResponse['success'] == true ? progressResponse['progress'] : {});
 
         setState(() {
           _achievements = achievementsData.map((data) {
-            final achievement = Achievement.fromJson(data);
-            final progressKey = _getProgressKey(achievement.type);
-            final currentValue = progressData[progressKey] ?? 0;
-            return achievement.copyWith(currentValue: currentValue);
+            return Achievement.fromJson(data);
           }).toList();
-          _progress = progressData.map((key, value) => MapEntry(key, value as int));
+
+          // Обновляем прогресс из ответа
+          if (progressData is Map) {
+            _progress = progressData.map((key, value) => MapEntry(key.toString(), value as int));
+          }
 
           // Обновляем счетчики
           _completedCount = _achievements.where((a) => a.isUnlocked).length;
@@ -88,11 +102,13 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         if (widget.onAchievementsLoaded != null) {
           widget.onAchievementsLoaded!(achievementCount);
         }
+
+        // Проверяем и разблокируем достижения
+        await _checkAndUnlockAchievements();
       } else {
+        // Если сервер недоступен, загружаем локальные
         await _loadLocalAchievements();
       }
-
-      await _checkAndUnlockAchievements();
     } catch (e) {
       print('Error loading achievements: $e');
       await _loadLocalAchievements();
@@ -115,7 +131,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.red,
         requiredValue: 1,
         currentValue: stats['completedTopics'] ?? 0,
-        type: AchievementType.testsCompleted,
+        type: 'testsCompleted',
       ),
       Achievement(
         id: 'test_master',
@@ -125,7 +141,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.blue,
         requiredValue: 10,
         currentValue: stats['completedTopics'] ?? 0,
-        type: AchievementType.testsCompleted,
+        type: 'testsCompleted',
       ),
       Achievement(
         id: 'test_expert',
@@ -135,7 +151,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.amber,
         requiredValue: 50,
         currentValue: stats['completedTopics'] ?? 0,
-        type: AchievementType.testsCompleted,
+        type: 'testsCompleted',
       ),
       Achievement(
         id: 'test_legend',
@@ -145,7 +161,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.yellow[700]!,
         requiredValue: 100,
         currentValue: stats['completedTopics'] ?? 0,
-        type: AchievementType.testsCompleted,
+        type: 'testsCompleted',
       ),
 
       // Streaks
@@ -157,7 +173,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.orange,
         requiredValue: 3,
         currentValue: stats['streakDays'] ?? 0,
-        type: AchievementType.streakDays,
+        type: 'streakDays',
       ),
       Achievement(
         id: 'streak_7',
@@ -167,7 +183,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.deepOrange,
         requiredValue: 7,
         currentValue: stats['streakDays'] ?? 0,
-        type: AchievementType.streakDays,
+        type: 'streakDays',
       ),
       Achievement(
         id: 'streak_14',
@@ -177,7 +193,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.purple,
         requiredValue: 14,
         currentValue: stats['streakDays'] ?? 0,
-        type: AchievementType.streakDays,
+        type: 'streakDays',
       ),
       Achievement(
         id: 'streak_30',
@@ -187,7 +203,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.brown,
         requiredValue: 30,
         currentValue: stats['streakDays'] ?? 0,
-        type: AchievementType.streakDays,
+        type: 'streakDays',
       ),
       Achievement(
         id: 'streak_90',
@@ -197,7 +213,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.teal,
         requiredValue: 90,
         currentValue: stats['streakDays'] ?? 0,
-        type: AchievementType.streakDays,
+        type: 'streakDays',
       ),
 
       // Perfect results
@@ -208,8 +224,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.grade_rounded,
         iconColor: Colors.yellow[700]!,
         requiredValue: 1,
-        currentValue: 0,
-        type: AchievementType.perfectTests,
+        currentValue: stats['perfectTests'] ?? 0,
+        type: 'perfectTests',
       ),
       Achievement(
         id: 'perfect_5',
@@ -218,8 +234,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.auto_awesome_rounded,
         iconColor: Colors.pink,
         requiredValue: 5,
-        currentValue: 0,
-        type: AchievementType.perfectTests,
+        currentValue: stats['perfectTests'] ?? 0,
+        type: 'perfectTests',
       ),
       Achievement(
         id: 'perfect_20',
@@ -228,8 +244,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.auto_awesome_motion_rounded,
         iconColor: Colors.deepPurple,
         requiredValue: 20,
-        currentValue: 0,
-        type: AchievementType.perfectTests,
+        currentValue: stats['perfectTests'] ?? 0,
+        type: 'perfectTests',
       ),
 
       // Subjects
@@ -240,8 +256,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.school_rounded,
         iconColor: Colors.green,
         requiredValue: 1,
-        currentValue: 0,
-        type: AchievementType.subjectsCompleted,
+        currentValue: stats['subjectsCompleted'] ?? 0,
+        type: 'subjectsCompleted',
       ),
       Achievement(
         id: 'subject_master',
@@ -250,8 +266,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.psychology_rounded,
         iconColor: Colors.deepPurple,
         requiredValue: 3,
-        currentValue: 0,
-        type: AchievementType.subjectsCompleted,
+        currentValue: stats['subjectsCompleted'] ?? 0,
+        type: 'subjectsCompleted',
       ),
       Achievement(
         id: 'subject_grandmaster',
@@ -260,8 +276,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.extension_rounded,
         iconColor: Colors.indigo,
         requiredValue: 5,
-        currentValue: 0,
-        type: AchievementType.subjectsCompleted,
+        currentValue: stats['subjectsCompleted'] ?? 0,
+        type: 'subjectsCompleted',
       ),
 
       // Activity
@@ -272,8 +288,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.flash_on_rounded,
         iconColor: Colors.yellow[700]!,
         requiredValue: 5,
-        currentValue: 0,
-        type: AchievementType.testsInOneDay,
+        currentValue: stats['testsInOneDay'] ?? 0,
+        type: 'testsInOneDay',
       ),
       Achievement(
         id: 'marathon',
@@ -282,8 +298,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.directions_run_rounded,
         iconColor: Colors.blue,
         requiredValue: 10,
-        currentValue: 0,
-        type: AchievementType.testsInOneDay,
+        currentValue: stats['testsInOneDay'] ?? 0,
+        type: 'testsInOneDay',
       ),
       Achievement(
         id: 'daily_warrior',
@@ -292,8 +308,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.shield_rounded,
         iconColor: Colors.grey[700]!,
         requiredValue: 7,
-        currentValue: 0,
-        type: AchievementType.dailyActivity,
+        currentValue: stats['dailyActivity'] ?? 0,
+        type: 'dailyActivity',
       ),
 
       // XP and leagues
@@ -305,7 +321,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.blueGrey,
         requiredValue: 1000,
         currentValue: stats['totalXP'] ?? 0,
-        type: AchievementType.totalXP,
+        type: 'totalXP',
       ),
       Achievement(
         id: 'wisdom_keeper',
@@ -315,7 +331,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.brown,
         requiredValue: 5000,
         currentValue: stats['totalXP'] ?? 0,
-        type: AchievementType.totalXP,
+        type: 'totalXP',
       ),
       Achievement(
         id: 'knowledge_master',
@@ -325,87 +341,87 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.orange,
         requiredValue: 10000,
         currentValue: stats['totalXP'] ?? 0,
-        type: AchievementType.totalXP,
+        type: 'totalXP',
       ),
       Achievement(
         id: 'bronze_league',
         name: localizations.bronzeFighter,
         description: localizations.reachBronzeLeague,
         icon: Icons.lens_rounded,
-        iconColor: Color(0xFFCD7F32),
+        iconColor: const Color(0xFFCD7F32),
         requiredValue: 1,
         currentValue: _isLeagueAchieved('Бронзовая', stats) ? 1 : 0,
-        type: AchievementType.league,
+        type: 'league',
       ),
       Achievement(
         id: 'silver_league',
         name: localizations.silverStrategist,
         description: localizations.reachSilverLeague,
         icon: Icons.lens_rounded,
-        iconColor: Color(0xFFC0C0C0),
+        iconColor: const Color(0xFFC0C0C0),
         requiredValue: 1,
         currentValue: _isLeagueAchieved('Серебряная', stats) ? 1 : 0,
-        type: AchievementType.league,
+        type: 'league',
       ),
       Achievement(
         id: 'gold_league',
         name: localizations.goldChampion,
         description: localizations.reachGoldLeague,
         icon: Icons.lens_rounded,
-        iconColor: Color(0xFFFFD700),
+        iconColor: const Color(0xFFFFD700),
         requiredValue: 1,
         currentValue: _isLeagueAchieved('Золотая', stats) ? 1 : 0,
-        type: AchievementType.league,
+        type: 'league',
       ),
       Achievement(
         id: 'platinum_league',
         name: localizations.platinumGenius,
         description: localizations.reachPlatinumLeague,
         icon: Icons.diamond_rounded,
-        iconColor: Color(0xFFE5E4E2),
+        iconColor: const Color(0xFFE5E4E2),
         requiredValue: 1,
         currentValue: _isLeagueAchieved('Платиновая', stats) ? 1 : 0,
-        type: AchievementType.league,
+        type: 'league',
       ),
       Achievement(
         id: 'diamond_league',
         name: localizations.diamondMaster,
         description: localizations.reachDiamondLeague,
         icon: Icons.diamond_rounded,
-        iconColor: Color(0xFFB9F2FF),
+        iconColor: const Color(0xFFB9F2FF),
         requiredValue: 1,
         currentValue: _isLeagueAchieved('Бриллиантовая', stats) ? 1 : 0,
-        type: AchievementType.league,
+        type: 'league',
       ),
       Achievement(
         id: 'elite_league',
         name: 'Элитный воин',
         description: 'Достигните Элитной лиги',
         icon: Icons.star_rounded,
-        iconColor: Color(0xFF7F7F7F),
+        iconColor: const Color(0xFF7F7F7F),
         requiredValue: 1,
         currentValue: _isLeagueAchieved('Элитная', stats) ? 1 : 0,
-        type: AchievementType.league,
+        type: 'league',
       ),
       Achievement(
         id: 'legendary_league',
         name: 'Легендарный герой',
         description: 'Достигните Легендарной лиги',
         icon: Icons.whatshot_rounded,
-        iconColor: Color(0xFFFF4500),
+        iconColor: const Color(0xFFFF4500),
         requiredValue: 1,
         currentValue: _isLeagueAchieved('Легендарная', stats) ? 1 : 0,
-        type: AchievementType.league,
+        type: 'league',
       ),
       Achievement(
         id: 'unreal_league',
         name: 'Нереальный гений',
         description: 'Достигните Нереальной лиги',
         icon: Icons.auto_awesome_rounded,
-        iconColor: Color(0xFFE6E6FA),
+        iconColor: const Color(0xFFE6E6FA),
         requiredValue: 1,
         currentValue: _isLeagueAchieved('Нереальная', stats) ? 1 : 0,
-        type: AchievementType.league,
+        type: 'league',
       ),
 
       // Correct answers
@@ -417,7 +433,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.green,
         requiredValue: 100,
         currentValue: stats['totalCorrectAnswers'] ?? 0,
-        type: AchievementType.correctAnswers,
+        type: 'correctAnswers',
       ),
       Achievement(
         id: 'correct_500',
@@ -427,7 +443,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.blueGrey,
         requiredValue: 500,
         currentValue: stats['totalCorrectAnswers'] ?? 0,
-        type: AchievementType.correctAnswers,
+        type: 'correctAnswers',
       ),
       Achievement(
         id: 'correct_1000',
@@ -437,7 +453,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.amber,
         requiredValue: 1000,
         currentValue: stats['totalCorrectAnswers'] ?? 0,
-        type: AchievementType.correctAnswers,
+        type: 'correctAnswers',
       ),
       Achievement(
         id: 'correct_5000',
@@ -447,7 +463,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         iconColor: Colors.purple,
         requiredValue: 5000,
         currentValue: stats['totalCorrectAnswers'] ?? 0,
-        type: AchievementType.correctAnswers,
+        type: 'correctAnswers',
       ),
 
       // Special
@@ -458,8 +474,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.wb_sunny_rounded,
         iconColor: Colors.orange,
         requiredValue: 1,
-        currentValue: 0,
-        type: AchievementType.special,
+        currentValue: stats['special_early_bird'] ?? 0,
+        type: 'special',
       ),
       Achievement(
         id: 'night_owl',
@@ -468,8 +484,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.nightlight_rounded,
         iconColor: Colors.indigo,
         requiredValue: 1,
-        currentValue: 0,
-        type: AchievementType.special,
+        currentValue: stats['special_night_owl'] ?? 0,
+        type: 'special',
       ),
       Achievement(
         id: 'weekend_warrior',
@@ -478,8 +494,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         icon: Icons.weekend_rounded,
         iconColor: Colors.red,
         requiredValue: 5,
-        currentValue: 0,
-        type: AchievementType.special,
+        currentValue: stats['special_weekend_warrior'] ?? 0,
+        type: 'special',
       ),
     ];
 
@@ -503,40 +519,27 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     return currentIndex >= targetIndex;
   }
 
-  String _getProgressKey(AchievementType type) {
-    switch (type) {
-      case AchievementType.testsCompleted:
-        return 'tests_completed';
-      case AchievementType.streakDays:
-        return 'streak_days';
-      case AchievementType.perfectTests:
-        return 'perfect_tests';
-      case AchievementType.subjectsCompleted:
-        return 'subjects_completed';
-      case AchievementType.testsInOneDay:
-        return 'tests_in_one_day';
-      case AchievementType.totalXP:
-        return 'total_xp';
-      case AchievementType.league:
-        return 'league';
-      case AchievementType.correctAnswers:
-        return 'correct_answers';
-      case AchievementType.dailyActivity:
-        return 'daily_activity';
-      case AchievementType.special:
-        return 'special';
-      default:
-        return 'tests_completed';
-    }
-  }
-
   Future<void> _checkAndUnlockAchievements() async {
     try {
+      // Проверяем, какие достижения можно разблокировать
       for (final achievement in _achievements) {
         if (!achievement.isUnlocked && achievement.currentValue >= achievement.requiredValue) {
-          await ApiService.unlockAchievement(achievement.id);
-          print('🎉 Achievement unlocked: ${achievement.name}');
-          _showUnlockNotification(achievement);
+          // Отправляем запрос на разблокировку
+          try {
+            final response = await ApiService.unlockAchievement(achievement.id);
+            if (response['success'] == true) {
+              print('🎉 Achievement unlocked: ${achievement.name}');
+              _showUnlockNotification(achievement);
+
+              // Обновляем состояние
+              setState(() {
+                achievement.currentValue = achievement.requiredValue;
+                _completedCount = _achievements.where((a) => a.isUnlocked).length;
+              });
+            }
+          } catch (e) {
+            print('Error unlocking achievement ${achievement.id}: $e');
+          }
         }
       }
     } catch (e) {
@@ -566,14 +569,15 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 ),
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     localizations.achievementUnlocked,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                       color: Colors.white,
@@ -592,7 +596,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           ],
         ),
         backgroundColor: Theme.of(context).colorScheme.primary,
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -621,7 +625,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
               theme.scaffoldBackgroundColor.withOpacity(0.7),
               theme.scaffoldBackgroundColor,
             ],
-            stops: [0.0, 0.3, 0.7],
+            stops: const [0.0, 0.3, 0.7],
           )
               : LinearGradient(
             begin: Alignment.topCenter,
@@ -631,7 +635,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
               Colors.white.withOpacity(0.7),
               Colors.white,
             ],
-            stops: [0.0, 0.3, 0.7],
+            stops: const [0.0, 0.3, 0.7],
           ),
         ),
         child: SafeArea(
@@ -654,17 +658,17 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
                             blurRadius: 6,
-                            offset: Offset(0, 2),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: IconButton(
-                        icon: Icon(Icons.arrow_back_rounded),
+                        icon: const Icon(Icons.arrow_back_rounded),
                         color: primaryColor,
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -698,8 +702,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
                       Text(
                         '${localizations.loading}...',
                         style: theme.textTheme.bodyMedium,
@@ -722,7 +726,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
                                 blurRadius: 12,
-                                offset: Offset(0, 4),
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
@@ -743,7 +747,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                       size: 36,
                                     ),
                                   ),
-                                  SizedBox(width: 20),
+                                  const SizedBox(width: 20),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -759,7 +763,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                               ),
                                             ),
                                             Container(
-                                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                               decoration: BoxDecoration(
                                                 color: primaryColor.withOpacity(0.1),
                                                 borderRadius: BorderRadius.circular(12),
@@ -774,15 +778,15 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                             ),
                                           ],
                                         ),
-                                        SizedBox(height: 8),
+                                        const SizedBox(height: 8),
                                         LinearProgressIndicator(
-                                          value: completedCount / totalCount,
+                                          value: totalCount > 0 ? completedCount / totalCount : 0,
                                           backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
                                           color: primaryColor,
                                           borderRadius: BorderRadius.circular(4),
                                           minHeight: 10,
                                         ),
-                                        SizedBox(height: 8),
+                                        const SizedBox(height: 8),
                                         Text(
                                           '$completedCount открыто • ${totalCount - completedCount} осталось',
                                           style: TextStyle(
@@ -814,7 +818,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                 isDark: isDark,
                               ),
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
                                 title: 'В прогрессе',
@@ -824,7 +828,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                 isDark: isDark,
                               ),
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
                                 title: 'Заблокировано',
@@ -854,9 +858,9 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: GridView.builder(
-                          physics: NeverScrollableScrollPhysics(),
+                          physics: const NeverScrollableScrollPhysics(),
                           shrinkWrap: true,
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
@@ -873,7 +877,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         ),
                       ),
 
-                      SizedBox(height: 32),
+                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
@@ -903,7 +907,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           BoxShadow(
             color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
             blurRadius: 8,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -936,7 +940,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
               ),
             ],
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             title,
             style: TextStyle(
@@ -954,14 +958,16 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isUnlocked = achievement.isUnlocked;
-    final progress = achievement.currentValue / achievement.requiredValue;
+    final progress = achievement.requiredValue > 0
+        ? achievement.currentValue / achievement.requiredValue
+        : 0.0;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        margin: EdgeInsets.all(16),
+        margin: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isDark ? theme.cardColor : Colors.white,
           borderRadius: BorderRadius.circular(24),
@@ -969,12 +975,12 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
             BoxShadow(
               color: Colors.black.withOpacity(0.2),
               blurRadius: 20,
-              offset: Offset(0, 8),
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -997,7 +1003,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 ),
               ),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               // Название достижения
               Text(
@@ -1010,7 +1016,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 textAlign: TextAlign.center,
               ),
 
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
 
               // Описание достижения
               Text(
@@ -1022,11 +1028,11 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 textAlign: TextAlign.center,
               ),
 
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
 
               // Статус бейдж
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
                   color: isUnlocked
                       ? Colors.green.withOpacity(0.1)
@@ -1046,7 +1052,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                       size: 18,
                       color: isUnlocked ? Colors.green : theme.colorScheme.onSurfaceVariant,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
                       isUnlocked ? 'Достижение получено' : 'Достижение заблокировано',
                       style: TextStyle(
@@ -1062,9 +1068,9 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
               ),
 
               if (!isUnlocked && achievement.requiredValue > 1) ...[
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 Container(
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(16),
@@ -1092,7 +1098,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       LinearProgressIndicator(
                         value: progress,
                         backgroundColor: theme.colorScheme.surfaceVariant,
@@ -1100,7 +1106,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         borderRadius: BorderRadius.circular(8),
                         minHeight: 8,
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         '${(progress * 100).toStringAsFixed(1)}%',
                         style: TextStyle(
@@ -1113,7 +1119,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 ),
               ],
 
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
 
               // Кнопка закрытия
               SizedBox(
@@ -1126,11 +1132,11 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     elevation: 0,
                     shadowColor: Colors.transparent,
                   ),
-                  child: Text(
+                  child: const Text(
                     'Закрыть',
                     style: TextStyle(
                       fontSize: 16,
@@ -1161,7 +1167,9 @@ class _AchievementCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isUnlocked = achievement.isUnlocked;
-    final progress = achievement.currentValue / achievement.requiredValue;
+    final progress = achievement.requiredValue > 0
+        ? achievement.currentValue / achievement.requiredValue
+        : 0.0;
 
     return Card(
       elevation: 2,
@@ -1175,7 +1183,7 @@ class _AchievementCard extends StatelessWidget {
             // Основной контент
             Positioned.fill(
               child: Padding(
-                padding: EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -1201,7 +1209,7 @@ class _AchievementCard extends StatelessWidget {
                       ),
                     ),
 
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
                     // Название достижения
                     Text(
@@ -1218,7 +1226,7 @@ class _AchievementCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
                     // Описание достижения
                     Expanded(
@@ -1237,7 +1245,7 @@ class _AchievementCard extends StatelessWidget {
 
                     // Прогресс для заблокированных достижений
                     if (!isUnlocked && achievement.requiredValue > 1) ...[
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: progress,
                         backgroundColor: theme.colorScheme.surfaceVariant,
@@ -1245,7 +1253,7 @@ class _AchievementCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                         minHeight: 6,
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
                         '${achievement.currentValue}/${achievement.requiredValue}',
                         textAlign: TextAlign.center,
@@ -1273,7 +1281,7 @@ class _AchievementCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black26,
                         blurRadius: 4,
                         offset: Offset(0, 2),
                       ),
@@ -1300,8 +1308,8 @@ class Achievement {
   final IconData icon;
   final Color iconColor;
   final int requiredValue;
-  final int currentValue;
-  final AchievementType type;
+  int currentValue;
+  final String type;
 
   Achievement({
     required this.id,
@@ -1318,17 +1326,14 @@ class Achievement {
 
   factory Achievement.fromJson(Map<String, dynamic> json) {
     return Achievement(
-      id: json['id'],
-      name: json['name'],
-      description: json['description'],
-      icon: _getIconFromString(json['icon'] ?? 'emoji_events'),
+      id: json['id'] ?? '',
+      name: json['name'] ?? 'Достижение',
+      description: json['description'] ?? '',
+      icon: _getIconFromString(json['icon'] ?? 'emoji_events_rounded'),
       iconColor: _getColorFromString(json['icon_color'] ?? '#FFD700'),
-      requiredValue: json['required_value'],
+      requiredValue: json['required_value'] ?? 0,
       currentValue: json['current_value'] ?? 0,
-      type: AchievementType.values.firstWhere(
-            (e) => e.toString() == 'AchievementType.${json['type']}',
-        orElse: () => AchievementType.testsCompleted,
-      ),
+      type: json['type'] ?? 'testsCompleted',
     );
   }
 
@@ -1346,19 +1351,6 @@ class Achievement {
       type: type,
     );
   }
-}
-
-enum AchievementType {
-  testsCompleted,
-  streakDays,
-  perfectTests,
-  subjectsCompleted,
-  testsInOneDay,
-  totalXP,
-  league,
-  correctAnswers,
-  dailyActivity,
-  special,
 }
 
 // Вспомогательные функции для преобразования
@@ -1393,13 +1385,37 @@ IconData _getIconFromString(String iconName) {
     case 'wb_sunny_rounded': return Icons.wb_sunny_rounded;
     case 'nightlight_rounded': return Icons.nightlight_rounded;
     case 'weekend_rounded': return Icons.weekend_rounded;
+    case 'crown_rounded': return Icons.star_rounded;
+    case 'groups_rounded': return Icons.groups_rounded;
+    case 'group_rounded': return Icons.group_rounded;
+    case 'sports_esports_rounded': return Icons.sports_esports_rounded;
+    case 'track_changes_rounded': return Icons.track_changes_rounded;
+    case 'hundred_rounded': return Icons.grade_rounded;
+    case 'eco_rounded': return Icons.eco_rounded;
     default: return Icons.emoji_events_rounded;
   }
 }
 
 Color _getColorFromString(String colorString) {
   try {
-    return Color(int.parse(colorString.replaceFirst('#', ''), radix: 16) + 0xFF000000);
+    if (colorString.startsWith('#')) {
+      return Color(int.parse(colorString.substring(1), radix: 16) + 0xFF000000);
+    }
+    // Для именованных цветов
+    switch (colorString) {
+      case 'red': return Colors.red;
+      case 'blue': return Colors.blue;
+      case 'green': return Colors.green;
+      case 'amber': return Colors.amber;
+      case 'orange': return Colors.orange;
+      case 'purple': return Colors.purple;
+      case 'pink': return Colors.pink;
+      case 'teal': return Colors.teal;
+      case 'brown': return Colors.brown;
+      case 'grey': return Colors.grey;
+      case 'yellow': return Colors.yellow;
+      default: return Colors.amber;
+    }
   } catch (e) {
     return Colors.amber;
   }

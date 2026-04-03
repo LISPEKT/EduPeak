@@ -1,3 +1,5 @@
+// lib/screens/profile_editor_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'avatar_crop_screen.dart';
@@ -30,18 +32,29 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
   bool _isLoading = false;
-  String? _selectedImagePath; // Храним путь к только что выбранному фото
+  String? _selectedImagePath;
+  bool _isLoggedIn = false;
+  String _oldUsername = '';
 
   @override
   void initState() {
     super.initState();
     _loadUsername();
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    final loggedIn = await UserDataStorage.isLoggedIn();
+    setState(() {
+      _isLoggedIn = loggedIn;
+    });
   }
 
   Future<void> _loadUsername() async {
     final username = await UserDataStorage.getUsername();
     setState(() {
       _usernameController.text = username;
+      _oldUsername = username;
     });
   }
 
@@ -57,7 +70,6 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
       );
 
       if (image != null) {
-        // Сохраняем путь к выбранному фото
         setState(() {
           _selectedImagePath = image.path;
         });
@@ -70,11 +82,9 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
         );
 
         if (editedImagePath != null && editedImagePath is String) {
-          // Обновляем путь к отредактированному фото
           setState(() {
             _selectedImagePath = editedImagePath;
           });
-          // Автоматически сохраняем после редактирования
           await _updateAvatar(editedImagePath);
         }
       }
@@ -98,21 +108,46 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
       await UserDataStorage.saveAvatar(imagePath);
       widget.onAvatarUpdate(imagePath);
 
-      final response = await ApiService.updateAvatar(imagePath);
-      if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? appLocalizations.avatarUpdated),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        );
+      if (_isLoggedIn) {
+        try {
+          print('🔄 Отправка аватара на сервер...');
+          final response = await ApiService.updateAvatar(imagePath);
+
+          if (response['success'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Аватар обновлен на сервере'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Аватар сохранен локально'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
+        } catch (e) {
+          print('❌ Ошибка отправки аватара на сервер: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Аватар сохранен локально (ошибка сети)'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(response['message'] ?? appLocalizations.avatarUpdateError),
-            backgroundColor: Colors.orange,
+            content: Text(appLocalizations.avatarUpdated),
+            backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -148,21 +183,85 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
       return;
     }
 
-    setState(() => _isLoading = true);
-    try {
-      await UserDataStorage.saveUsername(newUsername);
-      await UserDataStorage.updateUsernameOnServer(newUsername);
-      widget.onUsernameUpdate(newUsername);
-
+    if (newUsername == _oldUsername) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(appLocalizations.usernameUpdated),
-          backgroundColor: Colors.green,
+          content: Text('Имя пользователя не изменилось'),
+          backgroundColor: Colors.orange,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      // Сохраняем локально
+      await UserDataStorage.saveUsername(newUsername);
+      widget.onUsernameUpdate(newUsername);
+
+      // Если пользователь авторизован, отправляем на сервер
+      if (_isLoggedIn) {
+        try {
+          print('🔄 Отправка имени пользователя на сервер: $newUsername');
+
+          final response = await ApiService.updateProfile(newUsername, '');
+
+          print('📥 Ответ от сервера: $response');
+
+          if (response['success'] == true) {
+            print('✅ Имя пользователя обновлено на сервере');
+            setState(() {
+              _oldUsername = newUsername;
+            });
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Имя пользователя обновлено на сервере'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } else {
+            print('⚠️ Ошибка сервера: ${response['message']}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Имя сохранено локально, но не отправлено на сервер'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            );
+          }
+        } catch (e) {
+          print('❌ Ошибка отправки имени на сервер: $e');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Имя сохранено локально (ошибка сети)'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+      } else {
+        setState(() {
+          _oldUsername = newUsername;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(appLocalizations.usernameUpdated),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     } catch (e) {
+      print('❌ Ошибка: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${appLocalizations.usernameUpdateError}: $e'),
@@ -176,7 +275,6 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
     }
   }
 
-  // Метод для отображения аватара
   Widget _buildAvatar() {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
@@ -189,26 +287,38 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
       );
     }
 
-    // Иначе показываем текущий аватар
-    final bool isPhotoAvatar = widget.currentAvatar.startsWith('/');
+    // Проверяем, является ли аватар URL (с сервера)
+    final bool isNetworkAvatar = widget.currentAvatar.startsWith('http');
+    final bool isLocalFile = widget.currentAvatar.startsWith('/') && !isNetworkAvatar;
 
-    return CircleAvatar(
-      radius: 60,
-      backgroundColor: primaryColor.withOpacity(0.1),
-      backgroundImage: isPhotoAvatar && File(widget.currentAvatar).existsSync()
-          ? FileImage(File(widget.currentAvatar)) as ImageProvider
-          : null,
-      child: !isPhotoAvatar
-          ? Icon(
-        Icons.person_rounded,
-        size: 50,
-        color: primaryColor,
-      )
-          : null,
-    );
+    if (isNetworkAvatar) {
+      return CircleAvatar(
+        radius: 60,
+        backgroundColor: primaryColor.withOpacity(0.1),
+        backgroundImage: NetworkImage(widget.currentAvatar),
+        onBackgroundImageError: (_, __) {
+          print('❌ Ошибка загрузки сетевого аватара');
+        },
+      );
+    } else if (isLocalFile) {
+      return CircleAvatar(
+        radius: 60,
+        backgroundColor: primaryColor.withOpacity(0.1),
+        backgroundImage: FileImage(File(widget.currentAvatar)),
+      );
+    } else {
+      return CircleAvatar(
+        radius: 60,
+        backgroundColor: primaryColor.withOpacity(0.1),
+        child: Icon(
+          Icons.person_rounded,
+          size: 50,
+          color: primaryColor,
+        ),
+      );
+    }
   }
 
-  // Метод для определения текста информационной карточки
   String _getInfoCardText() {
     final appLocalizations = AppLocalizations.of(context)!;
 
@@ -216,7 +326,11 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
       return 'Используется новое фото. Нажмите ✓ для сохранения изменений.';
     }
 
-    final bool isPhotoAvatar = widget.currentAvatar.startsWith('/');
+    if (!_isLoggedIn) {
+      return 'Вы не авторизованы. Изменения сохранятся только локально.';
+    }
+
+    final bool isPhotoAvatar = widget.currentAvatar.startsWith('/') || widget.currentAvatar.startsWith('http');
     return isPhotoAvatar
         ? appLocalizations.usingCustomPhoto
         : appLocalizations.usingDefaultAvatar;
@@ -263,7 +377,6 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Row(
                   children: [
-                    // Кнопка назад
                     Container(
                       width: 44,
                       height: 44,
@@ -305,6 +418,19 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _isLoggedIn ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _isLoggedIn ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                        color: _isLoggedIn ? Colors.green : Colors.grey,
+                        size: 20,
                       ),
                     ),
                   ],
@@ -379,7 +505,6 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                         ),
                       ),
 
-                      // Индикатор нового фото
                       if (_selectedImagePath != null)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -433,13 +558,24 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              appLocalizations.username,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: theme.textTheme.titleMedium?.color,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  appLocalizations.username,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.textTheme.titleMedium?.color,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                if (_isLoggedIn)
+                                  Icon(
+                                    Icons.sync_rounded,
+                                    size: 16,
+                                    color: Colors.green,
+                                  ),
+                              ],
                             ),
                             SizedBox(height: 12),
                             TextField(
@@ -482,10 +618,10 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                                     : Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.check_circle_rounded, size: 20),
+                                    Icon(_isLoggedIn ? Icons.cloud_upload_rounded : Icons.check_circle_rounded, size: 20),
                                     SizedBox(width: 8),
                                     Text(
-                                      appLocalizations.updateUsername,
+                                      _isLoggedIn ? 'Обновить на сервере' : appLocalizations.updateUsername,
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -528,12 +664,28 @@ class _ProfileEditorScreenState extends State<ProfileEditorScreen> {
                             ),
                             SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                _getInfoCardText(),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: theme.textTheme.titleMedium?.color,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _getInfoCardText(),
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: theme.textTheme.titleMedium?.color,
+                                    ),
+                                  ),
+                                  if (!_isLoggedIn)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        'Войдите в аккаунт, чтобы синхронизировать изменения',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: theme.hintColor,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ],

@@ -508,15 +508,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
               ),
             ),
           ),
-
-          // BottomNavigationBar как в main_screen
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 20,
-            child: _buildBottomNavigationBar(
-                theme, isDark, appLocalizations),
-          ),
         ],
       ),
     );

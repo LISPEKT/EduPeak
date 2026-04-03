@@ -1,96 +1,95 @@
-// lib/services/google_auth_service.dart
-// TODO: ????????? Firebase ? Google Sign-In
-
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../data/user_data_storage.dart';
-import '../models/user_stats.dart';
-import 'api_service.dart';
-import 'session_manager.dart';
 
 class GoogleAuthService {
-  // ????????? ???????? - ?????? ??????? ????????? ???????
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+    serverClientId: '196195829359-udl3ov49uk4lff41q6j6jjbuh7lgkkfm.apps.googleusercontent.com',
+  );
+
   Future<Map<String, dynamic>> signInWithGoogle() async {
     try {
-      print('? Google Sign-In (stub mode)...');
+      print('🟢 Начинаем вход через Google...');
 
-      final prefs = await SharedPreferences.getInstance();
-      final username = 'Google User';
-      final email = 'google@user.com';
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
-      // 1. ????????? ?????? ?????
-      await prefs.setBool('isLoggedIn', true);
-      await prefs.setString('userEmail', email);
-      await prefs.setString('username', username);
-      await prefs.setString('auth_method', 'google');
-      await prefs.setString('lastLogin', DateTime.now().toIso8601String());
+      if (googleUser == null) {
+        return {'success': false, 'message': 'Вход отменен'};
+      }
 
-      // 2. ?????????????? ??????
-      await SessionManager.initializeSession();
+      print('🟢 Google пользователь: ${googleUser.email}');
 
-      // 3. ??????? ????????? ?????? ????????????
-      final userStats = UserStats(
-        streakDays: 0,
-        lastActivity: DateTime.now(),
-        topicProgress: {},
-        dailyCompletion: {},
-        username: username,
-        totalXP: 0,
-        weeklyXP: 0,
+      final GoogleSignInAuthentication googleAuth =
+      await googleUser.authentication;
+
+      print('🟢 ID Token получен: ${googleAuth.idToken != null ? 'YES' : 'NO'}');
+      print('🟢 Access Token получен: ${googleAuth.accessToken != null ? 'YES' : 'NO'}');
+      print('🟢 Server Auth Code получен: ${googleAuth.serverAuthCode != null ? 'YES' : 'NO'}');
+
+      // Используем serverAuthCode если idToken нет
+      String? tokenToSend = googleAuth.idToken;
+
+      if (tokenToSend == null && googleAuth.serverAuthCode != null) {
+        print('🟢 Используем serverAuthCode вместо idToken');
+        tokenToSend = googleAuth.serverAuthCode;
+      }
+
+      if (tokenToSend == null) {
+        return {'success': false, 'message': 'Не удалось получить токен'};
+      }
+
+      print('🟢 Отправляем токен на сервер...');
+
+      final response = await http.post(
+        Uri.parse('https://edupeak.ru/api/auth/google'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'id_token': tokenToSend,
+        }),
       );
 
-      await UserDataStorage.saveUserStats(userStats);
-      await UserDataStorage.saveUsername(username);
+      print('🟢 Ответ от сервера: ${response.statusCode}');
+      final data = json.decode(response.body);
 
-      print('? Local Google account created (stub mode)');
+      if (response.statusCode == 200 && data['success'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', data['token']);
+        await prefs.setInt('userId', data['user']['id']);
+        await prefs.setBool('isLoggedIn', true);
+        await prefs.setString('auth_method', 'google');
 
+        final savedToken = await prefs.getString('token');
+        print('✅ Токен сохранен: ${savedToken != null ? "YES, длина ${savedToken.length}" : "NO"}');
+
+        return {
+          'success': true,
+          'user': data['user'],
+          'token': data['token'],
+          'isNewUser': data['is_new_user'] ?? false,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Ошибка авторизации',
+        };
+      }
+    } catch (e) {
+      print('🔴 Исключение: $e');
       return {
-        'success': true,
-        'message': '????????? ??????? Google ?????? (????? ????????)',
-        'username': username,
-        'email': email,
-        'local_mode': true
+        'success': false,
+        'message': 'Ошибка: $e',
       };
-    } catch (e) {
-      print('? Error in Google Sign-In stub: $e');
-      return {'success': false, 'message': '?????? ????? ????? Google'};
     }
   }
 
-  Future<bool> isGoogleUserSignedIn() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final authMethod = prefs.getString('auth_method');
-      return authMethod == 'google';
-    } catch (e) {
-      print('? Error checking Google sign-in status: $e');
-      return false;
-    }
-  }
-
-  Future<Map<String, dynamic>> getGoogleUserInfo() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-
-      return {
-        'email': prefs.getString('userEmail'),
-        'name': prefs.getString('username'),
-      };
-    } catch (e) {
-      print('? Error getting Google user info: $e');
-      return {};
-    }
-  }
-
-  Future<void> signOutFromGoogle() async {
-    try {
-      print('? Signing out from Google (stub)...');
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('auth_method');
-
-      print('? Google sign-out complete (stub)');
-    } catch (e) {
-      print('? Error signing out from Google: $e');
-    }
+  Future<void> signOut() async {
+    await _googleSignIn.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token');
+    await prefs.remove('userId');
+    await prefs.remove('isLoggedIn');
+    await prefs.remove('auth_method');
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../data/user_data_storage.dart';
 import '../data/subjects_data.dart';
 import '../models/subject.dart';
@@ -23,8 +24,16 @@ class ReviewScreen extends StatefulWidget {
 
 class _ReviewScreenState extends State<ReviewScreen> {
   List<ReviewItem> _reviewItems = [];
-  List<ReviewItem> _startedTopicsItems = [];
   bool _isLoading = true;
+  String? _errorMessage;
+
+  // ✅ КЭШИРОВАНИЕ ДЛЯ ПРОИЗВОДИТЕЛЬНОСТИ
+  List<ReviewItem>? _cachedReviewItems;
+  DateTime? _lastCacheUpdate;
+
+  // ✅ ОТДЕЛЬНЫЕ ПЕРЕМЕННЫЕ ДЛЯ ПРАВИЛЬНОЙ СТАТИСТИКИ
+  int _uniqueTopicsCount = 0;
+  int _uniqueGradesCount = 0;
 
   @override
   void initState() {
@@ -32,13 +41,36 @@ class _ReviewScreenState extends State<ReviewScreen> {
     _loadReviewData();
   }
 
+  // ✅ ОПТИМИЗИРОВАННАЯ ЗАГРУЗКА С КЭШИРОВАНИЕМ
   Future<void> _loadReviewData() async {
+    // ✅ Используем кэш если данные свежие (< 5 минут)
+    if (_cachedReviewItems != null &&
+        _lastCacheUpdate != null &&
+        DateTime.now().difference(_lastCacheUpdate!).inMinutes < 5) {
+      setState(() {
+        _reviewItems = _cachedReviewItems!;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     try {
       final stats = await UserDataStorage.getUserStats();
       final subjectsData = getSubjectsByGrade(context);
 
       List<ReviewItem> startedTopicsItems = [];
-      Set<String> usedQuestionIds = {};
+
+      // ✅ СЕТЫ ДЛЯ ПОДСЧЁТА УНИКАЛЬНЫХ ЗНАЧЕНИЙ
+      Set<String> uniqueTopics = {};
+      Set<String> uniqueGrades = {};
+
+      // ✅ МНОЖЕСТВО УЖЕ ДОБАВЛЕННЫХ ТЕМ (чтобы не дублировать)
+      Set<String> addedTopicIds = {};
 
       for (final grade in subjectsData.keys) {
         final subjects = subjectsData[grade] ?? [];
@@ -46,27 +78,30 @@ class _ReviewScreenState extends State<ReviewScreen> {
           final topics = subject.topicsByGrade[grade] ?? [];
           for (final topic in topics) {
             final topicProgress = stats.topicProgress[subject.name]?[topic.id] ?? 0;
+            final topicKey = '${subject.name}_${topic.id}';
 
-            if (topicProgress > 0) {
-              for (int i = topicProgress; i < topic.questions.length; i++) {
-                final questionId = '${subject.name}_${topic.id}_$i';
+            // ✅ Тема считается начатой если есть прогресс > 0 и < 100%
+            if (topicProgress > 0 && topicProgress < topic.questions.length) {
 
-                if (!usedQuestionIds.contains(questionId) && i < topic.questions.length) {
-                  startedTopicsItems.add(ReviewItem(
-                    question: topic.questions[i],
-                    topic: topic,
-                    subject: subject.name,
-                    grade: grade,
-                    questionIndex: i,
-                  ));
-                  usedQuestionIds.add(questionId);
+              // ✅ ПРОВЕРКА: Добавляли ли мы уже эту тему?
+              if (!addedTopicIds.contains(topicKey)) {
+                uniqueTopics.add(topicKey);
+                uniqueGrades.add(grade.toString());
 
-                  final questionsInThisTopic = startedTopicsItems.where((item) =>
-                  item.topic.id == topic.id && item.subject == subject.name).length;
-                  if (questionsInThisTopic >= 5) {
-                    break;
-                  }
-                }
+                // ✅ БЕРЕМ ТОЛЬКО ПЕРВЫЙ ОШИБОЧНЫЙ ВОПРОС (1 вопрос на тему)
+                final questionIndex = topicProgress;
+                final questionId = '${subject.name}_${topic.id}_$questionIndex';
+
+                startedTopicsItems.add(ReviewItem(
+                  question: topic.questions[questionIndex],
+                  topic: topic,
+                  subject: subject.name,
+                  grade: grade, // Оставляем int, как требует модель
+                  questionIndex: questionIndex,
+                ));
+
+                // ✅ Помечаем тему как добавленную
+                addedTopicIds.add(topicKey);
               }
             }
           }
@@ -75,19 +110,58 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
       setState(() {
         _reviewItems = startedTopicsItems;
-        _startedTopicsItems = startedTopicsItems;
+        _cachedReviewItems = startedTopicsItems;
+        _lastCacheUpdate = DateTime.now();
+        // ✅ ИСПОЛЬЗУЕМ ПРАВИЛЬНЫЕ СЧЁТЧИКИ
+        _uniqueTopicsCount = uniqueTopics.length;
+        _uniqueGradesCount = uniqueGrades.length;
         _isLoading = false;
       });
-
     } catch (e) {
-      print('❌ Error loading review data: $e');
       setState(() {
         _isLoading = false;
+        _errorMessage = 'Не удалось загрузить вопросы';
       });
+      print('❌ Error loading review  $e');
     }
   }
 
-  void _openTopic(ReviewItem item) {
+  // ✅ PULL-TO-REFRESH
+  Future<void> _refreshData() async {
+    await HapticFeedback.mediumImpact();
+    setState(() => _errorMessage = null);
+
+    try {
+      await _loadReviewData();
+    } catch (e) {
+      _showErrorSnackBar('Ошибка обновления: ${e.toString()}');
+      rethrow;
+    }
+  }
+
+  // ✅ ERROR SNACKBAR
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(child: Text(message, style: TextStyle(color: Colors.white))),
+          ],
+        ),
+        backgroundColor: Colors.red[700],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: Duration(seconds: 3),
+        margin: EdgeInsets.only(bottom: 105, left: 20, right: 20),
+      ),
+    );
+  }
+
+  // ✅ ДОБАВЛЕНА ВИБРАЦИЯ ПРИ ОТКРЫТИИ ТЕМЫ
+  void _openTopic(ReviewItem item) async {
+    await HapticFeedback.lightImpact();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -112,6 +186,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     }
   }
 
+  // ✅ ВЫНЕСЕНО В УТИЛИТУ (консистентность с main_screen)
   Color _getSubjectColor(String subjectName) {
     final colors = {
       'Математика': Color(0xFF4285F4),
@@ -130,6 +205,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     return colors[subjectName] ?? Color(0xFF9E9E9E);
   }
 
+  // ✅ ВЫНЕСЕНО В УТИЛИТУ (консистентность с main_screen)
   IconData _getSubjectIcon(String subjectName) {
     final icons = {
       'Математика': Icons.calculate_rounded,
@@ -154,55 +230,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
-
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        body: Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            gradient: isDark
-                ? LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                primaryColor.withOpacity(0.15),
-                theme.scaffoldBackgroundColor.withOpacity(0.7),
-                theme.scaffoldBackgroundColor,
-              ],
-              stops: [0.0, 0.3, 0.7],
-            )
-                : LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                primaryColor.withOpacity(0.08),
-                Colors.white.withOpacity(0.7),
-                Colors.white,
-              ],
-              stops: [0.0, 0.3, 0.7],
-            ),
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text(
-                    'Загружаем вопросы для повторения...',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    }
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -234,256 +261,335 @@ class _ReviewScreenState extends State<ReviewScreen> {
         ),
         child: SafeArea(
           bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: _isLoading
+              ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Загружаем вопросы...',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          )
+              : _errorMessage != null
+              ? _buildErrorState(primaryColor, theme)
+              : RefreshIndicator(
+            // ✅ REFRESH INDICATOR ДЛЯ PULL-TO-REFRESH
+            onRefresh: _refreshData,
+            color: primaryColor,
+            backgroundColor: isDark ? theme.cardColor : Colors.white,
+            child: _buildContent(theme, isDark, primaryColor, appLocalizations),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✅ ERROR STATE UI (консистентность с main_screen)
+  Widget _buildErrorState(Color primaryColor, ThemeData theme) {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.error_outline, size: 50, color: Colors.red),
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Ошибка загрузки',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: theme.textTheme.titleMedium?.color,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              _errorMessage ?? 'Не удалось загрузить вопросы',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: theme.hintColor),
+            ),
+            SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _refreshData,
+              icon: Icon(Icons.refresh),
+              label: Text('Попробовать снова'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(ThemeData theme, bool isDark, Color primaryColor, AppLocalizations appLocalizations) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Заголовок (консистентность с main_screen)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Заголовок (как на profile screen - Row с кнопкой справа)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Раздел',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: theme.hintColor,
-                          ),
-                        ),
-                        Text(
-                          appLocalizations.review,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textTheme.titleMedium?.color,
-                          ),
-                        ),
-                      ],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Раздел',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.hintColor,
                     ),
-                    // Иконка-заглушка для симметрии (как на profile screen)
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isDark ? theme.cardColor : Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: Icon(Icons.info_outline_rounded),
-                        color: primaryColor,
-                        onPressed: () {
-                          // TODO: Добавить информацию о повторении
-                        },
-                      ),
+                  ),
+                  Text(
+                    appLocalizations.review,
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textTheme.titleMedium?.color,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isDark ? theme.cardColor : Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
                     ),
                   ],
                 ),
-              ),
-
-              // Остальной контент в скролле
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Основная карточка статистики
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        child: Container(
-                          padding: EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: isDark ? theme.cardColor : Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
-                                blurRadius: 12,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              // Иконка повторения
-                              Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.refresh_rounded,
-                                  color: primaryColor,
-                                  size: 36,
-                                ),
-                              ),
-                              SizedBox(width: 20),
-
-                              // Информация
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Вопросы для повторения',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.textTheme.titleMedium?.color,
-                                      ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      _startedTopicsItems.isNotEmpty
-                                          ? '${_startedTopicsItems.length} вопросов из начатых тем'
-                                          : 'Начните изучение тем',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: theme.hintColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // Статистика в ряд
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        child: Text(
-                          'Статистика',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textTheme.titleMedium?.color,
-                          ),
-                        ),
-                      ),
-
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                title: 'Вопросов',
-                                value: '${_reviewItems.length}',
-                                subtitle: 'всего',
-                                color: primaryColor,
-                                icon: Icons.question_answer_rounded,
-                                isDark: isDark,
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                title: 'Тем',
-                                value: '${_startedTopicsItems.length}',
-                                subtitle: 'начаты',
-                                color: Colors.green,
-                                icon: Icons.play_lesson_rounded,
-                                isDark: isDark,
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                title: 'Классов',
-                                value: '${Set.from(_startedTopicsItems.map((e) => e.grade)).length}',
-                                subtitle: 'активно',
-                                color: Colors.amber,
-                                icon: Icons.school_rounded,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Список начатых тем
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Начатые темы',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.textTheme.titleMedium?.color,
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: primaryColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    '${_startedTopicsItems.length}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 16),
-
-                            if (_startedTopicsItems.isEmpty)
-                              Container(
-                                padding: EdgeInsets.symmetric(vertical: 40),
-                                child: _buildEmptyState(),
-                              )
-                            else
-                              Column(
-                                children: [
-                                  for (int index = 0; index < _startedTopicsItems.length; index++)
-                                    Padding(
-                                      padding: EdgeInsets.only(bottom: index < _startedTopicsItems.length - 1 ? 12 : 0),
-                                      child: _buildTopicCard(
-                                        item: _startedTopicsItems[index],
-                                        subjectColor: _getSubjectColor(_startedTopicsItems[index].subject),
-                                        questionText: _getQuestionText(_startedTopicsItems[index].question),
-                                        isDark: isDark,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ),
-
-                      // Отступ для BottomNavigationBar
-                      SizedBox(height: 90),
-                    ],
-                  ),
+                child: IconButton(
+                  icon: Icon(Icons.info_outline_rounded),
+                  color: primaryColor,
+                  onPressed: () {
+                    // TODO: Добавить информацию о повторении
+                  },
                 ),
               ),
             ],
           ),
         ),
-      ),
+
+        // Основной контент в скролле
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Основная карточка статистики
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Container(
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: isDark ? theme.cardColor : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: primaryColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.refresh_rounded,
+                            color: primaryColor,
+                            size: 36,
+                          ),
+                        ),
+                        SizedBox(width: 20),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Вопросы для повторения',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.textTheme.titleMedium?.color,
+                                ),
+                              ),
+                              SizedBox(height: 8),
+                              // ✅ ИСПРАВЛЕНО: показываем уникальные темы
+                              Text(
+                                _reviewItems.isNotEmpty
+                                    ? '${_reviewItems.length} вопросов из ${_uniqueTopicsCount} тем'
+                                    : 'Начните изучение тем',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: theme.hintColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Статистика в ряд
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Text(
+                    'Статистика',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textTheme.titleMedium?.color,
+                    ),
+                  ),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Вопросов',
+                          value: '${_reviewItems.length}', // ✅ Вопросы
+                          subtitle: 'доступно',
+                          color: primaryColor,
+                          icon: Icons.question_answer_rounded,
+                          isDark: isDark,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Тем',
+                          value: '${_uniqueTopicsCount}', // ✅ Уникальные темы
+                          subtitle: 'начаты',
+                          color: Colors.green,
+                          icon: Icons.play_lesson_rounded,
+                          isDark: isDark,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: _buildStatCard(
+                          title: 'Классов',
+                          value: '${_uniqueGradesCount}', // ✅ Уникальные классы
+                          subtitle: 'активно',
+                          color: Colors.amber,
+                          icon: Icons.school_rounded,
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Список начатых тем
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Начатые темы',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: theme.textTheme.titleMedium?.color,
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${_uniqueTopicsCount}', // ✅ Уникальные темы
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: primaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16),
+
+                      if (_reviewItems.isEmpty)
+                        Container(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: _buildEmptyState(primaryColor, theme),
+                        )
+                      else
+                      // ✅ LISTVIEW.BUILDER ДЛЯ ПРОИЗВОДИТЕЛЬНОСТИ
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: NeverScrollableScrollPhysics(),
+                          itemCount: _reviewItems.length,
+                          itemBuilder: (context, index) {
+                            final item = _reviewItems[index];
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: index < _reviewItems.length - 1 ? 12 : 0),
+                              child: _buildTopicCard(
+                                item: item,
+                                subjectColor: _getSubjectColor(item.subject),
+                                questionText: _getQuestionText(item.question),
+                                isDark: isDark,
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+
+                // ✅ ОТСТУП ДЛЯ BOTTOMNAVIGATIONBAR (консистентность с main_screen: 105px)
+                SizedBox(height: 105),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -607,7 +713,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   ),
                 ),
                 SizedBox(width: 16),
-
                 // Информация
                 Expanded(
                   child: Column(
@@ -672,7 +777,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     ],
                   ),
                 ),
-
                 // Стрелка
                 Icon(
                   Icons.arrow_forward_ios_rounded,
@@ -687,10 +791,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-
+  Widget _buildEmptyState(Color primaryColor, ThemeData theme) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

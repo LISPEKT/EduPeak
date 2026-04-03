@@ -1,3 +1,5 @@
+// lib/screens/profile_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,7 +15,7 @@ import 'eduleague_screen.dart';
 import 'streak_screen.dart';
 import 'xp_stats_screen.dart';
 import 'settings_screen.dart';
-import 'friends_screen.dart';
+import 'multiplayer/friends_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Function(int) onBottomNavTap;
@@ -58,9 +60,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<DateTime, int> _dailyActivity = {};
   Map<DateTime, int> _dailyXP = {};
   Map<String, double> _subjectProgress = {};
-  List<Map<String, dynamic>> _friendsList = [];
 
-  // Ключи для кэширования
+  bool _isDataLoaded = false;
+  bool _isSyncing = false;
+
   static const String _cachedTotalXPKey = 'cached_total_xp';
   static const String _cachedWeeklyXPKey = 'cached_weekly_xp';
   static const String _cachedCompletedTopicsKey = 'cached_completed_topics';
@@ -72,20 +75,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCachedData();
-    _loadUserData();
-    _loadUserStats();
-    _loadSelectedSubjects();
-    _loadAchievementsData();
-    _calculateSubjectProgress();
+    _loadCachedDataImmediately();
+    _loadInitialDataInBackground();
   }
 
-  // Загрузка кэшированных данных
-  Future<void> _loadCachedData() async {
+  Future<void> _loadCachedDataImmediately() async {
     try {
+      final cachedData = await UserDataStorage.getCachedUserData();
       final prefs = await SharedPreferences.getInstance();
 
       setState(() {
+        _username = cachedData['username'];
+        _avatar = cachedData['avatar'];
         _totalXP = prefs.getInt(_cachedTotalXPKey) ?? 0;
         _weeklyXP = prefs.getInt(_cachedWeeklyXPKey) ?? 0;
         _completedTopics = prefs.getInt(_cachedCompletedTopicsKey) ?? 0;
@@ -94,14 +95,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
           streakDays: prefs.getInt(_cachedStreakDaysKey) ?? 0,
         );
         _achievementsCompleted = prefs.getInt(_cachedAchievementsCompletedKey) ?? 0;
-        _totalAchievements = prefs.getInt(_cachedTotalAchievementsKey) ?? 0;
+        _totalAchievements = prefs.getInt(_cachedTotalAchievementsKey) ?? 36;
+        _currentLeague = _determineLeagueByXP(_totalXP);
+
+        final registrationTimestamp = prefs.getInt('registrationDate') ?? DateTime.now().millisecondsSinceEpoch;
+        _registrationDate = DateTime.fromMillisecondsSinceEpoch(registrationTimestamp);
+
+        _isDataLoaded = true;
       });
+
+      final savedSubjects = prefs.getStringList('selectedSubjects');
+      if (savedSubjects != null && savedSubjects.isNotEmpty) {
+        setState(() {
+          _selectedSubjects = savedSubjects;
+        });
+      }
+
     } catch (e) {
-      print('❌ Error loading cached data: $e');
+      print('❌ Ошибка загрузки кэша: $e');
+      setState(() {
+        _isDataLoaded = true;
+      });
     }
   }
 
-  // Сохранение данных в кэш
+  Future<void> _loadInitialDataInBackground() async {
+    if (_isSyncing) return;
+    _isSyncing = true;
+
+    try {
+      await UserDataStorage.syncProfileInBackground();
+      await _loadUserStats();
+      await _loadSelectedSubjects();
+      _calculateSubjectProgress();
+      await _saveToCache();
+    } catch (e) {
+      print('❌ Ошибка фоновой загрузки: $e');
+    } finally {
+      _isSyncing = false;
+    }
+  }
+
   Future<void> _saveToCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -117,25 +151,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      final username = await UserDataStorage.getUsername();
-      final avatar = await UserDataStorage.getAvatar();
-      final prefs = await SharedPreferences.getInstance();
-      final registrationTimestamp = prefs.getInt('registrationDate') ?? DateTime.now().millisecondsSinceEpoch;
-
-      if (mounted) {
-        setState(() {
-          _username = username;
-          _avatar = avatar;
-          _registrationDate = DateTime.fromMillisecondsSinceEpoch(registrationTimestamp);
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading user data: $e');
-    }
-  }
-
   Future<void> _loadUserStats() async {
     try {
       final stats = await UserDataStorage.getUserStats();
@@ -145,7 +160,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final weeklyXP = statsOverview['weeklyXP'] as int? ?? 0;
       final completedTopics = statsOverview['completedTopics'] as int? ?? 0;
       final correctAnswers = statsOverview['totalCorrectAnswers'] as int? ?? 0;
-      final currentLeague = statsOverview['currentLeague'] as String? ?? 'Бронзовая';
       final username = statsOverview['username'] as String? ?? '';
 
       final actualLeague = _determineLeagueByXP(totalXP);
@@ -171,14 +185,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _correctAnswers = correctAnswers;
           _currentLeague = actualLeague;
           _mostPopularSubject = popularSubject;
-          _username = username.isNotEmpty ? username : _username;
+          if (username.isNotEmpty && _username.isEmpty) {
+            _username = username;
+          }
         });
-
-        // Сохраняем обновленные данные в кэш
-        _saveToCache();
       }
-
-      _calculateSubjectProgress();
     } catch (e) {
       print('❌ Error loading user stats: $e');
     }
@@ -195,47 +206,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return 'Бронзовая';
   }
 
-  Future<void> _loadAchievementsData() async {
-    try {
-      // Сначала загружаем данные из кэша
-      await _loadCachedData();
-
-      // Если в кэше 0/0, устанавливаем дефолтные значения
-      if (_totalAchievements == 0) {
-        setState(() {
-          _totalAchievements = 36; // Общее количество достижений
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading achievements data: $e');
-    }
-  }
-
-  Future<Map<String, int>> _getAchievementsFromScreen() async {
-    // В реальном приложении здесь нужно получить данные из AchievementsScreen
-    // Сейчас эмулируем получение данных
-    await Future.delayed(Duration(milliseconds: 50));
-
-    // Возвращаем значения из кэша или дефолтные
-    return {
-      'completed': _achievementsCompleted,
-      'total': _totalAchievements,
-    };
-  }
-
   Future<void> _loadSelectedSubjects() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedSubjects = prefs.getStringList('selectedSubjects');
       if (savedSubjects != null && savedSubjects.isNotEmpty) {
-        setState(() {
-          _selectedSubjects = savedSubjects;
-        });
+        if (mounted) {
+          setState(() {
+            _selectedSubjects = savedSubjects;
+          });
+        }
       } else {
         final allSubjects = _getAllSubjects();
-        setState(() {
-          _selectedSubjects = allSubjects;
-        });
+        if (mounted) {
+          setState(() {
+            _selectedSubjects = allSubjects;
+          });
+        }
       }
     } catch (e) {
       print('❌ Error loading selected subjects: $e');
@@ -330,14 +317,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Color _getLeagueColor() {
     switch (_currentLeague) {
-      case 'Нереальная': return Color(0xFFE6E6FA);
-      case 'Легендарная': return Color(0xFFFF4500);
-      case 'Элитная': return Color(0xFF7F7F7F);
-      case 'Бриллиантовая': return Color(0xFFB9F2FF);
-      case 'Платиновая': return Color(0xFFE5E4E2);
-      case 'Золотая': return Color(0xFFFFD700);
-      case 'Серебряная': return Color(0xFFC0C0C0);
-      case 'Бронзовая': return Color(0xFFCD7F32);
+      case 'Нереальная': return const Color(0xFFE6E6FA);
+      case 'Легендарная': return const Color(0xFFFF4500);
+      case 'Элитная': return const Color(0xFF7F7F7F);
+      case 'Бриллиантовая': return const Color(0xFFB9F2FF);
+      case 'Платиновая': return const Color(0xFFE5E4E2);
+      case 'Золотая': return const Color(0xFFFFD700);
+      case 'Серебряная': return const Color(0xFFC0C0C0);
+      case 'Бронзовая': return const Color(0xFFCD7F32);
       default: return Theme.of(context).colorScheme.primary;
     }
   }
@@ -357,20 +344,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       MaterialPageRoute(
         builder: (_) => AchievementsScreen(
           onAchievementsLoaded: (AchievementCount count) {
-            // Обновляем данные при загрузке достижений
             setState(() {
               _achievementsCompleted = count.completed;
               _totalAchievements = count.total;
             });
-
-            // Сохраняем в кэш
             _saveToCache();
           },
         ),
       ),
     ).then((_) {
-      // Обновляем данные при возвращении с экрана
-      _loadAchievementsData();
+      _loadInitialDataInBackground();
     });
   }
 
@@ -380,8 +363,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       MaterialPageRoute(
         builder: (_) => FriendsScreen(),
       ),
-    ).then((_) {
-    });
+    );
   }
 
   void _openLeagueScreen() {
@@ -409,7 +391,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => XPStatsScreen()
+          builder: (_) => XPStatsScreen()
       ),
     );
   }
@@ -423,12 +405,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _openProfileEditor() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProfileEditorScreen(
+          currentAvatar: _avatar,
+          onAvatarUpdate: (newAvatar) {
+            setState(() {
+              _avatar = newAvatar;
+            });
+          },
+          onUsernameUpdate: (newUsername) {
+            setState(() {
+              _username = newUsername;
+            });
+          },
+          onBottomNavTap: widget.onBottomNavTap,
+          currentIndex: widget.currentIndex,
+        ),
+      ),
+    );
+
+    if (result == true) {
+      await _loadInitialDataInBackground();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
     final appLocalizations = AppLocalizations.of(context);
+
+    if (!_isDataLoaded) {
+      return Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -445,7 +463,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               theme.scaffoldBackgroundColor.withOpacity(0.7),
               theme.scaffoldBackgroundColor,
             ],
-            stops: [0.0, 0.3, 0.7],
+            stops: const [0.0, 0.3, 0.7],
           )
               : LinearGradient(
             begin: Alignment.topCenter,
@@ -455,7 +473,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Colors.white.withOpacity(0.7),
               Colors.white,
             ],
-            stops: [0.0, 0.3, 0.7],
+            stops: const [0.0, 0.3, 0.7],
           ),
         ),
         child: SafeArea(
@@ -499,7 +517,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
                             blurRadius: 6,
-                            offset: Offset(0, 2),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -523,7 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                         child: Container(
-                          padding: EdgeInsets.all(20),
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             color: isDark ? theme.cardColor : Colors.white,
                             borderRadius: BorderRadius.circular(24),
@@ -531,7 +549,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
                                 blurRadius: 12,
-                                offset: Offset(0, 4),
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
@@ -539,30 +557,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               // Аватар
                               GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ProfileEditorScreen(
-                                        currentAvatar: _avatar,
-                                        onAvatarUpdate: (newAvatar) {
-                                          setState(() {
-                                            _avatar = newAvatar;
-                                          });
-                                          UserDataStorage.saveAvatar(newAvatar);
-                                        },
-                                        onUsernameUpdate: (newUsername) {
-                                          setState(() {
-                                            _username = newUsername;
-                                          });
-                                          UserDataStorage.saveUsername(newUsername);
-                                        },
-                                        onBottomNavTap: widget.onBottomNavTap,
-                                        currentIndex: widget.currentIndex,
-                                      ),
-                                    ),
-                                  ).then((_) => _loadUserData());
-                                },
+                                onTap: _openProfileEditor,
                                 child: Container(
                                   width: 80,
                                   height: 80,
@@ -593,7 +588,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ),
                               ),
-                              SizedBox(width: 20),
+                              const SizedBox(width: 20),
 
                               // Информация профиля
                               Expanded(
@@ -608,7 +603,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         color: theme.textTheme.titleMedium?.color,
                                       ),
                                     ),
-                                    SizedBox(height: 8),
+                                    const SizedBox(height: 8),
                                     Text(
                                       _formatRegistrationDate(),
                                       style: TextStyle(
@@ -616,12 +611,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         color: theme.hintColor,
                                       ),
                                     ),
-                                    SizedBox(height: 12),
+                                    const SizedBox(height: 12),
                                     // Друзья
                                     GestureDetector(
                                       onTap: _openFriendsScreen,
                                       child: Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
                                           color: primaryColor.withOpacity(0.1),
                                           borderRadius: BorderRadius.circular(12),
@@ -634,7 +629,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               size: 16,
                                               color: primaryColor,
                                             ),
-                                            SizedBox(width: 6),
+                                            const SizedBox(width: 6),
                                             Text(
                                               '$_friendsCount ${appLocalizations.friendsCount}',
                                               style: TextStyle(
@@ -682,7 +677,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 onTap: _openStreakScreen,
                               ),
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
                                 title: appLocalizations.xpEarned,
@@ -693,7 +688,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 onTap: _openXPScreen,
                               ),
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
                                 title: appLocalizations.topicsCompleted,
@@ -723,7 +718,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             Container(
-                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
                                 color: primaryColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
@@ -743,7 +738,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Container(
+                        child: SizedBox(
                           height: 40,
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
@@ -751,8 +746,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             itemBuilder: (context, index) {
                               final subject = _selectedSubjects[index];
                               return Container(
-                                margin: EdgeInsets.only(right: 8),
-                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: primaryColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(20),
@@ -785,7 +780,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               isDark: isDark,
                               onTap: _openAchievementsScreen,
                             ),
-                            SizedBox(height: 12),
+                            const SizedBox(height: 12),
 
                             // Лига
                             _buildFeatureCard(
@@ -801,7 +796,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       // Отступ для BottomNavigationBar
-                      SizedBox(height: 90),
+                      const SizedBox(height: 90),
                     ],
                   ),
                 ),
@@ -834,7 +829,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             BoxShadow(
               color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
               blurRadius: 8,
-              offset: Offset(0, 2),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -866,7 +861,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               title,
               style: TextStyle(
@@ -894,7 +889,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isDark ? theme.cardColor : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -902,7 +897,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             BoxShadow(
               color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
               blurRadius: 8,
-              offset: Offset(0, 2),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -921,7 +916,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 size: 24,
               ),
             ),
-            SizedBox(width: 16),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -934,7 +929,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: theme.textTheme.titleMedium?.color,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -945,7 +940,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Icon(
               Icons.arrow_forward_ios_rounded,
               size: 16,

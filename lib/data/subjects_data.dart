@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'social_studies/social_studies_data.dart';
 import 'history/history_data.dart';
+import 'biology/biology_data.dart';
 import '../models/subject.dart';
 import '../services/region_manager.dart';
 import '../language_manager.dart';
@@ -43,23 +44,18 @@ Map<int, List<Subject>> getSubjectsByGrade(BuildContext context) {
   }
 }
 
-// Метод для загрузки специализированных предметов (история, обществознание)
 void _loadSpecializedSubjects(BuildContext context, Map<int, List<Subject>> baseData) {
   try {
-    // Загружаем историю для классов 5-12
+    // ===== ИСТОРИЯ =====
     for (int grade = 5; grade <= 12; grade++) {
       if (baseData.containsKey(grade)) {
         final historySubjects = HistoryData.getHistorySubjects(context, grade);
-
-        // Обновляем предмет "История" в базовых данных
         for (final subject in baseData[grade]!) {
           if (subject.name == 'История' && historySubjects.isNotEmpty) {
-            // Находим соответствующий предмет истории
             for (final historySubject in historySubjects) {
               if (historySubject.name == 'История' && historySubject.topicsByGrade[grade] != null) {
-                // Обновляем темы
                 subject.topicsByGrade[grade] = List.from(historySubject.topicsByGrade[grade]!);
-                print('✅ Loaded history topics for grade $grade: ${subject.topicsByGrade[grade]?.length} topics');
+                print('✅ Loaded history topics for grade $grade');
                 break;
               }
             }
@@ -68,20 +64,34 @@ void _loadSpecializedSubjects(BuildContext context, Map<int, List<Subject>> base
       }
     }
 
-    // Загружаем обществознание для классов 6-11
+    // ===== ОБЩЕСТВОЗНАНИЕ =====
     for (int grade = 6; grade <= 11; grade++) {
       if (baseData.containsKey(grade)) {
         final socialStudiesSubjects = SocialStudiesData.getSocialStudiesSubjects(context, grade);
-
-        // Обновляем предмет "Обществознание" в базовых данных
         for (final subject in baseData[grade]!) {
           if (subject.name == 'Обществознание' && socialStudiesSubjects.isNotEmpty) {
-            // Находим соответствующий предмет обществознания
             for (final socialSubject in socialStudiesSubjects) {
               if (socialSubject.name == 'Обществознание' && socialSubject.topicsByGrade[grade] != null) {
-                // Обновляем темы
                 subject.topicsByGrade[grade] = List.from(socialSubject.topicsByGrade[grade]!);
-                print('✅ Loaded social studies topics for grade $grade: ${subject.topicsByGrade[grade]?.length} topics');
+                print('✅ Loaded social studies topics for grade $grade');
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // ===== БИОЛОГИЯ (НОВОЕ!) =====
+    for (int grade = 5; grade <= 11; grade++) {
+      if (baseData.containsKey(grade)) {
+        final biologySubjects = BiologyData.getBiologySubjects(context, grade);
+        for (final subject in baseData[grade]!) {
+          if (subject.name == 'Биология' && biologySubjects.isNotEmpty) {
+            for (final bioSubject in biologySubjects) {
+              if (bioSubject.name == 'Биология' && bioSubject.topicsByGrade[grade] != null) {
+                subject.topicsByGrade[grade] = List.from(bioSubject.topicsByGrade[grade]!);
+                print('✅ Loaded biology topics for grade $grade: ${subject.topicsByGrade[grade]?.length} topics');
                 break;
               }
             }
@@ -234,11 +244,6 @@ void _addRussianSubjects(List<Subject> subjects, int grade) {
       name: 'Литература',
       topicsByGrade: {grade: []},
     ));
-    // Убираем Обществознание для 5-6 классов
-    // subjects.add(Subject(
-    //   name: 'Обществознание',
-    //   topicsByGrade: {grade: []},
-    // ));
   } else if (grade >= 7 && grade <= 9) {
     subjects.add(Subject(
       name: 'Русский язык',

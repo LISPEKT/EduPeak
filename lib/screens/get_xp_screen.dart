@@ -1,4 +1,5 @@
-// get_xp_screen.dart - исправленная версия с правильной анимацией
+// lib/screens/get_xp_screen.dart - ИСПРАВЛЕННАЯ ВЕРСИЯ
+
 import 'package:flutter/material.dart';
 import '../data/user_data_storage.dart';
 import '../services/api_service.dart';
@@ -25,7 +26,6 @@ class XPScreen extends StatefulWidget {
 
 class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _xpAnimation;
   int _displayXP = 0;
   int _startingXP = 0;
   int _endingXP = 0;
@@ -33,11 +33,10 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
   bool _shouldAwardXP = true;
   bool _xpAlreadyAdded = false;
   bool _isLoading = true;
-  bool _isSyncing = false;
   bool _animationCompleted = false;
   String _currentLeague = 'Бронзовая';
   String _targetLeague = 'Бронзовая';
-  Color _leagueColor = Color(0xFFCD7F32);
+  Color _leagueColor = const Color(0xFFCD7F32);
   double _leagueProgress = 0.0;
   int _weeklyXP = 0;
 
@@ -50,13 +49,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
       vsync: this,
     );
 
-    _xpAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeData();
     });
@@ -64,10 +56,8 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
 
   Future<void> _initializeData() async {
     try {
-      // Сначала определяем, нужно ли начислять XP
       await _checkIfShouldAwardXP();
 
-      // Получаем текущий XP пользователя
       final stats = await UserDataStorage.getUserStats();
 
       setState(() {
@@ -76,29 +66,24 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
         _endingXP = _startingXP + _actualEarnedXP;
         _displayXP = _startingXP;
 
-        // Определяем текущую лигу и цвет
         _currentLeague = _getLeagueForXP(_startingXP);
         _targetLeague = _getLeagueForXP(_endingXP);
         _leagueColor = _getLeagueColor(_currentLeague);
         _leagueProgress = _calculateLeagueProgress(_startingXP);
-
         _weeklyXP = stats.weeklyXP;
         _isLoading = false;
       });
 
-      // Начисляем XP если нужно
+      // НАЧИСЛЯЕМ XP ТОЛЬКО ОДИН РАЗ
       if (_shouldAwardXP && _actualEarnedXP > 0 && !_xpAlreadyAdded) {
-        await _addXPOnce();
+        await _addXPSingle();
       }
 
-      // Запускаем анимацию
       _startAnimation();
 
     } catch (e) {
       print('❌ Error initializing data: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -116,7 +101,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
       final sessionKey = 'xp_session_${widget.topicId}_${DateTime.now().millisecondsSinceEpoch ~/ 60000}';
 
       if (prefs.containsKey(sessionKey)) {
-        // XP уже начислялся в этой сессии
         setState(() {
           _shouldAwardXP = false;
           _actualEarnedXP = 0;
@@ -124,7 +108,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
         return;
       }
 
-      // Сохраняем сессию
       await prefs.setString(sessionKey, 'true');
 
       setState(() {
@@ -141,55 +124,47 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _addXPOnce() async {
+  // ИСПРАВЛЕНО: ТОЛЬКО ОДИН МЕТОД ДЛЯ ДОБАВЛЕНИЯ XP
+  Future<void> _addXPSingle() async {
     if (_xpAlreadyAdded || _actualEarnedXP <= 0) return;
 
+    setState(() => _xpAlreadyAdded = true);
+
     try {
+      // 1. Сначала сохраняем локально
       await UserDataStorage.addUserXP(_actualEarnedXP);
-      _xpAlreadyAdded = true;
+      print('✅ XP добавлен локально: $_actualEarnedXP');
 
-      // Фоновая синхронизация с сервером
-      _syncWithServerInBackground();
-
-    } catch (e) {
-      print('❌ Error adding XP: $e');
-    }
-  }
-
-  Future<void> _syncWithServerInBackground() async {
-    if (_actualEarnedXP <= 0) return;
-
-    setState(() => _isSyncing = true);
-
-    try {
-      final response = await ApiService.addXP(_actualEarnedXP, 'test_completion');
-      if (response['success'] == true) {
-        print('✅ XP synced with server');
+      // 2. Затем синхронизируем с сервером
+      final isLoggedIn = await UserDataStorage.isLoggedIn();
+      if (isLoggedIn) {
+        try {
+          final response = await ApiService.addXP(_actualEarnedXP, 'test_completion');
+          if (response['success'] == true) {
+            print('✅ XP синхронизирован с сервером: $_actualEarnedXP');
+          } else {
+            print('⚠️ Ошибка синхронизации XP с сервером');
+          }
+        } catch (e) {
+          print('⚠️ Не удалось синхронизировать XP с сервером: $e');
+        }
       }
     } catch (e) {
-      print('⚠️ Server sync failed: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isSyncing = false);
-      }
+      print('❌ Ошибка при добавлении XP: $e');
     }
   }
 
   void _startAnimation() {
-    // Запускаем анимацию с небольшой задержкой
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
 
       _controller.forward().then((_) {
         if (mounted) {
-          setState(() {
-            _animationCompleted = true;
-          });
+          setState(() => _animationCompleted = true);
         }
       });
 
-      // Анимация счетчика XP
-      final duration = Duration(milliseconds: 1200);
+      final duration = const Duration(milliseconds: 1200);
       final startTime = DateTime.now().millisecondsSinceEpoch;
 
       void updateCounter() {
@@ -203,8 +178,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
 
         setState(() {
           _displayXP = animatedXP;
-
-          // Обновляем лигу в реальном времени
           _currentLeague = _getLeagueForXP(animatedXP);
           _leagueColor = _getLeagueColor(_currentLeague);
           _leagueProgress = _calculateLeagueProgress(animatedXP);
@@ -239,14 +212,14 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
 
   Color _getLeagueColor(String league) {
     switch (league) {
-      case 'Бронзовая': return Color(0xFFCD7F32);
-      case 'Серебряная': return Color(0xFFC0C0C0);
-      case 'Золотая': return Color(0xFFFFD700);
-      case 'Платиновая': return Color(0xFFE5E4E2);
-      case 'Бриллиантовая': return Color(0xFFB9F2FF);
-      case 'Элитная': return Color(0xFF7F7F7F);
-      case 'Легендарная': return Color(0xFFFF4500);
-      case 'Нереальная': return Color(0xFFE6E6FA);
+      case 'Бронзовая': return const Color(0xFFCD7F32);
+      case 'Серебряная': return const Color(0xFFC0C0C0);
+      case 'Золотая': return const Color(0xFFFFD700);
+      case 'Платиновая': return const Color(0xFFE5E4E2);
+      case 'Бриллиантовая': return const Color(0xFFB9F2FF);
+      case 'Элитная': return const Color(0xFF7F7F7F);
+      case 'Легендарная': return const Color(0xFFFF4500);
+      case 'Нереальная': return const Color(0xFFE6E6FA);
       default: return Colors.blue;
     }
   }
@@ -346,7 +319,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
               // Заголовок
               AnimatedOpacity(
                 opacity: _animationCompleted ? 1.0 : 0.7,
-                duration: Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 300),
                 child: Text(
                   _shouldAwardXP ? localizations.experienceEarned : localizations.testCompleted,
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
@@ -391,7 +364,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
               Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Фоновый круг
                   Container(
                     width: 220,
                     height: 220,
@@ -400,8 +372,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                     ),
                   ),
-
-                  // Прогресс лиги
                   SizedBox(
                     width: 200,
                     height: 200,
@@ -413,8 +383,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       strokeCap: StrokeCap.round,
                     ),
                   ),
-
-                  // Центральный контент
                   Container(
                     width: 160,
                     height: 160,
@@ -433,7 +401,7 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         AnimatedSwitcher(
-                          duration: Duration(milliseconds: 200),
+                          duration: const Duration(milliseconds: 200),
                           child: Text(
                             '$_displayXP',
                             key: ValueKey(_displayXP),
@@ -490,22 +458,6 @@ class _XPScreenState extends State<XPScreen> with SingleTickerProviderStateMixin
                       ],
                     ),
                   ),
-
-                  // Индикатор синхронизации
-                  if (_isSyncing)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(110),
-                        ),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation(_leagueColor),
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
 

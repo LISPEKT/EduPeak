@@ -25,6 +25,24 @@ class SessionManager {
     }
   }
 
+  static Future<bool> restoreSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+      if (isLoggedIn && token != null) {
+        await initializeSession(token);
+        print('✅ Session restored');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('❌ Session restore failed: $e');
+      return false;
+    }
+  }
+
   static Future<bool> isSessionValid() async {
     try {
       final prefs = await SharedPreferences.getInstance();

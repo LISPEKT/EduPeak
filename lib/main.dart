@@ -95,6 +95,7 @@ class _SplashWrapperState extends State<SplashWrapper> {
   @override
   void initState() {
     super.initState();
+    _loadInitialData(); // Теперь метод будет определен ниже
 
     // Устанавливаем полностью прозрачные системные панели
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -118,6 +119,17 @@ class _SplashWrapperState extends State<SplashWrapper> {
         );
       }
     });
+  }
+
+  // Добавляем недостающий метод
+  Future<void> _loadInitialData() async {
+    print('📦 Загрузка начальных данных...');
+    try {
+      // Здесь можно загрузить любые начальные данные если нужно
+      // Например, предзагрузка тем, настроек и т.д.
+    } catch (e) {
+      print('❌ Ошибка загрузки начальных данных: $e');
+    }
   }
 
   @override
@@ -244,6 +256,53 @@ class _AuthWrapperState extends State<AuthWrapper> {
         _isLoading = false;
         _authError = 'Ошибка соединения с сервером';
       });
+    }
+  }
+
+  Future<void> _syncUserData() async {
+    final isLoggedIn = await UserDataStorage.isLoggedIn();
+    if (!isLoggedIn) return;
+
+    try {
+      // Получаем все данные с сервера
+      final response = await ApiService.syncAllUserData();
+
+      if (response['success'] == true && response['data'] != null) {
+        final serverData = response['data'];
+
+        // Обновляем локальные данные
+        final stats = await UserDataStorage.getUserStats();
+
+        // Обновляем XP
+        if (serverData['xp'] != null) {
+          stats.totalXP = serverData['xp']['totalXP'] ?? stats.totalXP;
+          stats.weeklyXP = serverData['xp']['weeklyXP'] ?? stats.weeklyXP;
+          stats.streakDays = serverData['xp']['streakDays'] ?? stats.streakDays;
+        }
+
+        // Обновляем прогресс по темам
+        if (serverData['progress'] != null) {
+          serverData['progress'].forEach((subject, topics) {
+            topics.forEach((topicName, data) {
+              int correctAnswers;
+              if (data is Map) {
+                correctAnswers = data['correct_answers'] ?? 0;
+              } else {
+                correctAnswers = data;
+              }
+              stats.saveTopicProgress(subject, topicName, correctAnswers);
+            });
+          });
+        }
+
+        await UserDataStorage.saveUserStats(stats);
+        print('✅ Данные синхронизированы с сервером');
+
+        // Сохраняем время последней синхронизации
+        await UserDataStorage.setLastSyncTime(DateTime.now());
+      }
+    } catch (e) {
+      print('❌ Ошибка синхронизации: $e');
     }
   }
 

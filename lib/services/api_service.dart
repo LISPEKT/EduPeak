@@ -1,4 +1,5 @@
 // lib/services/api_service.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,8 +37,8 @@ class ApiService {
     await ApiService()._logout();
   }
 
-  static Future<void> updateTopicProgress(String subject, String topicName, int correctAnswers) async {
-    await ApiService()._updateTopicProgress(subject, topicName, correctAnswers);
+  static Future<Map<String, dynamic>> updateTopicProgress(String subject, String topicName, int correctAnswers) async {
+    return await ApiService()._updateTopicProgress(subject, topicName, correctAnswers);
   }
 
   static Future<Map<String, dynamic>?> getUserProgress() async {
@@ -48,8 +49,28 @@ class ApiService {
     return await ApiService()._updateAvatar(imagePath);
   }
 
+  static Future<Map<String, dynamic>> updateProfile(String name, String email) async {
+    return await ApiService()._updateProfile(name, email);
+  }
+
   static Future<Map<String, dynamic>> discoverEndpoints() async {
     return await ApiService()._discoverEndpoints();
+  }
+
+  static Future<Map<String, dynamic>> getCurrentLeague() async {
+    return await ApiService()._getCurrentLeague();
+  }
+
+  static Future<Map<String, dynamic>> getLeagueLeaderboard(String league) async {
+    return await ApiService()._getLeagueLeaderboard(league);
+  }
+
+  static Future<Map<String, dynamic>> getLeagueHistory() async {
+    return await ApiService()._getLeagueHistory();
+  }
+
+  static Future<Map<String, dynamic>> getAvailableLeagues() async {
+    return await ApiService()._getAvailableLeagues();
   }
 
   static Future<void> syncAllProgressToServer(Map<String, Map<String, int>> progressData) async {
@@ -100,10 +121,6 @@ class ApiService {
     return await ApiService()._searchUsers(query);
   }
 
-  static Future<Map<String, dynamic>> getLeagueLeaderboard(String leagueName) async {
-    return await ApiService()._getLeagueLeaderboard(leagueName);
-  }
-
   static Future<Map<String, dynamic>> getUserLeagueInfo() async {
     return await ApiService()._getUserLeagueInfo();
   }
@@ -116,6 +133,10 @@ class ApiService {
     return await ApiService()._getUserXPStats();
   }
 
+  static Future<Map<String, dynamic>> getXpHistory(int days) async {
+    return await ApiService()._getXpHistory(days);
+  }
+
   static Future<Map<String, dynamic>> syncAllUserData() async {
     return await ApiService()._syncAllUserData();
   }
@@ -124,24 +145,125 @@ class ApiService {
     return await ApiService()._getAllUserData();
   }
 
-  static Future<Map<String, dynamic>> uploadAllLocalData() async {
-    return await ApiService()._uploadAllLocalData();
+  static Future<Map<String, dynamic>> uploadAllLocalData(Map<String, dynamic> data) async {
+    return await ApiService()._uploadAllLocalData(data);
   }
 
-  static Future<Map<String, dynamic>> checkDataConflicts() async {
-    return await ApiService()._checkDataConflicts();
+  static Future<Map<String, dynamic>> checkDataConflicts(Map<String, dynamic> localData) async {
+    return await ApiService()._checkDataConflicts(localData);
   }
 
   static Future<bool> checkAuthStatus() async {
     return await ApiService()._checkAuthStatus();
   }
 
+  // Методы для сброса прогресса
+  static Future<Map<String, dynamic>> resetUserProgress() async {
+    return await ApiService()._resetUserProgress();
+  }
+
+  static Future<Map<String, dynamic>> resetUserProgressWithConfirmation(bool confirm) async {
+    return await ApiService()._resetUserProgressWithConfirmation(confirm);
+  }
+
+  static Future<Map<String, dynamic>> getUserResetStats() async {
+    return await ApiService()._getUserResetStats();
+  }
+
   // === ИНСТАНСНЫЕ МЕТОДЫ (внутренние) ===
 
   Future<void> initialize() async {
-    // Загружаем сохраненные куки
     await _loadCookies();
     print('✅ ApiService initialized');
+  }
+
+  Future<Map<String, dynamic>> _getAvailableLeagues() async {
+    print('📊 Получение списка доступных лиг...');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/leagues/available'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка получения списка лиг'};
+    } catch (e) {
+      print('❌ Ошибка получения списка лиг: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getCurrentLeague() async {
+    print('📊 Получение текущей лиги и группы...');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/leagues/current'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(responseBody);
+        print('✅ Данные лиги получены');
+        return jsonResponse;
+      }
+      return {'success': false, 'message': 'Ошибка получения данных лиги'};
+    } catch (e) {
+      print('❌ Ошибка получения данных лиги: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getLeagueHistory() async {
+    print('📊 Получение истории лиг...');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/leagues/history'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка получения истории'};
+    } catch (e) {
+      print('❌ Ошибка получения истории: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
   }
 
   Future<void> saveAuthData(String email, String username) async {
@@ -160,45 +282,451 @@ class ApiService {
   Future<Map<String, dynamic>?> getProfile() async {
     print('📡 Получение профиля...');
     try {
-      // Локальная заглушка - в реальности делаем HTTP запрос
-      final prefs = await SharedPreferences.getInstance();
-      final username = prefs.getString('username') ?? 'Пользователь';
-      final email = prefs.getString('userEmail') ?? '';
+      final token = await _getToken();
+      if (token == null) return null;
 
-      return {
-        'name': username,
-        'email': email,
-        'avatar_url': '',
-        'streak': 0,
-      };
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/profile'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(responseBody);
+        if (jsonResponse['success'] == true) {
+          return jsonResponse['profile'];
+        }
+      }
+      client.close();
+      return null;
     } catch (e) {
       print('❌ Error getting profile: $e');
       return null;
     }
   }
 
-  Future<Map<String, dynamic>> updateProfile(String name, String email) async {
+  Future<Map<String, dynamic>> _updateProfile(String name, String email) async {
     print('📝 Обновление профиля: $name');
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('username', name);
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
 
-      return {
-        'success': true,
-        'message': 'Профиль успешно обновлен (локально)'
-      };
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.putUrl(Uri.parse('$_baseUrl/api/profile'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Accept', 'application/json');
+
+      final body = jsonEncode({'name': name});
+      request.write(body);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        final result = jsonDecode(responseBody) as Map<String, dynamic>;
+        print('✅ Профиль обновлен на сервере: $result');
+        return result;
+      }
+      return {'success': false, 'message': 'Ошибка обновления профиля'};
     } catch (e) {
-      return {
-        'success': false,
-        'message': 'Ошибка обновления профиля: $e'
-      };
+      print('❌ Ошибка обновления профиля: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
     }
   }
 
   Future<String?> downloadAvatar(String avatarUrl) async {
     print('📥 Загрузка аватара: $avatarUrl');
-    // Локальная заглушка
     return null;
+  }
+
+  // === НОВЫЕ МЕТОДЫ ДЛЯ ЛИГ ===
+
+  Future<Map<String, dynamic>> _getLeagueLeaderboard(String league) async {
+    print('📊 Получение лидерборда лиги: $league');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final encodedLeague = Uri.encodeComponent(league);
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/leagues/$encodedLeague/leaderboard'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка получения лидерборда'};
+    } catch (e) {
+      print('❌ Ошибка получения лидерборда: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getUserLeagueInfo() async {
+    print('📊 Получение информации о лиге пользователя');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/xp/league'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка получения информации о лиге'};
+    } catch (e) {
+      print('❌ Error getting user league info: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _addXP(int xp, String source) async {
+    print('➕ Добавление XP: $xp за $source');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/xp/add'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Accept', 'application/json');
+
+      final body = jsonEncode({'xp': xp, 'source': source});
+      request.write(body);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка добавления XP'};
+    } catch (e) {
+      print('❌ Error adding XP: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getUserXPStats() async {
+    print('📊 Получение статистики XP');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/xp/stats'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка получения статистики XP'};
+    } catch (e) {
+      print('❌ Error getting XP stats: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getXpHistory(int days) async {
+    print('📊 Получение истории XP за $days дней');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/xp/history?days=$days'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка получения истории XP'};
+    } catch (e) {
+      print('❌ Error getting XP history: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _syncAllUserData() async {
+    print('🔄 Полная синхронизация данных');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 15);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/sync/all'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка синхронизации'};
+    } catch (e) {
+      print('❌ Error syncing user data: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getAllUserData() async {
+    print('📥 Получение всех данных пользователя');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/sync/data'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка получения данных'};
+    } catch (e) {
+      print('❌ Error getting all user data: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _uploadAllLocalData(Map<String, dynamic> data) async {
+    print('📤 Загрузка локальных данных на сервер');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 15);
+
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/sync/upload'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Accept', 'application/json');
+
+      final body = jsonEncode(data);
+      request.write(body);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка загрузки данных'};
+    } catch (e) {
+      print('❌ Error uploading local data: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _checkDataConflicts(Map<String, dynamic> localData) async {
+    print('⚡ Проверка конфликтов данных');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/sync/check-conflicts'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Accept', 'application/json');
+
+      final body = jsonEncode(localData);
+      request.write(body);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка проверки конфликтов'};
+    } catch (e) {
+      print('❌ Error checking data conflicts: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  // Методы для сброса прогресса
+  Future<Map<String, dynamic>> _resetUserProgress() async {
+    print('🔄 Сброс прогресса пользователя на сервере...');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 15);
+
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/sync/reset-progress'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка сброса прогресса'};
+    } catch (e) {
+      print('❌ Ошибка сброса прогресса на сервере: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _resetUserProgressWithConfirmation(bool confirm) async {
+    print('🔄 Сброс прогресса с подтверждением...');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 15);
+
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/sync/reset-progress-confirm'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Accept', 'application/json');
+
+      final body = jsonEncode({'confirm': confirm});
+      request.write(body);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка сброса прогресса'};
+    } catch (e) {
+      print('❌ Ошибка: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  Future<Map<String, dynamic>> _getUserResetStats() async {
+    print('📊 Получение статистики для сброса...');
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/sync/reset-stats'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      client.close();
+
+      if (response.statusCode == 200) {
+        return jsonDecode(responseBody) as Map<String, dynamic>;
+      }
+      return {'success': false, 'message': 'Ошибка получения статистики'};
+    } catch (e) {
+      print('❌ Ошибка: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
   }
 
   // === ОСНОВНЫЕ МЕТОДЫ АВТОРИЗАЦИИ ===
@@ -228,298 +756,122 @@ class ApiService {
     print('📧 Email: $email');
 
     try {
-      // 1. Пробуем получить CSRF токен
-      print('🔍 Получение CSRF токена...');
-      final csrfToken = await _getCsrfToken();
-
-      if (csrfToken == null) {
-        print('❌ Не удалось получить CSRF токен');
-        return {'success': false, 'message': 'Ошибка получения токена безопасности'};
-      }
-
-      print('✅ CSRF токен получен');
-
-      // 2. Отправляем POST запрос на логин
-      print('📤 Отправка POST запроса на /api/auth/login');
-
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 10);
 
       final request = await client.postUrl(Uri.parse('$_baseUrl/api/auth/login'));
+      request.headers.set('Content-Type', 'application/json; charset=utf-8');
+      request.headers.set('Accept', 'application/json');
 
-      // Устанавливаем заголовки
-      request.headers.set('Content-Type', 'application/x-www-form-urlencoded');
-      request.headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
-      request.headers.set('Accept', 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8');
-      request.headers.set('Accept-Language', 'ru-RU,ru;q=0.9,en;q=0.8');
-      request.headers.set('X-Requested-With', 'XMLHttpRequest');
-      request.headers.set('Origin', _baseUrl);
-      request.headers.set('Referer', '$_baseUrl/login');
+      final body = jsonEncode({'email': email, 'password': password});
 
-      if (_sessionCookie != null) {
-        request.headers.set('cookie', _sessionCookie!);
-      }
-
-      // Подготавливаем данные
-      final formData = 'email=${Uri.encodeComponent(email)}&password=${Uri.encodeComponent(password)}&_token=${Uri.encodeComponent(csrfToken)}';
-
-      print('📝 Данные формы: $formData');
-      request.write(formData);
+      final utf8Bytes = utf8.encode(body);
+      request.add(utf8Bytes);
 
       final response = await request.close();
-      final statusCode = response.statusCode;
-      print('📡 Статус ответа: $statusCode');
-
-      // Сохраняем куки из ответа
-      _saveCookiesFromResponse(response);
-
-      // Читаем тело ответа
       final responseBody = await response.transform(utf8.decoder).join();
-      print('📄 Тело ответа: $responseBody');
+      client.close();
 
-      // Парсим JSON ответ
-      try {
-        final jsonResponse = jsonDecode(responseBody) as Map<String, dynamic>;
+      final jsonResponse = jsonDecode(responseBody) as Map<String, dynamic>;
 
-        if (jsonResponse['success'] == true) {
-          // Успешный логин
-          print('✅ Логин успешен!');
-          print('👤 Данные пользователя: ${jsonResponse['user']}');
-
-          // Сохраняем токен если есть
-          final token = jsonResponse['token'];
-          if (token != null) {
-            print('🔐 Токен получен: ${token.toString().substring(0, min(20, token.toString().length))}...');
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('auth_token', token.toString());
-          }
-
-          await _saveCookies();
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('userEmail', email);
-
-          // Сохраняем имя пользователя если есть
-          final userData = jsonResponse['user'];
-          if (userData is Map && userData['name'] != null) {
-            await prefs.setString('username', userData['name'].toString());
-          }
-
-          client.close();
-          return {
-            'success': true,
-            'message': jsonResponse['message']?.toString() ?? 'Вход выполнен успешно',
-            'token': token,
-            'user': userData
-          };
-        } else {
-          // Ошибка логина
-          print('❌ Ошибка логина: ${jsonResponse['message']}');
-          client.close();
-          return {
-            'success': false,
-            'message': jsonResponse['message']?.toString() ?? 'Ошибка входа'
-          };
+      if (jsonResponse['success'] == true) {
+        print('✅ Логин успешен!');
+        final token = jsonResponse['token'];
+        if (token != null) {
+          await _saveToken(token);
         }
-      } catch (e) {
-        // Если не JSON, анализируем как текст
-        print('⚠️ Ответ не JSON, анализируем как текст');
-
-        if (statusCode == 401 || responseBody.contains('Неверные учетные данные')) {
-          client.close();
-          return {'success': false, 'message': 'Неверный email или пароль'};
-        }
-
-        if (statusCode == 200 && responseBody.contains('success')) {
-          // Возможно успешный вход
-          await _saveCookies();
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('userEmail', email);
-
-          print('✅ Логин успешен (по тексту ответа)!');
-          client.close();
-          return {'success': true, 'message': 'Вход выполнен успешно'};
-        }
-
-        client.close();
-        return {'success': false, 'message': 'Ошибка входа. Статус: $statusCode'};
+        return jsonResponse;
+      } else {
+        print('❌ Ошибка логина: ${jsonResponse['message']}');
+        return jsonResponse;
       }
-
     } catch (e) {
       print('❌ Ошибка при логине: $e');
       return {'success': false, 'message': 'Ошибка сети: ${e.toString()}'};
-    } finally {
-      print('🔚 === КОНЕЦ ЛОГИНА ===');
     }
   }
-
 
   Future<Map<String, dynamic>> _register(String name, String email, String password) async {
     print('🔄 === НАЧАЛО РЕГИСТРАЦИИ ===');
     print('👤 Имя: $name, 📧 Email: $email');
 
     try {
-      // 1. Пробуем получить CSRF токен
-      print('🔍 Получение CSRF токена...');
-      final csrfToken = await _getCsrfToken();
-
-      if (csrfToken == null) {
-        print('❌ Не удалось получить CSRF токен');
-        return {'success': false, 'message': 'Ошибка получения токена безопасности'};
-      }
-
-      print('✅ CSRF токен получен');
-
-      // 2. Отправляем POST запрос на регистрацию
-      print('📤 Отправка POST запроса на /api/auth/register');
-
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 10);
 
       final request = await client.postUrl(Uri.parse('$_baseUrl/api/auth/register'));
+      request.headers.set('Content-Type', 'application/json; charset=utf-8');
+      request.headers.set('Accept', 'application/json');
 
-      // Устанавливаем заголовки
-      request.headers.set('Content-Type', 'application/x-www-form-urlencoded');
-      request.headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
-      request.headers.set('Accept', 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8');
-      request.headers.set('Accept-Language', 'ru-RU,ru;q=0.9,en;q=0.8');
-      request.headers.set('X-Requested-With', 'XMLHttpRequest');
-      request.headers.set('Origin', _baseUrl);
-      request.headers.set('Referer', '$_baseUrl/register');
+      final body = jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+        'password_confirmation': password
+      });
 
-      if (_sessionCookie != null) {
-        request.headers.set('cookie', _sessionCookie!);
-      }
-
-      // Подготавливаем данные
-      final formData = '_token=${Uri.encodeComponent(csrfToken)}&name=${Uri.encodeComponent(name)}&email=${Uri.encodeComponent(email)}&password=${Uri.encodeComponent(password)}&password_confirmation=${Uri.encodeComponent(password)}';
-
-      print('📝 Данные формы: $formData');
-      request.write(formData);
+      final utf8Bytes = utf8.encode(body);
+      request.add(utf8Bytes);
 
       final response = await request.close();
-      final statusCode = response.statusCode;
-      print('📡 Статус ответа: $statusCode');
-
-      // Сохраняем куки
-      _saveCookiesFromResponse(response);
-
-      // Читаем тело ответа
       final responseBody = await response.transform(utf8.decoder).join();
-      print('📄 Тело ответа: $responseBody');
+      client.close();
 
-      // Парсим JSON ответ
-      try {
-        final jsonResponse = jsonDecode(responseBody) as Map<String, dynamic>;
+      print('📥 Ответ сервера: $responseBody');
+      final jsonResponse = jsonDecode(responseBody) as Map<String, dynamic>;
 
-        if (jsonResponse['success'] == true) {
-          // Успешная регистрация
-          print('✅ Регистрация успешна!');
-          print('👤 Данные пользователя: ${jsonResponse['user']}');
-
-          // Сохраняем токен если есть
-          final token = jsonResponse['token'];
-          if (token != null) {
-            print('🔐 Токен получен: ${token.toString().substring(0, min(20, token.toString().length))}...');
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('auth_token', token.toString());
-          }
-
-          await _saveCookies();
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('userEmail', email);
-          await prefs.setString('username', name);
-
-          client.close();
-          return {
-            'success': true,
-            'message': jsonResponse['message']?.toString() ?? 'Регистрация успешна',
-            'token': token,
-            'user': jsonResponse['user']
-          };
-        } else {
-          // Ошибки валидации
-          final errors = jsonResponse['errors'];
-          if (errors != null && errors is Map) {
-            if (errors['email'] != null && errors['email'].toString().contains('already been taken')) {
-              return {'success': false, 'message': 'Email уже используется'};
-            }
-            if (errors['password'] != null) {
-              return {'success': false, 'message': 'Ошибка в пароле'};
-            }
-          }
-
-          client.close();
-          return {
-            'success': false,
-            'message': jsonResponse['message']?.toString() ?? 'Ошибка регистрации'
-          };
+      if (jsonResponse['success'] == true) {
+        print('✅ Регистрация успешна!');
+        final token = jsonResponse['token'];
+        if (token != null) {
+          await _saveToken(token);
         }
-      } catch (e) {
-        // Если не JSON, анализируем как текст
-        print('⚠️ Ответ не JSON, анализируем как текст');
-
-        if (responseBody.contains('email has already been taken') ||
-            responseBody.contains('Email уже используется')) {
-          client.close();
-          return {'success': false, 'message': 'Email уже используется'};
-        }
-
-        if (statusCode == 201 || statusCode == 200) {
-          // Возможно успешная регистрация
-          await _saveCookies();
-
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('isLoggedIn', true);
-          await prefs.setString('userEmail', email);
-          await prefs.setString('username', name);
-
-          print('✅ Регистрация успешна (по статусу)!');
-          client.close();
-          return {'success': true, 'message': 'Регистрация успешна'};
-        }
-
-        client.close();
-        return {'success': false, 'message': 'Ошибка регистрации. Статус: $statusCode'};
+        return jsonResponse;
+      } else {
+        print('❌ Ошибка регистрации: ${jsonResponse['message']}');
+        return jsonResponse;
       }
-
     } catch (e) {
       print('❌ Ошибка при регистрации: $e');
       return {'success': false, 'message': 'Ошибка сети: ${e.toString()}'};
-    } finally {
-      print('🔚 === КОНЕЦ РЕГИСТРАЦИИ ===');
     }
   }
 
-  int min(int a, int b) => a < b ? a : b;
-
   Future<void> _logout() async {
     try {
+      final token = await _getToken();
+      if (token != null) {
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(seconds: 5);
+
+        final request = await client.postUrl(Uri.parse('$_baseUrl/api/auth/logout'));
+        request.headers.set('Authorization', 'Bearer $token');
+        request.headers.set('Accept', 'application/json');
+
+        await request.close();
+        client.close();
+      }
+    } catch (e) {
+      print('❌ Ошибка при логауте: $e');
+    } finally {
+      await _clearToken();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('isLoggedIn', false);
       await prefs.remove('userEmail');
       await prefs.remove('username');
-
-      await _clearCookies();
       print('✅ Логаут выполнен');
-    } catch (e) {
-      print('❌ Ошибка при логауте: $e');
     }
   }
 
   // === ЗАГЛУШКИ ДЛЯ ОСТАЛЬНЫХ МЕТОДОВ ===
 
-  Future<void> _updateTopicProgress(String subject, String topicName, int correctAnswers) async {
+  Future<Map<String, dynamic>> _updateTopicProgress(String subject, String topicName, int correctAnswers) async {
     print('📚 Прогресс: $subject - $topicName: $correctAnswers');
     final prefs = await SharedPreferences.getInstance();
     final progressKey = 'progress_${subject}_$topicName';
     await prefs.setInt(progressKey, correctAnswers);
     print('💾 Прогресс сохранен локально');
+    return {'success': true, 'message': 'Прогресс сохранен локально'};
   }
 
   Future<Map<String, dynamic>?> _getUserProgress() async {
@@ -546,30 +898,112 @@ class ApiService {
 
   Future<Map<String, dynamic>> _updateAvatar(String imagePath) async {
     print('🖼️ Обновление аватара: $imagePath');
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_avatar_path', imagePath);
+    print('✅ Аватар сохранен локально: $imagePath');
 
-    return {
-      'success': true,
-      'message': 'Аватар сохранен локально',
-      'avatar_url': imagePath
-    };
+    final token = await _getToken();
+    if (token == null) {
+      return {
+        'success': true,
+        'message': 'Аватар сохранен локально',
+        'avatar_url': imagePath,
+        'is_local': true
+      };
+    }
+
+    try {
+      final file = File(imagePath);
+      if (!await file.exists()) {
+        return {
+          'success': true,
+          'message': 'Аватар сохранен локально (файл не найден на сервере)',
+          'avatar_url': imagePath,
+          'is_local': true
+        };
+      }
+
+      final client = HttpClient();
+      final uri = Uri.parse('$_baseUrl/api/profile/avatar');
+      final request = await client.postUrl(uri);
+
+      request.headers.set('Authorization', 'Bearer $token');
+
+      final boundary = '----WebKitFormBoundary${DateTime.now().millisecondsSinceEpoch}';
+      request.headers.set('Content-Type', 'multipart/form-data; boundary=$boundary');
+
+      final data = await file.readAsBytes();
+      final filename = file.path.split('/').last;
+
+      final body = StringBuffer();
+      body.write('--$boundary\r\n');
+      body.write('Content-Disposition: form-data; name="avatar"; filename="$filename"\r\n');
+      body.write('Content-Type: image/jpeg\r\n\r\n');
+
+      final header = body.toString();
+      final footer = '\r\n--$boundary--\r\n';
+
+      request.write(header);
+      request.add(data);
+      request.write(footer);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      client.close();
+
+      print('📥 Ответ от сервера: $responseBody');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(responseBody);
+        if (jsonResponse['success'] == true) {
+          final serverAvatarUrl = jsonResponse['avatar_url'];
+
+          await prefs.setString('user_avatar_path', imagePath);
+          await prefs.setString('user_avatar_url', serverAvatarUrl);
+
+          print('✅ Аватар сохранен:');
+          print('   - Локально: $imagePath');
+          print('   - Сервер: $serverAvatarUrl');
+
+          return {
+            'success': true,
+            'message': 'Аватар обновлен на сервере',
+            'avatar_url': serverAvatarUrl,
+            'local_path': imagePath,
+            'is_local': false
+          };
+        }
+      }
+
+      return {
+        'success': true,
+        'message': 'Аватар сохранен локально (ошибка сервера)',
+        'avatar_url': imagePath,
+        'is_local': true
+      };
+    } catch (e) {
+      print('❌ Ошибка загрузки аватара: $e');
+      return {
+        'success': true,
+        'message': 'Аватар сохранен локально (офлайн)',
+        'avatar_url': imagePath,
+        'is_local': true
+      };
+    }
   }
 
   Future<void> _syncAllProgressToServer(Map<String, Map<String, int>> progressData) async {
     print('🔄 Синхронизация прогресса...');
     print('📊 Предметов: ${progressData.length}');
 
-    // Локальное сохранение
     final prefs = await SharedPreferences.getInstance();
 
-    // Очищаем старый прогресс
     final oldKeys = prefs.getKeys().where((key) => key.startsWith('progress_')).toList();
     for (final key in oldKeys) {
       await prefs.remove(key);
     }
 
-    // Сохраняем новый прогресс
     for (final subject in progressData.keys) {
       final topics = progressData[subject]!;
       for (final topic in topics.keys) {
@@ -613,17 +1047,11 @@ class ApiService {
   // === ЗАГЛУШКИ ДЛЯ ЭКРАНОВ ===
 
   Future<Map<String, dynamic>> _getChatMessages(String friendId) async {
-    return {
-      'success': true,
-      'messages': []
-    };
+    return {'success': true, 'messages': []};
   }
 
   Future<Map<String, dynamic>> _sendMessage(String friendId, String message) async {
-    return {
-      'success': true,
-      'message': 'Сообщение сохранено локально'
-    };
+    return {'success': true, 'message': 'Сообщение сохранено локально'};
   }
 
   Future<Map<String, dynamic>> _getAchievements() async {
@@ -654,200 +1082,42 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     final unlockedKey = 'achievement_$achievementId';
     await prefs.setBool(unlockedKey, true);
-
-    return {
-      'success': true,
-      'message': 'Достижение разблокировано'
-    };
+    return {'success': true, 'message': 'Достижение разблокировано'};
   }
 
   Future<Map<String, dynamic>> _getAchievementProgress() async {
-    return {
-      'success': true,
-      'progress': {
-        'first_test': true,
-        'streak_3': false
-      }
-    };
+    return {'success': true, 'progress': {'first_test': true, 'streak_3': false}};
   }
 
   Future<Map<String, dynamic>> _getFriends() async {
     return {
       'success': true,
       'friends': [
-        {
-          'id': '1',
-          'username': 'Друг 1',
-          'avatar': '👤',
-          'status': 'online'
-        },
-        {
-          'id': '2',
-          'username': 'Друг 2',
-          'avatar': '👤',
-          'status': 'offline'
-        }
+        {'id': '1', 'username': 'Друг 1', 'avatar': '👤', 'status': 'online'},
+        {'id': '2', 'username': 'Друг 2', 'avatar': '👤', 'status': 'offline'}
       ],
       'pending_requests': []
     };
   }
 
   Future<Map<String, dynamic>> _sendFriendRequest(String username) async {
-    return {
-      'success': true,
-      'message': 'Запрос на дружбу отправлен'
-    };
+    return {'success': true, 'message': 'Запрос на дружбу отправлен'};
   }
 
   Future<Map<String, dynamic>> _acceptFriendRequest(String requestId) async {
-    return {
-      'success': true,
-      'message': 'Запрос принят'
-    };
+    return {'success': true, 'message': 'Запрос принят'};
   }
 
   Future<Map<String, dynamic>> _declineFriendRequest(String requestId) async {
-    return {
-      'success': true,
-      'message': 'Запрос отклонен'
-    };
+    return {'success': true, 'message': 'Запрос отклонен'};
   }
 
   Future<Map<String, dynamic>> _removeFriend(String friendId) async {
-    return {
-      'success': true,
-      'message': 'Друг удален'
-    };
+    return {'success': true, 'message': 'Друг удален'};
   }
 
   Future<Map<String, dynamic>> _searchUsers(String query) async {
-    return {
-      'success': true,
-      'users': []
-    };
-  }
-
-  Future<Map<String, dynamic>> _getLeagueLeaderboard(String leagueName) async {
-    return {
-      'success': true,
-      'leaderboard': [
-        {
-          'rank': 1,
-          'username': 'Лидер',
-          'xp': 1000,
-          'avatar': '👑'
-        },
-        {
-          'rank': 2,
-          'username': 'Игрок 2',
-          'xp': 800,
-          'avatar': '🥈'
-        }
-      ]
-    };
-  }
-
-  Future<Map<String, dynamic>> _getUserLeagueInfo() async {
-    return {
-      'success': true,
-      'current_league': 'Бронза',
-      'weekly_xp': 150,
-      'rank': 25,
-      'total_users': 100
-    };
-  }
-
-  Future<Map<String, dynamic>> _addXP(int xp, String source) async {
-    print('➕ Добавление XP: $xp за $source');
-
-    final prefs = await SharedPreferences.getInstance();
-    final currentXP = prefs.getInt('total_xp') ?? 0;
-    final newXP = currentXP + xp;
-    await prefs.setInt('total_xp', newXP);
-
-    // Обновляем недельный XP
-    final weeklyKey = 'weekly_xp_${DateTime.now().weekday}';
-    final currentWeekly = prefs.getInt(weeklyKey) ?? 0;
-    await prefs.setInt(weeklyKey, currentWeekly + xp);
-
-    return {
-      'success': true,
-      'message': 'XP добавлен',
-      'new_total': newXP
-    };
-  }
-
-  Future<Map<String, dynamic>> _getUserXPStats() async {
-    final prefs = await SharedPreferences.getInstance();
-    final totalXP = prefs.getInt('total_xp') ?? 0;
-
-    // Считаем недельный XP
-    int weeklyXP = 0;
-    for (int i = 1; i <= 7; i++) {
-      weeklyXP += prefs.getInt('weekly_xp_$i') ?? 0;
-    }
-
-    return {
-      'success': true,
-      'total_xp': totalXP,
-      'weekly_xp': weeklyXP,
-      'current_league': totalXP > 1000 ? 'Серебро' : 'Бронза',
-      'league_progress': totalXP > 1000 ? 0.3 : 0.7
-    };
-  }
-
-  Future<Map<String, dynamic>> _syncAllUserData() async {
-    return {
-      'success': true,
-      'message': 'Данные синхронизированы (локально)',
-      'synced': true,
-      'stats': {
-        'topics_synced': 0,
-        'xp_synced': 0,
-        'streak_synced': 0,
-      }
-    };
-  }
-
-  Future<Map<String, dynamic>> _getAllUserData() async {
-    return {
-      'success': true,
-      'data': {
-        'profile': await getProfile(),
-        'topicProgress': (await _getUserProgress())?['progress'] ?? {},
-        'xp': {
-          'totalXP': 0,
-          'weeklyXP': 0,
-          'currentLeague': 'Бронза',
-        },
-        'achievements': {},
-        'friends': {
-          'friends': [],
-          'pending_requests': [],
-        },
-      },
-      'message': 'Данные получены локально'
-    };
-  }
-
-  Future<Map<String, dynamic>> _uploadAllLocalData() async {
-    return {
-      'success': true,
-      'message': 'Локальные данные сохранены',
-      'uploaded': {
-        'topics': 0,
-        'totalXP': 0,
-      }
-    };
-  }
-
-  Future<Map<String, dynamic>> _checkDataConflicts() async {
-    return {
-      'success': true,
-      'conflicts': {},
-      'hasConflicts': false,
-      'message': 'Конфликты не обнаружены'
-    };
+    return {'success': true, 'users': []};
   }
 
   Future<bool> _checkAuthStatus() async {
@@ -855,92 +1125,24 @@ class ApiService {
     return prefs.getBool('isLoggedIn') ?? false;
   }
 
-  // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
+  // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ТОКЕНОВ ===
 
-  Future<String?> _getCsrfToken() async {
-    print('🔍 Поиск CSRF токена...');
-
-    // Пробуем несколько страниц
-    final pages = ['/', '/login', '/register'];
-
-    for (final page in pages) {
-      try {
-        final client = HttpClient();
-        client.connectionTimeout = const Duration(seconds: 5);
-
-        final request = await client.getUrl(Uri.parse('$_baseUrl$page'));
-        request.headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
-
-        if (_sessionCookie != null) {
-          request.headers.set('cookie', _sessionCookie!);
-        }
-
-        final response = await request.close();
-        final responseBody = await response.transform(utf8.decoder).join();
-
-        _saveCookiesFromResponse(response);
-
-        // Ищем токен
-        final tokenPattern = RegExp(r'name="_token" value="([^"]+)"');
-        final match = tokenPattern.firstMatch(responseBody);
-
-        if (match != null) {
-          final token = match.group(1)!;
-          print('✅ CSRF токен найден на странице $page');
-          client.close();
-          return token;
-        }
-
-        client.close();
-      } catch (e) {
-        print('⚠️ Ошибка при запросе $page: $e');
-      }
-    }
-
-    print('❌ CSRF токен не найден, используем заглушку');
-    return 'stub_csrf_token_${DateTime.now().millisecondsSinceEpoch}';
-  }
-
-  void _saveCookiesFromResponse(HttpClientResponse response) {
-    final cookies = response.headers['set-cookie'];
-    if (cookies != null) {
-      for (final cookie in cookies) {
-        if (cookie.contains('laravel-session') || cookie.contains('edupeak-session')) {
-          _sessionCookie = cookie.split(';').first;
-          print('🍪 Session cookie сохранен');
-        } else if (cookie.contains('XSRF-TOKEN')) {
-          final tokenMatch = RegExp(r'XSRF-TOKEN=([^;]+)').firstMatch(cookie);
-          if (tokenMatch != null) {
-            _csrfToken = Uri.decodeComponent(tokenMatch.group(1)!);
-            print('🔐 CSRF токен сохранен');
-          }
-        }
-      }
-      _saveCookies();
-    }
-  }
-
-  Future<void> _saveCookies() async {
+  Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    if (_sessionCookie != null) {
-      await prefs.setString('session_cookie', _sessionCookie!);
-    }
-    if (_csrfToken != null) {
-      await prefs.setString('csrf_token', _csrfToken!);
-    }
+    return prefs.getString('auth_token');
   }
 
-  Future<void> _loadCookies() async {
+  Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    _sessionCookie = prefs.getString('session_cookie');
-    _csrfToken = prefs.getString('csrf_token');
+    await prefs.setString('auth_token', token);
   }
 
-  Future<void> _clearCookies() async {
+  Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('session_cookie');
-    await prefs.remove('csrf_token');
-    _sessionCookie = null;
-    _csrfToken = null;
+    await prefs.remove('auth_token');
   }
+
+  Future<void> _saveCookies() async {}
+  Future<void> _loadCookies() async {}
+  void _saveCookiesFromResponse(HttpClientResponse response) {}
 }

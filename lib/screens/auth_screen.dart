@@ -4,6 +4,7 @@ import 'auth_selection_screen.dart';
 import '../localization.dart';
 import '../language_manager.dart';
 import '../data/user_data_storage.dart';
+import 'welcome_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -73,7 +74,7 @@ class _AuthScreenState extends State<AuthScreen> with SingleTickerProviderStateM
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const AuthSelectionScreen()),
+          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
         );
       }
     });

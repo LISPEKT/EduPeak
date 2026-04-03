@@ -131,8 +131,7 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    if (!_emailController.text.contains('@') ||
-        !_emailController.text.contains('.')) {
+    if (!_emailController.text.contains('@') || !_emailController.text.contains('.')) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(appLocalizations.enterValidEmail),
@@ -165,9 +164,12 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       if (response['success'] == true) {
-        final username = _emailController.text.split('@').first;
+        final serverUsername = response['user']?['name'] ?? _emailController.text.split('@').first;
+        final token = response['token'];
+
+        // 1. Сохраняем базовые данные авторизации
         await UserDataStorage.setLoggedIn(true);
-        await UserDataStorage.saveUsername(username);
+        await UserDataStorage.saveUsername(serverUsername);
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
@@ -175,10 +177,36 @@ class _LoginScreenState extends State<LoginScreen>
         await prefs.setString('user_email', _emailController.text.trim());
         await prefs.setString('user_password', _passwordController.text);
 
-        // Сохраняем токен
-        final token = response['token'];
+        // 2. Сохраняем токен
         await SessionManager.initializeSession(token);
 
+        // 3. ПОЛНАЯ СИНХРОНИЗАЦИЯ ДАННЫХ (имя, аватар, XP, прогресс)
+        print('🔄 Выполняем полную синхронизацию данных...');
+
+        // Показываем индикатор загрузки
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Синхронизация данных...'),
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+
+        // Выполняем полную синхронизацию
+        final syncResult = await UserDataStorage.fullSyncOnLogin();
+
+        if (syncResult['success'] == true) {
+          print('✅ Синхронизация завершена: ${syncResult['message']}');
+          if (syncResult['xpUpdated'] == true) {
+            print('✨ XP и прогресс обновлены с сервера');
+          }
+        } else {
+          print('⚠️ Синхронизация частично завершена: ${syncResult['message']}');
+        }
+
+        // 4. Переходим на главный экран
         if (mounted) {
           Navigator.pushReplacement(
             context,

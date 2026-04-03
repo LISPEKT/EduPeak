@@ -5,15 +5,14 @@ import '../../models/question.dart';
 import '../../models/subject.dart';
 import '../../services/region_manager.dart';
 import '../../language_manager.dart';
-
-// import 'biology_ru_ru.dart' as ru_ru;
+import 'biology_ru_ru.dart' as ru_ru;
 
 class BiologyData {
   static final Map<String, Map<int, List<Subject>>> _regionalData = {
     'ru_ru': {
-      // 5: ru_ru.biologySubjects5,
-      // 6: ru_ru.biologySubjects6,
-      // 7: ru_ru.biologySubjects7,
+      5: ru_ru.biologySubjects5,
+      6: ru_ru.biologySubjects6,
+      7: ru_ru.biologySubjects7,
       // 8: ru_ru.biologySubjects8,
       // 9: ru_ru.biologySubjects9,
       // 10: ru_ru.biologySubjects10,

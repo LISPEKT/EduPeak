@@ -197,6 +197,10 @@ class _RegisterScreenState extends State<RegisterScreen>
         await UserDataStorage.saveUserStats(userStats);
         await UserDataStorage.saveUsername(_usernameController.text.trim());
 
+        // СИНХРОНИЗАЦИЯ ПРОФИЛЯ ПОСЛЕ РЕГИСТРАЦИИ
+        print('🔄 Синхронизация профиля после регистрации...');
+        await UserDataStorage.syncProfileFromServer();
+
         print('✅ Registration completed, data saved locally and on server');
 
         if (mounted) {

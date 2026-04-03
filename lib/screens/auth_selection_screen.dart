@@ -3,6 +3,12 @@ import 'login_screen.dart';
 import 'register_screen.dart';
 import 'auth_screen.dart';
 import '../localization.dart';
+import '../services/google_auth_service.dart';
+import '../data/user_data_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
+import 'main_screen.dart';
+import 'package:edu_peak/services/session_manager.dart';
 
 class AuthSelectionScreen extends StatefulWidget {
   const AuthSelectionScreen({super.key});
@@ -248,32 +254,82 @@ class _AuthSelectionScreenState extends State<AuthSelectionScreen>
                       Column(
                         children: [
                           // Кнопка Google
+                          // Кнопка Google
                           OutlinedButton(
-                            onPressed: () {
-                              // TODO: Добавить логику Google Sign-In
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Google Sign-In (в разработке)'),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
+                            onPressed: () async {
+                              final googleAuth = GoogleAuthService();
+                              final result = await googleAuth.signInWithGoogle();
+
+                              if (result['success'] == true) {
+                                final serverUsername = result['user']['name'] ?? '';
+                                final token = result['token'];
+
+                                // 1. Сохраняем базовые данные авторизации
+                                await UserDataStorage.setLoggedIn(true);
+                                await UserDataStorage.saveUsername(serverUsername);
+
+                                final prefs = await SharedPreferences.getInstance();
+                                await prefs.setBool('isLoggedIn', true);
+                                await prefs.setString('auth_method', 'google');
+                                await prefs.setString('user_email', result['user']['email'] ?? '');
+
+                                // 2. Сохраняем токен
+                                await SessionManager.initializeSession(token);
+
+                                // 3. ПОЛНАЯ СИНХРОНИЗАЦИЯ ДАННЫХ (имя, аватар, XP, прогресс)
+                                print('🔄 Выполняем полную синхронизацию данных...');
+
+                                // Показываем индикатор загрузки
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Синхронизация данных...'),
+                                      duration: Duration(seconds: 2),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+
+                                // Выполняем полную синхронизацию
+                                final syncResult = await UserDataStorage.fullSyncOnLogin();
+
+                                if (syncResult['success'] == true) {
+                                  print('✅ Синхронизация завершена: ${syncResult['message']}');
+                                  if (syncResult['xpUpdated'] == true) {
+                                    print('✨ XP и прогресс обновлены с сервера');
+                                  }
+                                } else {
+                                  print('⚠️ Синхронизация частично завершена: ${syncResult['message']}');
+                                }
+
+                                // 4. Переходим на главный экран
+                                if (mounted) {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => MainScreen(onLogout: () {})),
+                                  );
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(result['message'] ?? 'Ошибка входа'),
+                                    backgroundColor: Colors.red,
+                                    behavior: SnackBarBehavior.floating,
+                                  ),
+                                );
+                              }
                             },
                             style: OutlinedButton.styleFrom(
-                              foregroundColor:
-                              isDark ? Colors.white : Colors.black87,
+                              foregroundColor: isDark ? Colors.white : Colors.black87,
                               side: BorderSide(
-                                color: isDark
-                                    ? Colors.grey.shade700
-                                    : Colors.grey.shade300,
+                                color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
                               ),
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               minimumSize: const Size(double.infinity, 56),
-                              backgroundColor: isDark
-                                  ? Colors.grey.shade900
-                                  : Colors.white,
+                              backgroundColor: isDark ? Colors.grey.shade900 : Colors.white,
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,

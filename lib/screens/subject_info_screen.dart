@@ -13,111 +13,155 @@ class SubjectInfoScreen extends StatefulWidget {
   State<SubjectInfoScreen> createState() => _SubjectInfoScreenState();
 }
 
-class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
-  UserStats _userStats = UserStats(
-    streakDays: 0,
-    lastActivity: DateTime.now(),
-    topicProgress: {},
-    dailyCompletion: {},
-    username: '',
-    totalXP: 0,
-    weeklyXP: 0,
-    lastWeeklyReset: DateTime.now(),
-  );
+class _SubjectInfoScreenState extends State<SubjectInfoScreen> with SingleTickerProviderStateMixin {
+  UserStats? _userStats;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  // Кэшированные данные
+  List<int> _grades = [];
+  int _totalTopics = 0;
+  int _completedTopics = 0;
+  double _progress = 0.0;
+
+  late AnimationController _animationController;
+  late Animation<double> _progressAnimation;
+
+  // Статические карты цветов и иконок
+  static const Map<String, Color> _subjectColors = {
+    'Математика': Color(0xFF4285F4),
+    'Алгебра': Color(0xFF2196F3),
+    'Геометрия': Color(0xFF3F51B5),
+    'Русский язык': Color(0xFFEA4335),
+    'Литература': Color(0xFFFBBC05),
+    'История': Color(0xFF34A853),
+    'Обществознание': Color(0xFF8E44AD),
+    'География': Color(0xFF00BCD4),
+    'Биология': Color(0xFF4CAF50),
+    'Физика': Color(0xFF9C27B0),
+    'Химия': Color(0xFFFF9800),
+    'Английский язык': Color(0xFFE91E63),
+    'Статистика и вероятность': Color(0xFF00BCD4),
+    'Информатика': Color(0xFF607D8B),
+  };
+
+  static const Map<String, IconData> _subjectIcons = {
+    'Математика': Icons.calculate_rounded,
+    'Алгебра': Icons.functions_rounded,
+    'Геометрия': Icons.shape_line_rounded,
+    'Русский язык': Icons.menu_book_rounded,
+    'Литература': Icons.book_rounded,
+    'История': Icons.history_rounded,
+    'Обществознание': Icons.people_rounded,
+    'География': Icons.public_rounded,
+    'Биология': Icons.eco_rounded,
+    'Физика': Icons.science_rounded,
+    'Химия': Icons.science_rounded,
+    'Английский язык': Icons.language_rounded,
+    'Информатика': Icons.computer_rounded,
+    'Статистика и вероятность': Icons.trending_up_rounded,
+  };
 
   @override
   void initState() {
     super.initState();
-    _loadUserStats();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _progressAnimation = Tween<double>(begin: 0.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _loadData();
   }
 
-  Future<void> _loadUserStats() async {
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
     try {
       final stats = await UserDataStorage.getUserStats();
+      final subjectData = _calculateSubjectData(stats);
+
       if (mounted) {
         setState(() {
           _userStats = stats;
+          _grades = subjectData.grades;
+          _totalTopics = subjectData.totalTopics;
+          _completedTopics = subjectData.completedTopics;
+          _progress = subjectData.progress;
+          _isLoading = false;
         });
+
+        // Анимация прогресса
+        _progressAnimation = Tween<double>(begin: 0.0, end: _progress).animate(
+          CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+        );
+        _animationController.forward(from: 0.0);
       }
     } catch (e) {
-      print('❌ Error loading user stats: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка загрузки: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'Повторить',
+              textColor: Colors.white,
+              onPressed: _loadData,
+            ),
+          ),
+        );
+      }
     }
   }
 
-  List<int> _getGradesForSubject() {
+  ({List<int> grades, int totalTopics, int completedTopics, double progress})
+  _calculateSubjectData(UserStats stats) {
     final grades = <int>{};
-    for (final grade in getSubjectsByGrade(context).keys) {
-      final subjects = getSubjectsByGrade(context)[grade] ?? [];
+    int totalTopics = 0;
+
+    final allSubjects = getSubjectsByGrade(context);
+
+    for (final grade in allSubjects.keys) {
+      final subjects = allSubjects[grade] ?? [];
       for (final subject in subjects) {
         if (subject.name == widget.subjectName) {
           grades.add(grade);
-        }
-      }
-    }
-    return grades.toList()..sort();
-  }
-
-  int _getTotalTopicsForSubject() {
-    int totalTopics = 0;
-    for (final grade in getSubjectsByGrade(context).keys) {
-      final subjects = getSubjectsByGrade(context)[grade] ?? [];
-      for (final subject in subjects) {
-        if (subject.name == widget.subjectName) {
           totalTopics += subject.topicsByGrade[grade]?.length ?? 0;
         }
       }
     }
-    return totalTopics;
-  }
 
-  int _getCompletedTopics() {
-    return _userStats.topicProgress[widget.subjectName]?.length ?? 0;
-  }
+    final completed = stats.topicProgress[widget.subjectName]?.length ?? 0;
+    final progressVal = totalTopics > 0 ? completed / totalTopics : 0.0;
 
-  double _calculateProgress() {
-    final totalTopics = _getTotalTopicsForSubject();
-    final completedTopics = _getCompletedTopics();
-    return totalTopics > 0 ? completedTopics / totalTopics : 0.0;
+    return (
+    grades: grades.toList()..sort(),
+    totalTopics: totalTopics,
+    completedTopics: completed,
+    progress: progressVal,
+    );
   }
 
   Color _getSubjectColor() {
-    final colors = {
-      'Математика': Color(0xFF4285F4), // Синий Google
-      'Алгебра': Color(0xFF2196F3), // Голубой
-      'Геометрия': Color(0xFF3F51B5), // Индиго
-      'Русский язык': Color(0xFFEA4335), // Красный Google
-      'Литература': Color(0xFFFBBC05), // Желтый Google
-      'История': Color(0xFF34A853), // Зеленый Google
-      'Обществознание': Color(0xFF8E44AD), // Фиолетовый
-      'География': Color(0xFF00BCD4), // Бирюзовый
-      'Биология': Color(0xFF4CAF50), // Зеленый
-      'Физика': Color(0xFF9C27B0), // Пурпурный
-      'Химия': Color(0xFFFF9800), // Оранжевый
-      'Английский язык': Color(0xFFE91E63), // Розовый
-      'Статистика и вероятность': Color(0xFF00BCD4),
-      'Информатика': Color(0xFF607D8B),
-    };
-    return colors[widget.subjectName] ?? Color(0xFF9E9E9E); // Серый
+    return _subjectColors[widget.subjectName] ?? const Color(0xFF9E9E9E);
   }
 
   IconData _getSubjectIcon() {
-    final icons = {
-      'Математика': Icons.calculate_rounded,
-      'Алгебра': Icons.functions_rounded,
-      'Геометрия': Icons.shape_line_rounded,
-      'Русский язык': Icons.menu_book_rounded,
-      'Литература': Icons.book_rounded,
-      'История': Icons.history_rounded,
-      'Обществознание': Icons.people_rounded,
-      'География': Icons.public_rounded,
-      'Биология': Icons.eco_rounded,
-      'Физика': Icons.science_rounded,
-      'Химия': Icons.science_rounded,
-      'Английский язык': Icons.language_rounded,
-      'Информатика': Icons.computer_rounded,
-      'Статистика и вероятность': Icons.trending_up_rounded,
-    };
-    return icons[widget.subjectName] ?? Icons.subject_rounded;
+    return _subjectIcons[widget.subjectName] ?? Icons.subject_rounded;
   }
 
   void _openSubjectScreen(int grade) {
@@ -136,36 +180,47 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final progress = _calculateProgress();
-    final completedPercent = (progress * 100).round();
     final subjectColor = _getSubjectColor();
-    final grades = _getGradesForSubject();
-    final totalTopics = _getTotalTopicsForSubject();
-    final completedTopics = _getCompletedTopics();
+    final completedPercent = (_progress * 100).round();
+
+    // Состояние загрузки
+    if (_isLoading) {
+      return Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: isDark
+                  ? [subjectColor.withOpacity(0.15), theme.scaffoldBackgroundColor]
+                  : [subjectColor.withOpacity(0.08), Colors.white],
+            ),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
-          gradient: isDark
-              ? LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
+            colors: isDark
+                ? [
               subjectColor.withOpacity(0.15),
               theme.scaffoldBackgroundColor.withOpacity(0.7),
               theme.scaffoldBackgroundColor,
-            ],
-            stops: [0.0, 0.3, 0.7],
-          )
-              : LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
+            ]
+                : [
               subjectColor.withOpacity(0.08),
               Colors.white.withOpacity(0.7),
               Colors.white,
             ],
-            stops: [0.0, 0.3, 0.7],
+            stops: const [0.0, 0.3, 0.7],
           ),
         ),
         child: SafeArea(
@@ -177,7 +232,6 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Row(
                   children: [
-                    // Кнопка назад
                     Container(
                       width: 44,
                       height: 44,
@@ -188,17 +242,17 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
                             blurRadius: 6,
-                            offset: Offset(0, 2),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: IconButton(
-                        icon: Icon(Icons.arrow_back_rounded),
+                        icon: const Icon(Icons.arrow_back_rounded),
                         color: subjectColor,
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
-                    SizedBox(width: 12),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,7 +282,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
               // Основной контент в скролле
               Expanded(
                 child: SingleChildScrollView(
-                  physics: BouncingScrollPhysics(),
+                  physics: const BouncingScrollPhysics(),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -244,13 +298,12 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
                                 blurRadius: 12,
-                                offset: Offset(0, 4),
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
                           child: Row(
                             children: [
-                              // Иконка предмета
                               Container(
                                 width: 80,
                                 height: 80,
@@ -264,9 +317,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                                   size: 36,
                                 ),
                               ),
-                              SizedBox(width: 20),
-
-                              // Информация
+                              const SizedBox(width: 20),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,17 +342,22 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                                         ),
                                       ],
                                     ),
-                                    SizedBox(height: 8),
-                                    LinearProgressIndicator(
-                                      value: progress,
-                                      backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
-                                      color: subjectColor,
-                                      borderRadius: BorderRadius.circular(4),
-                                      minHeight: 10,
+                                    const SizedBox(height: 8),
+                                    AnimatedBuilder(
+                                      animation: _progressAnimation,
+                                      builder: (context, child) {
+                                        return LinearProgressIndicator(
+                                          value: _progressAnimation.value,
+                                          backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                                          color: subjectColor,
+                                          borderRadius: BorderRadius.circular(4),
+                                          minHeight: 10,
+                                        );
+                                      },
                                     ),
-                                    SizedBox(height: 8),
+                                    const SizedBox(height: 8),
                                     Text(
-                                      '$completedTopics/$totalTopics тем завершено',
+                                      '$_completedTopics/$_totalTopics тем завершено',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: theme.hintColor,
@@ -335,29 +391,29 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                             Expanded(
                               child: _buildStatCard(
                                 title: 'Тем',
-                                value: '$totalTopics',
+                                value: '$_totalTopics',
                                 subtitle: 'всего',
                                 color: subjectColor,
                                 icon: Icons.library_books_rounded,
                                 isDark: isDark,
                               ),
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
                                 title: 'Завершено',
-                                value: '$completedTopics',
+                                value: '$_completedTopics',
                                 subtitle: 'тем',
                                 color: Colors.green,
                                 icon: Icons.check_circle_rounded,
                                 isDark: isDark,
                               ),
                             ),
-                            SizedBox(width: 12),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: _buildStatCard(
                                 title: 'Классов',
-                                value: '${grades.length}',
+                                value: '${_grades.length}',
                                 subtitle: 'доступно',
                                 color: Colors.amber,
                                 icon: Icons.school_rounded,
@@ -369,123 +425,163 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                       ),
 
                       // Доступные классы
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Доступные классы',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: theme.textTheme.titleMedium?.color,
-                              ),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: subjectColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${grades.length} класса',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: subjectColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Горизонтальный список классов с затемнениями
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Container(
-                          height: 200,
-                          child: Stack(
+                      if (_grades.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // Горизонтальный список классов
-                              ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                padding: EdgeInsets.symmetric(horizontal: 20),
-                                itemCount: grades.length,
-                                physics: BouncingScrollPhysics(),
-                                itemBuilder: (context, index) {
-                                  final grade = grades[index];
-                                  return Padding(
-                                    padding: EdgeInsets.only(right: 16),
-                                    child: _buildOriginalGradeCard(grade, subjectColor, isDark: isDark),
-                                  );
-                                },
-                              ),
-
-                              // Затемнение слева
-                              Positioned(
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 30,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                      colors: [
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
-                                        Colors.transparent,
-                                      ],
-                                      stops: [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
-                                    ),
-                                  ),
+                              Text(
+                                'Доступные классы',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.textTheme.titleMedium?.color,
                                 ),
                               ),
-
-                              // Затемнение справа
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                bottom: 0,
-                                child: Container(
-                                  width: 30,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.centerRight,
-                                      end: Alignment.centerLeft,
-                                      colors: [
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
-                                        (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
-                                        Colors.transparent,
-                                      ],
-                                      stops: [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
-                                    ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: subjectColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '${_grades.length} класса',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: subjectColor,
                                   ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
+
+                        // Горизонтальный список классов с затемнениями
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: SizedBox(
+                            height: 200,
+                            child: Stack(
+                              children: [
+                                ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  itemCount: _grades.length,
+                                  physics: const BouncingScrollPhysics(
+                                    parent: AlwaysScrollableScrollPhysics(),
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final grade = _grades[index];
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 16),
+                                      child: _buildOriginalGradeCard(grade, subjectColor, isDark: isDark),
+                                    );
+                                  },
+                                ),
+                                // Затемнение слева
+                                Positioned(
+                                  left: 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 30,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerLeft,
+                                        end: Alignment.centerRight,
+                                        colors: [
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
+                                          Colors.transparent,
+                                        ],
+                                        stops: const [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Затемнение справа
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    width: 30,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerRight,
+                                        end: Alignment.centerLeft,
+                                        colors: [
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(1.0),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.8),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.6),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.4),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.2),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.1),
+                                          (isDark ? theme.scaffoldBackgroundColor : Colors.white).withOpacity(0.05),
+                                          Colors.transparent,
+                                        ],
+                                        stops: const [0, 0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        // Пустое состояние
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: isDark ? theme.cardColor : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Icons.folder_off_rounded,
+                                  size: 64,
+                                  color: theme.hintColor,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Нет доступных классов',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.textTheme.titleMedium?.color,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Для этого предмета пока нет доступных классов',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: theme.hintColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
 
                       // Информация о классах
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: Container(
-                          padding: EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: isDark ? theme.cardColor : Colors.white,
                             borderRadius: BorderRadius.circular(16),
@@ -493,7 +589,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
                                 blurRadius: 8,
-                                offset: Offset(0, 2),
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
@@ -507,7 +603,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                                     color: subjectColor,
                                     size: 18,
                                   ),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                   Text(
                                     'Информация о классах',
                                     style: TextStyle(
@@ -518,7 +614,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                                   ),
                                 ],
                               ),
-                              SizedBox(height: 12),
+                              const SizedBox(height: 12),
                               Text(
                                 'Каждый класс содержит уникальный набор тем, соответствующий школьной программе.',
                                 style: TextStyle(
@@ -531,7 +627,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                         ),
                       ),
 
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -562,7 +658,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
           BoxShadow(
             color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
             blurRadius: 8,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -594,7 +690,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
               ),
             ],
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             title,
             style: TextStyle(
@@ -634,7 +730,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 8,
-            offset: Offset(0, 3),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -649,7 +745,6 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Верхняя часть с номером класса
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -678,10 +773,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                     ),
                   ],
                 ),
-
-                SizedBox(height: 8),
-
-                // Название класса
+                const SizedBox(height: 8),
                 Text(
                   '$grade класс',
                   style: TextStyle(
@@ -692,10 +784,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-
-                SizedBox(height: 2),
-
-                // Подзаголовок
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: TextStyle(
@@ -705,13 +794,10 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-
-                SizedBox(height: 8),
-
-                // Кнопка в одну строку
+                const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: subjectColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
@@ -732,7 +818,7 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Icon(
                         Icons.arrow_forward_rounded,
                         size: 12,
