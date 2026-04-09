@@ -2,12 +2,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import '../services/central_data_manager.dart';
 import '../data/subjects_data.dart';
-import '../data/user_data_storage.dart';
 import '../models/user_stats.dart';
 import '../localization.dart';
 import 'subject_screen.dart';
@@ -22,6 +23,7 @@ import '../theme/app_theme.dart';
 import 'profile_editor_screen.dart';
 import 'eduleague_screen.dart';
 import 'news_screen.dart';
+import 'package:edu_peak/services/session_manager.dart';
 import 'package:edu_peak/services/api_service.dart';
 import 'multiplayer/multiplayer_home_screen.dart';
 
@@ -100,40 +102,9 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   int _currentBottomNavIndex = 0;
-  String _username = '';
-  String _avatar = '👤';
-  UserStats _userStats = UserStats(
-    streakDays: 0,
-    lastActivity: DateTime.now(),
-    topicProgress: {},
-    dailyCompletion: {},
-    username: '',
-    totalXP: 0,
-    weeklyXP: 0,
-    lastWeeklyReset: DateTime.now(),
-  );
   List<String> _selectedSubjects = [];
   List<String> _allSubjects = [];
-  DateTime? _lastDataUpdate;
   bool _isEditing = false;
-
-  Map<String, double> _subjectProgressCache = {};
-
-  // Анимации
-  late AnimationController _editButtonController;
-  late AnimationController _manageButtonController;
-  late AnimationController _xpCardController;
-  late AnimationController _avatarScaleController;
-  late Animation<double> _editIconScale;
-  late Animation<double> _editIconRotation;
-  late Animation<double> _manageButtonOpacity;
-  late Animation<double> _manageButtonScale;
-  late Animation<double> _xpCardScale;
-  late Animation<double> _avatarScale;
-
-  late AnimationController _subjectListAppearController;
-  late Animation<double> _subjectListOpacity;
-  late Animation<Offset> _subjectListSlide;
 
   // Для вращающейся плашки
   Timer? _cardRotationTimer;
@@ -150,27 +121,6 @@ class _MainScreenState extends State<MainScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _editButtonController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _manageButtonController = AnimationController(
-      duration: const Duration(milliseconds: 250),
-      vsync: this,
-    );
-    _xpCardController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _avatarScaleController = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _subjectListAppearController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-
     _progressAnimationController = AnimationController(
       duration: _cardRotationDuration,
       vsync: this,
@@ -179,43 +129,9 @@ class _MainScreenState extends State<MainScreen>
     _pageController = PageController(viewportFraction: 1.0);
     _pageController.addListener(_onPageChanged);
 
-    _editIconScale = Tween<double>(begin: 1.0, end: 1.0).animate(
-      CurvedAnimation(parent: _editButtonController, curve: Curves.easeInOut),
-    );
-    _editIconRotation = Tween<double>(begin: 0.0, end: 0.0).animate(
-      CurvedAnimation(parent: _editButtonController, curve: Curves.easeInOut),
-    );
-    _manageButtonOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _manageButtonController, curve: Curves.easeInOut),
-    );
-    _manageButtonScale = Tween<double>(begin: 0.9, end: 1.0).animate(
-      CurvedAnimation(parent: _manageButtonController, curve: Curves.easeOutBack),
-    );
-    _xpCardScale = Tween<double>(begin: 1.0, end: 1.0).animate(
-      CurvedAnimation(parent: _xpCardController, curve: Curves.easeInOut),
-    );
-    _avatarScale = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _avatarScaleController, curve: Curves.easeInOut),
-    );
-    _subjectListOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _subjectListAppearController, curve: Curves.easeIn),
-    );
-    _subjectListSlide = Tween<Offset>(begin: const Offset(0.0, 0.2), end: Offset.zero).animate(
-      CurvedAnimation(parent: _subjectListAppearController, curve: Curves.easeOutCubic),
-    );
-
-    _checkAuthStatus();
     _loadInitialData();
-    _startBackgroundSync();
     _loadLatestNews();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _forceSyncProfile();
-    });
-
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _subjectListAppearController.forward();
-    });
+    _loadBannersFromServer();
 
     _startAutoRotation();
     _startProgressAnimation();
@@ -227,146 +143,108 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Future<void> _loadInitialData() async {
-    try {
-      final cachedData = await UserDataStorage.getCachedUserData();
-
-      setState(() {
-        _username = cachedData['username'];
-        _avatar = cachedData['avatar'];
-      });
-
-      print('✅ Данные загружены из кэша: $_username');
-
-      _loadUserStats();
-      _loadSelectedSubjects();
-      _loadAllSubjects();
-
-    } catch (e) {
-      print('❌ Ошибка загрузки кэша: $e');
+    // Инициализируем CentralDataManager
+    final dataManager = Provider.of<CentralDataManager>(context, listen: false);
+    if (!dataManager.isInitialized) {
+      await dataManager.initialize();
     }
+
+    await _loadSelectedSubjects();
+    await _loadAllSubjects();
   }
 
-  Future<void> _startBackgroundSync() async {
-    await Future.delayed(const Duration(seconds: 3));
-
-    if (!mounted) return;
-
-    final needsSync = await UserDataStorage.needsSync();
-
-    if (needsSync) {
-      print('🔄 Фоновая синхронизация данных...');
-
-      final result = await UserDataStorage.syncXpAndProgress();
-
-      if (result['success'] == true && result['hasUpdates'] == true && mounted) {
-        final stats = await UserDataStorage.getUserStats();
-        setState(() {
-          _userStats = stats;
-        });
-        print('✅ Данные обновлены в фоне');
-      }
-    }
-
-    await UserDataStorage.syncProfileInBackground();
-
-    final cachedData = await UserDataStorage.getCachedUserData();
-    if (mounted) {
-      setState(() {
-        if (_username != cachedData['username']) {
-          _username = cachedData['username'];
-        }
-        if (_avatar != cachedData['avatar']) {
-          _avatar = cachedData['avatar'];
-        }
-      });
-    }
-  }
-
-  Future<void> _loadUserStats() async {
+  Future<void> _loadSelectedSubjects() async {
     try {
-      final stats = await UserDataStorage.getUserStats();
-
+      final prefs = await SharedPreferences.getInstance();
+      final savedSubjects = prefs.getStringList('selectedSubjects');
       if (mounted) {
         setState(() {
-          _userStats = stats;
-          _lastDataUpdate = DateTime.now();
+          _selectedSubjects = savedSubjects ?? [];
         });
       }
     } catch (e) {
-      print('❌ Error loading user stats: $e');
+      print('❌ Error loading selected subjects: $e');
     }
   }
 
-  Future<void> _syncAvatarFromServer() async {
+  Future<void> _loadAllSubjects() async {
+    final allSubjects = <String>{};
+    for (final grade in getSubjectsByGrade(context).keys) {
+      final subjects = getSubjectsByGrade(context)[grade] ?? [];
+      for (final subject in subjects) allSubjects.add(subject.name);
+    }
+    if (mounted) setState(() => _allSubjects = allSubjects.toList());
+  }
+
+  Future<void> _saveSelectedSubjects() async {
     try {
-      final profile = await ApiService().getProfile();
-      if (profile != null && profile['avatar_url'] != null) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_avatar_url', profile['avatar_url']);
-        print('✅ Аватар синхронизирован с сервера: ${profile['avatar_url']}');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('selectedSubjects', _selectedSubjects);
+    } catch (e) {
+      print('❌ Error saving subjects: $e');
+    }
+  }
+
+  Future<void> _loadBannersFromServer() async {
+    try {
+      final banners = await ApiService.getBanners();
+      if (banners.isNotEmpty && mounted) {
+        final bannerNews = banners.map((banner) => NewsItem(
+          id: banner['id'],
+          title: banner['title'],
+          description: banner['description'] ?? '',
+          date: '',
+          imageUrl: banner['image_url'] ?? '',
+          category: 'Акция',
+          isRead: false,
+        )).toList();
+
+        setState(() {
+          _newsItems = bannerNews;
+        });
+        return;
       }
     } catch (e) {
-      print('❌ Ошибка синхронизации аватара: $e');
-    }
-  }
-
-  Future<void> _forceSyncProfile() async {
-    if (await UserDataStorage.isLoggedIn()) {
-      await UserDataStorage.syncProfileFromServer();
-      _loadUserData();
+      print('Ошибка загрузки баннеров: $e');
     }
   }
 
   Future<void> _loadLatestNews() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedNewsJson = prefs.getStringList('news_items');
-      if (savedNewsJson != null && savedNewsJson.isNotEmpty) {
-        _newsItems = savedNewsJson.map((json) {
-          final map = Map<String, dynamic>.from(jsonDecode(json));
-          return NewsItem.fromMap(map);
-        }).toList();
-      } else {
-        _newsItems = [
-          NewsItem(
-            id: 1,
-            title: 'Полностью добавлен предмет обществознание 0.42.4',
-            description: '',
-            date: '14 февраля 2026',
-            imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Update+0.42.4',
-            category: 'Обновления',
-            isRead: prefs.getBool('news_1_read') ?? false,
-          ),
-        ];
-        await _saveNewsToStorage();
+      final news = await ApiService.getNews();
+      if (news.isNotEmpty && mounted) {
+        setState(() {
+          _newsItems = news.map((item) => NewsItem(
+            id: item['id'],
+            title: item['title'],
+            description: item['description'],
+            date: item['date'] ?? '',
+            imageUrl: item['image_url'] ?? '',
+            category: item['category'] ?? 'Новости',
+            isRead: false,
+          )).toList();
+        });
+        return;
+      }
+
+      // Если ничего нет, показываем локальные новости
+      if (_newsItems.isEmpty && mounted) {
+        setState(() {
+          _newsItems = [
+            NewsItem(
+              id: 1,
+              title: 'Добро пожаловать в EduPeak!',
+              description: 'Начните своё обучение с нами',
+              date: '',
+              imageUrl: '',
+              category: 'Приветствие',
+              isRead: false,
+            ),
+          ];
+        });
       }
     } catch (e) {
       print('❌ Error loading news: $e');
-      _newsItems = [
-        NewsItem(
-          id: 1,
-          title: 'Полностью добавлен предмет обществознание 0.42.4',
-          description: '',
-          date: '14 февраля 2026',
-          imageUrl: 'https://via.placeholder.com/400x200/4CAF50/FFFFFF?text=Update+0.42.4',
-          category: 'Обновления',
-          isRead: false,
-        ),
-      ];
-    }
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _saveNewsToStorage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final newsJson = _newsItems.map((news) => jsonEncode(news.toMap())).toList();
-      await prefs.setStringList('news_items', newsJson);
-      for (final news in _newsItems) {
-        await prefs.setBool('news_${news.id}_read', news.isRead);
-      }
-    } catch (e) {
-      print('❌ Error saving news: $e');
     }
   }
 
@@ -378,9 +256,9 @@ class _MainScreenState extends State<MainScreen>
       if (_pageController.hasClients) {
         final nextPage = (_currentCardState + 1) % 3;
         _pageController.animateToPage(
-            nextPage,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut
+          nextPage,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
         );
       }
     });
@@ -388,18 +266,7 @@ class _MainScreenState extends State<MainScreen>
 
   void _restartAutoRotation() {
     _cardRotationTimer?.cancel();
-    _cardRotationTimer = Timer.periodic(_cardRotationDuration, (timer) {
-      if (!mounted || !_isAutoRotating || _isManualScrolling) return;
-
-      if (_pageController.hasClients) {
-        final nextPage = (_currentCardState + 1) % 3;
-        _pageController.animateToPage(
-            nextPage,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeInOut
-        );
-      }
-    });
+    _startAutoRotation();
   }
 
   void _startProgressAnimation() {
@@ -453,11 +320,6 @@ class _MainScreenState extends State<MainScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _cardRotationTimer?.cancel();
-    _editButtonController.dispose();
-    _manageButtonController.dispose();
-    _xpCardController.dispose();
-    _avatarScaleController.dispose();
-    _subjectListAppearController.dispose();
     _progressAnimationController.dispose();
     _pageController.dispose();
     super.dispose();
@@ -466,7 +328,7 @@ class _MainScreenState extends State<MainScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _currentBottomNavIndex == 0) {
-      _loadUserData();
+      _loadInitialData();
       _loadLatestNews();
     }
   }
@@ -477,124 +339,22 @@ class _MainScreenState extends State<MainScreen>
     } catch (e) {}
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      await UserDataStorage.syncProfileFromServer();
-
-      final stats = await UserDataStorage.getUserStats();
-      final username = await UserDataStorage.getUsername();
-      final avatar = await UserDataStorage.getAvatar();
-
-      if (mounted) {
-        setState(() {
-          _userStats = stats;
-          _username = username;
-          _avatar = avatar;
-          _lastDataUpdate = DateTime.now();
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading user data: $e');
-    }
-  }
-
-  Future<void> _loadSelectedSubjects() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedSubjects = prefs.getStringList('selectedSubjects');
-      if (mounted) setState(() => _selectedSubjects = savedSubjects ?? []);
-    } catch (e) {
-      print('❌ Error loading selected subjects: $e');
-    }
-  }
-
-  Future<void> _loadAllSubjects() async {
-    final allSubjects = <String>{};
-    for (final grade in getSubjectsByGrade(context).keys) {
-      final subjects = getSubjectsByGrade(context)[grade] ?? [];
-      for (final subject in subjects) allSubjects.add(subject.name);
-    }
-    if (mounted) setState(() => _allSubjects = allSubjects.toList());
-  }
-
-  Future<void> _saveSelectedSubjects() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList('selectedSubjects', _selectedSubjects);
-    } catch (e) {
-      print('❌ Error saving subjects: $e');
-    }
-  }
-
-  Future<void> _checkAuthStatus() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-      final authMethod = prefs.getString('auth_method');
-      final token = prefs.getString('token');
-
-      print('🔍 Проверка аутентификации при запуске:');
-      print('   - isLoggedIn: $isLoggedIn');
-      print('   - auth_method: $authMethod');
-      print('   - token: ${token != null ? "есть" : "нет"}');
-
-      if (!isLoggedIn || token == null) {
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const AuthScreen()),
-                (route) => false,
-          );
-        }
-      } else {
-        // Восстанавливаем сессию
-        await SessionManager.initializeSession(token);
-
-        // Загружаем данные пользователя
-        await _loadUserData();
-        await _loadSelectedSubjects();
-        await _loadAllSubjects();
-
-        print('✅ Сессия восстановлена, пользователь: $_username');
-      }
-    } catch (e) {
-      print('Error checking auth status: $e');
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const AuthScreen()),
-              (route) => false,
-        );
-      }
-    }
-  }
-
   void _onBottomNavTap(int index) async {
     await _triggerVibration();
     if (_isEditing) _toggleEditMode();
     setState(() => _currentBottomNavIndex = index);
     if (index == 0 && mounted) {
-      final now = DateTime.now();
-      if (_lastDataUpdate == null || now.difference(_lastDataUpdate!).inSeconds > 5) {
-        _loadUserData();
-        _loadLatestNews();
-      }
+      _loadInitialData();
+      _loadLatestNews();
+      _loadBannersFromServer();
     }
   }
 
   void _toggleEditMode() async {
     await _triggerVibration();
-
-    if (_isEditing) {
-      _manageButtonController.reverse();
-      _editButtonController.reverse().then((_) {
-        setState(() => _isEditing = false);
-        _saveSelectedSubjects();
-      });
-    } else {
-      setState(() => _isEditing = true);
-      _editButtonController.forward();
-      _manageButtonController.forward();
+    setState(() => _isEditing = !_isEditing);
+    if (!_isEditing) {
+      _saveSelectedSubjects();
     }
   }
 
@@ -624,6 +384,7 @@ class _MainScreenState extends State<MainScreen>
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final appLocalizations = AppLocalizations.of(context);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -694,29 +455,6 @@ class _MainScreenState extends State<MainScreen>
     return icons[subject] ?? Icons.school_rounded;
   }
 
-  Widget _getCurrentScreen() {
-    switch (_currentBottomNavIndex) {
-      case 0:
-        return _buildHomeScreenContent();
-      case 1:
-        return ReviewScreen(onBottomNavTap: _onBottomNavTap, currentIndex: _currentBottomNavIndex);
-      case 2:
-        return DictionaryScreen(onBottomNavTap: _onBottomNavTap, currentIndex: _currentBottomNavIndex);
-      case 3:
-        return MultiplayerHomeScreen();
-      case 4:
-        return const SubscriptionScreen();
-      case 5:
-        return ProfileScreen(
-            onBottomNavTap: _onBottomNavTap,
-            currentIndex: _currentBottomNavIndex,
-            onLogout: widget.onLogout
-        );
-      default:
-        return _buildHomeScreenContent();
-    }
-  }
-
   Color _getSubjectColor(String subject) {
     const colors = {
       'Математика': Color(0xFF4285F4),
@@ -742,13 +480,15 @@ class _MainScreenState extends State<MainScreen>
   }
 
   double _calculateSubjectProgress(String subjectName) {
-    if (_subjectProgressCache.containsKey(subjectName)) return _subjectProgressCache[subjectName]!;
-    if (!_userStats.topicProgress.containsKey(subjectName)) {
-      _subjectProgressCache[subjectName] = 0.0;
+    final dataManager = Provider.of<CentralDataManager>(context, listen: false);
+
+    if (!dataManager.userStats.topicProgress.containsKey(subjectName)) {
       return 0.0;
     }
-    final completedTopics = _userStats.topicProgress[subjectName]?.length ?? 0;
+
+    final completedTopics = dataManager.userStats.topicProgress[subjectName]?.length ?? 0;
     int totalTopics = 0;
+
     for (final grade in getSubjectsByGrade(context).keys) {
       final subjects = getSubjectsByGrade(context)[grade] ?? [];
       for (final subject in subjects) {
@@ -757,14 +497,12 @@ class _MainScreenState extends State<MainScreen>
         }
       }
     }
-    final progress = totalTopics > 0 ? completedTopics / totalTopics : 0.0;
-    _subjectProgressCache[subjectName] = progress;
-    return progress;
+
+    return totalTopics > 0 ? completedTopics / totalTopics : 0.0;
   }
 
   void _openXPScreen() async {
     await _triggerVibration();
-    _xpCardController.reverse().then((_) => _xpCardController.forward());
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -788,379 +526,410 @@ class _MainScreenState extends State<MainScreen>
 
   void _openProfileEditor() async {
     await _triggerVibration();
+    final dataManager = Provider.of<CentralDataManager>(context, listen: false);
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProfileEditorScreen(
-          currentAvatar: _avatar,
-          onAvatarUpdate: (newAvatar) => setState(() => _avatar = newAvatar),
-          onUsernameUpdate: (newUsername) => setState(() => _username = newUsername),
+          currentAvatar: dataManager.avatar,
+          onAvatarUpdate: (newAvatar) {
+            dataManager.updateProfile(avatar: newAvatar);
+          },
+          onUsernameUpdate: (newUsername) {
+            dataManager.updateProfile(username: newUsername);
+          },
           onBottomNavTap: _onBottomNavTap,
           currentIndex: _currentBottomNavIndex,
         ),
       ),
-    ).then((_) => _loadUserData());
+    ).then((_) => dataManager.refresh());
   }
 
-  bool _isPhotoAvatar() => _avatar.startsWith('/') || _avatar.contains('.');
+  bool _isPhotoAvatar() {
+    final dataManager = Provider.of<CentralDataManager>(context, listen: false);
+    return dataManager.avatar.startsWith('/') || dataManager.avatar.contains('.');
+  }
+
+  Widget _getCurrentScreen() {
+    switch (_currentBottomNavIndex) {
+      case 0:
+        return _buildHomeScreenContent();
+      case 1:
+        return ReviewScreen(onBottomNavTap: _onBottomNavTap, currentIndex: _currentBottomNavIndex);
+      case 2:
+        return DictionaryScreen(onBottomNavTap: _onBottomNavTap, currentIndex: _currentBottomNavIndex);
+      case 3:
+        return MultiplayerHomeScreen();
+      case 4:
+        return const SubscriptionScreen();
+      case 5:
+        return ProfileScreen(
+          onBottomNavTap: _onBottomNavTap,
+          currentIndex: _currentBottomNavIndex,
+          onLogout: widget.onLogout,
+        );
+      default:
+        return _buildHomeScreenContent();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<CentralDataManager>(
+      builder: (context, dataManager, child) {
+        return Stack(
+          children: [
+            Scaffold(
+              body: _getCurrentScreen(),
+            ),
+            _buildBottomNavigationBar(dataManager),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _buildHomeScreenContent() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryColor = theme.colorScheme.primary;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 360;
-    final appLocalizations = AppLocalizations.of(context);
+    return Consumer<CentralDataManager>(
+      builder: (context, dataManager, child) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final primaryColor = theme.colorScheme.primary;
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isSmallScreen = screenWidth < 360;
+        final appLocalizations = AppLocalizations.of(context);
 
-    final cardHeight = isSmallScreen ? 100.0 : 130.0;
-    final cardPadding = isSmallScreen ? 14.0 : 18.0;
-    final iconSize = isSmallScreen ? 22.0 : 28.0;
-    final titleFontSize = isSmallScreen ? 13.0 : 15.0;
-    final valueFontSize = isSmallScreen ? 17.0 : 20.0;
+        final cardHeight = isSmallScreen ? 100.0 : 130.0;
+        final cardPadding = isSmallScreen ? 14.0 : 18.0;
+        final iconSize = isSmallScreen ? 22.0 : 28.0;
+        final titleFontSize = isSmallScreen ? 13.0 : 15.0;
+        final valueFontSize = isSmallScreen ? 17.0 : 20.0;
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                primaryColor.withOpacity(0.15),
-                theme.scaffoldBackgroundColor.withOpacity(0.7),
-                theme.scaffoldBackgroundColor,
-              ],
-              stops: const [0.0, 0.3, 0.7]
-          )
-              : LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                primaryColor.withOpacity(0.08),
-                Colors.white.withOpacity(0.7),
-                Colors.white,
-              ],
-              stops: const [0.0, 0.3, 0.7]
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Верхняя панель
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: isSmallScreen ? 12 : 16),
-                child: Row(
-                  children: [
-                    Semantics(
-                      label: 'Профиль пользователя, $_username',
-                      button: true,
-                      child: GestureDetector(
-                        onTapDown: (_) => _avatarScaleController.forward(),
-                        onTapUp: (_) => _avatarScaleController.reverse(),
-                        onTapCancel: () => _avatarScaleController.reverse(),
-                        onTap: () async {
-                          await _triggerVibration();
-                          _openProfileEditor();
-                        },
-                        child: ScaleTransition(
-                          scale: _avatarScale,
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: isDark ? theme.cardColor : Colors.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: primaryColor.withOpacity(0.3), width: 2),
-                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
-                            ),
-                            child: _isPhotoAvatar()
-                                ? ClipOval(
-                              child: Image.file(
-                                  File(_avatar),
+        // Показываем индикатор загрузки
+        if (!dataManager.isInitialized && dataManager.isSyncing) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Загрузка...',
+                    style: TextStyle(color: theme.hintColor),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: isDark
+                  ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  primaryColor.withOpacity(0.15),
+                  theme.scaffoldBackgroundColor.withOpacity(0.7),
+                  theme.scaffoldBackgroundColor,
+                ],
+                stops: const [0.0, 0.3, 0.7],
+              )
+                  : LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  primaryColor.withOpacity(0.08),
+                  Colors.white.withOpacity(0.7),
+                  Colors.white,
+                ],
+                stops: const [0.0, 0.3, 0.7],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Верхняя панель
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: isSmallScreen ? 12 : 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Semantics(
+                          label: 'Профиль пользователя, ${dataManager.username}',
+                          button: true,
+                          child: GestureDetector(
+                            onTap: () async {
+                              await _triggerVibration();
+                              _openProfileEditor();
+                            },
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: isDark ? theme.cardColor : Colors.white,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: primaryColor.withOpacity(0.3), width: 2),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                              ),
+                              child: _isPhotoAvatar()
+                                  ? ClipOval(
+                                child: Image.file(
+                                  File(dataManager.avatar),
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
-                                      Icon(Icons.person_rounded, color: primaryColor, size: 26)
-                              ),
-                            )
-                                : Icon(Icons.person_rounded, color: primaryColor, size: 26),
+                                      Icon(Icons.person_rounded, color: primaryColor, size: 26),
+                                ),
+                              )
+                                  : Icon(Icons.person_rounded, color: primaryColor, size: 26),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                              appLocalizations.helloWhatToStudy,
-                              style: TextStyle(
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                appLocalizations.helloWhatToStudy,
+                                style: TextStyle(
                                   fontSize: isSmallScreen ? 12 : 13,
                                   color: theme.hintColor,
-                                  fontWeight: FontWeight.w500
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                              _username.isNotEmpty ? _username : appLocalizations.guest,
-                              style: TextStyle(
+                              const SizedBox(height: 3),
+                              Text(
+                                dataManager.username.isNotEmpty ? dataManager.username : appLocalizations.guest,
+                                style: TextStyle(
                                   fontSize: isSmallScreen ? 17 : 19,
                                   fontWeight: FontWeight.bold,
                                   color: theme.textTheme.titleMedium?.color,
-                                  height: 1.2
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    // Стрик
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isDark ? theme.cardColor : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: (_userStats.streakDays > 0 ? Colors.orange : Colors.grey).withOpacity(0.3),
-                            width: 1
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                              Icons.local_fire_department_rounded,
-                              color: _userStats.streakDays > 0 ? Colors.orange : Colors.grey,
-                              size: 20
+                        // Стрик
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isDark ? theme.cardColor : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                              '${_userStats.streakDays}',
-                              style: TextStyle(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.local_fire_department_rounded,
+                                color: dataManager.streakDays > 0 ? Colors.orange : Colors.grey,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${dataManager.streakDays}',
+                                style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: _userStats.streakDays > 0 ? Colors.orange : Colors.grey
-                              )
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Карточки
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      height: cardHeight,
-                      child: PageView.builder(
-                        controller: _pageController,
-                        itemCount: 3,
-                        physics: const PageScrollPhysics(parent: BouncingScrollPhysics()),
-                        onPageChanged: (index) {
-                          setState(() => _isManualScrolling = true);
-                          _stopProgressAnimation();
-                          Future.delayed(const Duration(milliseconds: 300), () {
-                            if (mounted) {
-                              setState(() => _isManualScrolling = false);
-                              _restartProgressAnimation();
-                            }
-                          });
-                        },
-                        itemBuilder: (context, index) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: GestureDetector(
-                              onTap: () => _handleCardTap(index),
-                              onPanUpdate: (details) {
-                                if (details.delta.dx.abs() > 5) {
-                                  setState(() => _isManualScrolling = true);
-                                  _stopProgressAnimation();
-                                }
-                              },
-                              onPanEnd: (_) {
-                                Future.delayed(const Duration(milliseconds: 300), () {
-                                  if (mounted) {
-                                    setState(() => _isManualScrolling = false);
-                                    _restartProgressAnimation();
-                                  }
-                                });
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: isDark ? theme.cardColor : Colors.white,
-                                  borderRadius: BorderRadius.circular(24),
-                                  boxShadow: [BoxShadow(
-                                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4)
-                                  )],
-                                ),
-                                child: Padding(
-                                  padding: EdgeInsets.all(cardPadding),
-                                  child: _buildCardContent(
-                                      index,
-                                      theme,
-                                      isDark,
-                                      primaryColor,
-                                      iconSize: iconSize,
-                                      titleFontSize: titleFontSize,
-                                      valueFontSize: valueFontSize,
-                                      isSmallScreen: isSmallScreen
-                                  ),
+                                  color: dataManager.streakDays > 0 ? Colors.orange : Colors.grey,
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        for (int i = 0; i < 3; i++)
-                          GestureDetector(
-                            onTap: () {
-                              _pageController.animateToPage(
-                                  i,
-                                  duration: const Duration(milliseconds: 300),
-                                  curve: Curves.easeInOut
-                              );
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: _currentCardState == i ? 20 : 8,
-                              height: 8,
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.rectangle,
-                                borderRadius: BorderRadius.circular(4),
-                                color: _currentCardState == i
-                                    ? primaryColor
-                                    : (isDark ? Colors.grey[700] : Colors.grey[300]),
-                              ),
-                            ),
+                            ],
                           ),
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
 
-              // Заголовок предметов
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                          appLocalizations.mySubjects,
-                          style: TextStyle(
-                              fontSize: isSmallScreen ? 18 : 22,
-                              fontWeight: FontWeight.bold,
-                              color: theme.textTheme.titleMedium?.color
-                          ),
-                          overflow: TextOverflow.ellipsis
-                      ),
-                    ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                  // Карточки
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
                       children: [
-                        if (_isEditing)
-                          FadeTransition(
-                            opacity: _manageButtonOpacity,
-                            child: ScaleTransition(
-                              scale: _manageButtonScale,
-                              child: Container(
-                                constraints: BoxConstraints(maxWidth: screenWidth * 0.4),
-                                child: InkWell(
-                                  onTap: _showSubjectsDialog,
-                                  borderRadius: BorderRadius.circular(24),
+                        SizedBox(
+                          height: cardHeight,
+                          child: PageView.builder(
+                            controller: _pageController,
+                            itemCount: 3,
+                            physics: const PageScrollPhysics(parent: BouncingScrollPhysics()),
+                            onPageChanged: (index) {
+                              setState(() => _isManualScrolling = true);
+                              _stopProgressAnimation();
+                              Future.delayed(const Duration(milliseconds: 300), () {
+                                if (mounted) {
+                                  setState(() => _isManualScrolling = false);
+                                  _restartProgressAnimation();
+                                }
+                              });
+                            },
+                            itemBuilder: (context, index) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: GestureDetector(
+                                  onTap: () => _handleCardTap(index),
+                                  onPanUpdate: (details) {
+                                    if (details.delta.dx.abs() > 5) {
+                                      setState(() => _isManualScrolling = true);
+                                      _stopProgressAnimation();
+                                    }
+                                  },
+                                  onPanEnd: (_) {
+                                    Future.delayed(const Duration(milliseconds: 300), () {
+                                      if (mounted) {
+                                        setState(() => _isManualScrolling = false);
+                                        _restartProgressAnimation();
+                                      }
+                                    });
+                                  },
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                     decoration: BoxDecoration(
                                       color: isDark ? theme.cardColor : Colors.white,
                                       borderRadius: BorderRadius.circular(24),
                                       boxShadow: [BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2)
+                                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
                                       )],
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.playlist_add_rounded, color: primaryColor, size: 20),
-                                        const SizedBox(width: 8),
-                                        Flexible(
-                                          child: Text(
-                                              appLocalizations.management,
-                                              style: TextStyle(
-                                                  fontSize: isSmallScreen ? 12 : 14,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: primaryColor
-                                              ),
-                                              overflow: TextOverflow.ellipsis
-                                          ),
-                                        ),
-                                      ],
+                                    child: Padding(
+                                      padding: EdgeInsets.all(cardPadding),
+                                      child: _buildCardContent(
+                                        index,
+                                        dataManager,
+                                        theme,
+                                        isDark,
+                                        primaryColor,
+                                        iconSize: iconSize,
+                                        titleFontSize: titleFontSize,
+                                        valueFontSize: valueFontSize,
+                                        isSmallScreen: isSmallScreen,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (int i = 0; i < 3; i++)
+                              GestureDetector(
+                                onTap: () {
+                                  _pageController.animateToPage(
+                                    i,
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  width: _currentCardState == i ? 20 : 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.rectangle,
+                                    borderRadius: BorderRadius.circular(4),
+                                    color: _currentCardState == i
+                                        ? primaryColor
+                                        : (isDark ? Colors.grey[700] : Colors.grey[300]),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Заголовок предметов
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            appLocalizations.mySubjects,
+                            style: TextStyle(
+                              fontSize: isSmallScreen ? 18 : 22,
+                              fontWeight: FontWeight.bold,
+                              color: theme.textTheme.titleMedium?.color,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_isEditing)
+                              Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                child: InkWell(
+                                  onTap: _showSubjectsDialog,
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: isDark ? theme.cardColor : Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      )],
+                                    ),
+                                    child: const Icon(
+                                      Icons.add_rounded,
+                                      color: Color(0xFF4CAF50),
+                                      size: 28,
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                        if (_isEditing) const SizedBox(width: 8),
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: isDark ? theme.cardColor : Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2)
-                            )],
-                          ),
-                          child: IconButton(
-                            icon: ScaleTransition(
-                              scale: _editIconScale,
-                              child: RotationTransition(
-                                turns: _editIconRotation,
-                                child: AnimatedSwitcher(
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: isDark ? theme.cardColor : Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                )],
+                              ),
+                              child: IconButton(
+                                icon: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 200),
                                   child: _isEditing
                                       ? const Icon(Icons.done_rounded, key: ValueKey('done'), color: Color(0xFF4CAF50))
                                       : Icon(Icons.edit_rounded, key: const ValueKey('edit'), color: primaryColor),
                                 ),
+                                onPressed: _toggleEditMode,
                               ),
                             ),
-                            onPressed: _toggleEditMode,
-                          ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
 
-              // Список предметов
-              Expanded(
-                child: SlideTransition(
-                  position: _subjectListSlide,
-                  child: FadeTransition(
-                    opacity: _subjectListOpacity,
+                  // Список предметов
+                  Expanded(
                     child: _SubjectsList(
                       selectedSubjects: _selectedSubjects,
                       isEditing: _isEditing,
@@ -1176,55 +945,83 @@ class _MainScreenState extends State<MainScreen>
                       appLocalizations: appLocalizations,
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildCardContent(int state, ThemeData theme, bool isDark, Color primaryColor,
-      {required double iconSize, required double titleFontSize, required double valueFontSize, required bool isSmallScreen}) {
+  Widget _buildCardContent(
+      int state,
+      CentralDataManager dataManager,
+      ThemeData theme,
+      bool isDark,
+      Color primaryColor, {
+        required double iconSize,
+        required double titleFontSize,
+        required double valueFontSize,
+        required bool isSmallScreen,
+      }) {
     switch (state) {
       case 0:
         return _buildXPCardContent(
-            theme, isDark, primaryColor,
-            iconSize: iconSize,
-            titleFontSize: titleFontSize,
-            valueFontSize: valueFontSize,
-            isSmallScreen: isSmallScreen
+          dataManager,
+          theme,
+          isDark,
+          primaryColor,
+          iconSize: iconSize,
+          titleFontSize: titleFontSize,
+          valueFontSize: valueFontSize,
+          isSmallScreen: isSmallScreen,
         );
       case 1:
         return _buildNewsCardContent(
-            theme, isDark, primaryColor,
-            iconSize: iconSize,
-            titleFontSize: titleFontSize,
-            valueFontSize: valueFontSize,
-            isSmallScreen: isSmallScreen
+          theme,
+          isDark,
+          primaryColor,
+          iconSize: iconSize,
+          titleFontSize: titleFontSize,
+          valueFontSize: valueFontSize,
+          isSmallScreen: isSmallScreen,
         );
       case 2:
         return _buildLeagueCardContent(
-            theme, isDark, primaryColor,
-            iconSize: iconSize,
-            titleFontSize: titleFontSize,
-            valueFontSize: valueFontSize,
-            isSmallScreen: isSmallScreen
+          dataManager,
+          theme,
+          isDark,
+          primaryColor,
+          iconSize: iconSize,
+          titleFontSize: titleFontSize,
+          valueFontSize: valueFontSize,
+          isSmallScreen: isSmallScreen,
         );
       default:
         return _buildXPCardContent(
-            theme, isDark, primaryColor,
-            iconSize: iconSize,
-            titleFontSize: titleFontSize,
-            valueFontSize: valueFontSize,
-            isSmallScreen: isSmallScreen
+          dataManager,
+          theme,
+          isDark,
+          primaryColor,
+          iconSize: iconSize,
+          titleFontSize: titleFontSize,
+          valueFontSize: valueFontSize,
+          isSmallScreen: isSmallScreen,
         );
     }
   }
 
-  Widget _buildXPCardContent(ThemeData theme, bool isDark, Color primaryColor,
-      {required double iconSize, required double titleFontSize, required double valueFontSize, required bool isSmallScreen}) {
+  Widget _buildXPCardContent(
+      CentralDataManager dataManager,
+      ThemeData theme,
+      bool isDark,
+      Color primaryColor, {
+        required double iconSize,
+        required double titleFontSize,
+        required double valueFontSize,
+        required bool isSmallScreen,
+      }) {
     final appLocalizations = AppLocalizations.of(context);
     return Row(
       key: const ValueKey('xp'),
@@ -1253,12 +1050,13 @@ class _MainScreenState extends State<MainScreen>
                 ],
               ),
               SizedBox(height: isSmallScreen ? 4 : 8),
-              Text('${_userStats.totalXP} XP',
-                  style: TextStyle(
-                      fontSize: valueFontSize,
-                      fontWeight: FontWeight.bold,
-                      color: theme.textTheme.titleMedium?.color
-                  )
+              Text(
+                '${dataManager.totalXP} XP',
+                style: TextStyle(
+                  fontSize: valueFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
               ),
             ],
           ),
@@ -1267,8 +1065,15 @@ class _MainScreenState extends State<MainScreen>
     );
   }
 
-  Widget _buildNewsCardContent(ThemeData theme, bool isDark, Color primaryColor,
-      {required double iconSize, required double titleFontSize, required double valueFontSize, required bool isSmallScreen}) {
+  Widget _buildNewsCardContent(
+      ThemeData theme,
+      bool isDark,
+      Color primaryColor, {
+        required double iconSize,
+        required double titleFontSize,
+        required double valueFontSize,
+        required bool isSmallScreen,
+      }) {
     final appLocalizations = AppLocalizations.of(context);
     return Row(
       key: const ValueKey('news'),
@@ -1304,14 +1109,14 @@ class _MainScreenState extends State<MainScreen>
               ),
               SizedBox(height: isSmallScreen ? 4 : 8),
               Text(
-                  _getLatestNews(),
-                  style: TextStyle(
-                      fontSize: valueFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textTheme.titleMedium?.color
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis
+                _getLatestNews(),
+                style: TextStyle(
+                  fontSize: valueFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -1320,11 +1125,18 @@ class _MainScreenState extends State<MainScreen>
     );
   }
 
-  Widget _buildLeagueCardContent(ThemeData theme, bool isDark, Color primaryColor,
-      {required double iconSize, required double titleFontSize, required double valueFontSize, required bool isSmallScreen}) {
+  Widget _buildLeagueCardContent(
+      CentralDataManager dataManager,
+      ThemeData theme,
+      bool isDark,
+      Color primaryColor, {
+        required double iconSize,
+        required double titleFontSize,
+        required double valueFontSize,
+        required bool isSmallScreen,
+      }) {
     final appLocalizations = AppLocalizations.of(context);
-    String userLeague = _determineLeagueByXP(_userStats.totalXP);
-    Color leagueColor = _getLeagueColor(userLeague);
+    Color leagueColor = _getLeagueColor(dataManager.currentLeague);
 
     return Row(
       key: const ValueKey('league'),
@@ -1333,7 +1145,7 @@ class _MainScreenState extends State<MainScreen>
           width: iconSize * 2.5,
           height: iconSize * 2.5,
           decoration: BoxDecoration(color: leagueColor.withOpacity(0.1), shape: BoxShape.circle),
-          child: Icon(_getLeagueIcon(userLeague), color: leagueColor, size: iconSize),
+          child: Icon(_getLeagueIcon(dataManager.currentLeague), color: leagueColor, size: iconSize),
         ),
         SizedBox(width: isSmallScreen ? 12 : 16),
         Expanded(
@@ -1349,41 +1161,30 @@ class _MainScreenState extends State<MainScreen>
                     padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 6 : 8, vertical: isSmallScreen ? 1 : 2),
                     decoration: BoxDecoration(color: leagueColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                     child: Text(
-                        appLocalizations.league,
-                        style: TextStyle(
-                            fontSize: isSmallScreen ? 10 : 12,
-                            color: leagueColor,
-                            fontWeight: FontWeight.w500
-                        )
+                      appLocalizations.league,
+                      style: TextStyle(
+                        fontSize: isSmallScreen ? 10 : 12,
+                        color: leagueColor,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ],
               ),
               SizedBox(height: isSmallScreen ? 4 : 8),
               Text(
-                  userLeague,
-                  style: TextStyle(
-                      fontSize: valueFontSize,
-                      fontWeight: FontWeight.bold,
-                      color: leagueColor
-                  )
+                dataManager.currentLeague,
+                style: TextStyle(
+                  fontSize: valueFontSize,
+                  fontWeight: FontWeight.bold,
+                  color: leagueColor,
+                ),
               ),
             ],
           ),
         ),
       ],
     );
-  }
-
-  String _determineLeagueByXP(int xp) {
-    if (xp >= 5000) return 'Нереальная';
-    if (xp >= 4000) return 'Легендарная';
-    if (xp >= 3000) return 'Элитная';
-    if (xp >= 2000) return 'Бриллиантовая';
-    if (xp >= 1500) return 'Платиновая';
-    if (xp >= 1000) return 'Золотая';
-    if (xp >= 500) return 'Серебряная';
-    return 'Бронзовая';
   }
 
   Color _getLeagueColor(String league) {
@@ -1414,43 +1215,7 @@ class _MainScreenState extends State<MainScreen>
     }
   }
 
-  String _getLeagueMessage(String league) {
-    final appLocalizations = AppLocalizations.of(context);
-    switch (league) {
-      case 'Нереальная': return appLocalizations.youreLegend;
-      case 'Легендарная': return appLocalizations.almostAtTop;
-      case 'Элитная': return appLocalizations.excellentResult;
-      case 'Бриллиантовая': return appLocalizations.greatWorkTop;
-      case 'Платиновая': return appLocalizations.goodProgress;
-      case 'Золотая': return appLocalizations.notBadAimHigher;
-      case 'Серебряная': return appLocalizations.goodStart;
-      case 'Бронзовая': return appLocalizations.beginnerAhead;
-      default: return appLocalizations.beginnerAhead;
-    }
-  }
-
-  String _getMotivationMessage() {
-    final appLocalizations = AppLocalizations.of(context);
-    if (_userStats.totalXP >= 5000) return '${appLocalizations.excellentWork} ${appLocalizations.youEarnedXP} ${_userStats.totalXP} XP';
-    if (_userStats.totalXP >= 1000) return '${appLocalizations.youEarnedXP} ${_userStats.totalXP} XP. ${appLocalizations.excellentProgress}';
-    if (_userStats.totalXP >= 500) return '${_userStats.totalXP} XP - ${appLocalizations.goodResult}';
-    if (_userStats.totalXP >= 100) return '${appLocalizations.youAlreadyHave} ${_userStats.totalXP} XP. ${appLocalizations.moveForward}';
-    return appLocalizations.passFirstTestAndGetXP;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          body: _getCurrentScreen(),
-        ),
-        _buildBottomNavigationBar(),
-      ],
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
+  Widget _buildBottomNavigationBar(CentralDataManager dataManager) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -1475,7 +1240,7 @@ class _MainScreenState extends State<MainScreen>
             _buildBottomNavItem(index: 2, icon: Icons.book_rounded, isDark: isDark, isSmallScreen: isSmallScreen),
             _buildBottomNavItem(index: 3, icon: Icons.sports_esports_rounded, isDark: isDark, isSmallScreen: isSmallScreen),
             _buildBottomNavItem(index: 4, icon: Icons.star_rounded, isDark: isDark, isSmallScreen: isSmallScreen),
-            _buildBottomNavItem(index: 5, isDark: isDark, isSmallScreen: isSmallScreen),
+            _buildBottomNavItem(index: 5, isDark: isDark, isSmallScreen: isSmallScreen, dataManager: dataManager),
           ],
         ),
       ),
@@ -1486,7 +1251,8 @@ class _MainScreenState extends State<MainScreen>
     required int index,
     IconData? icon,
     required bool isDark,
-    required bool isSmallScreen
+    required bool isSmallScreen,
+    CentralDataManager? dataManager,
   }) {
     final isSelected = index == _currentBottomNavIndex;
     final inactiveColor = isDark ? Colors.grey[500]! : Colors.grey[400]!;
@@ -1526,22 +1292,22 @@ class _MainScreenState extends State<MainScreen>
                     child: _isPhotoAvatar()
                         ? ClipOval(
                       child: Image.file(
-                        File(_avatar),
+                        File(dataManager?.avatar ?? '👤'),
                         fit: BoxFit.cover,
                         width: isSmallScreen ? 24 : 28,
                         height: isSmallScreen ? 24 : 28,
                         errorBuilder: (context, error, stackTrace) => Icon(
-                            Icons.person_rounded,
-                            color: isSelected ? Colors.white : inactiveColor,
-                            size: isSmallScreen ? 16 : 18
+                          Icons.person_rounded,
+                          color: isSelected ? Colors.white : inactiveColor,
+                          size: isSmallScreen ? 16 : 18,
                         ),
                       ),
                     )
                         : Center(
                       child: Icon(
-                          Icons.person_rounded,
-                          color: isSelected ? Colors.white : inactiveColor,
-                          size: isSmallScreen ? 16 : 18
+                        Icons.person_rounded,
+                        color: isSelected ? Colors.white : inactiveColor,
+                        size: isSmallScreen ? 16 : 18,
                       ),
                     ),
                   ),
@@ -1578,9 +1344,9 @@ class _MainScreenState extends State<MainScreen>
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeOutBack,
                 child: Icon(
-                    icon,
-                    color: isSelected ? Colors.white : inactiveColor,
-                    size: isSmallScreen ? 22 : 26
+                  icon,
+                  color: isSelected ? Colors.white : inactiveColor,
+                  size: isSmallScreen ? 22 : 26,
                 ),
               ),
             ),
@@ -1592,7 +1358,7 @@ class _MainScreenState extends State<MainScreen>
 }
 
 // ============================================
-// _SubjectsDialog
+// _SubjectsDialog (остается без изменений)
 // ============================================
 class _SubjectsDialog extends StatefulWidget {
   final ThemeData theme;
@@ -1621,49 +1387,12 @@ class _SubjectsDialog extends StatefulWidget {
   State<_SubjectsDialog> createState() => _SubjectsDialogState();
 }
 
-class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProviderStateMixin {
+class _SubjectsDialogState extends State<_SubjectsDialog> {
   bool _isAddingMode = true;
-  late AnimationController _switchController;
-  late Animation<Offset> _addListAnimation;
-  late Animation<Offset> _removeListAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _switchController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _addListAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(-1.0, 0.0),
-    ).animate(CurvedAnimation(
-      parent: _switchController,
-      curve: Curves.easeInOut,
-    ));
-    _removeListAnimation = Tween<Offset>(
-      begin: const Offset(1.0, 0.0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _switchController,
-      curve: Curves.easeInOut,
-    ));
-  }
-
-  @override
-  void dispose() {
-    _switchController.dispose();
-    super.dispose();
-  }
 
   void _switchMode(bool toAdding) async {
     await HapticFeedback.lightImpact();
     if (toAdding != _isAddingMode) {
-      if (toAdding) {
-        _switchController.reverse();
-      } else {
-        _switchController.forward();
-      }
       setState(() {
         _isAddingMode = toAdding;
       });
@@ -1727,8 +1456,8 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: widget.theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
+                color: widget.isDark ? Colors.grey[800] : Colors.grey[200],
+                borderRadius: BorderRadius.circular(30),
               ),
               child: Row(
                 children: [
@@ -1737,9 +1466,10 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
                       onTap: () => _switchMode(true),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        margin: const EdgeInsets.only(right: 4),
                         decoration: BoxDecoration(
                           color: _isAddingMode ? const Color(0xFF4CAF50) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(30),
                         ),
                         child: Center(
                           child: Text(
@@ -1759,9 +1489,10 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
                       onTap: () => _switchMode(false),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        margin: const EdgeInsets.only(left: 4),
                         decoration: BoxDecoration(
                           color: !_isAddingMode ? const Color(0xFFEA4335) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(30),
                         ),
                         child: Center(
                           child: Text(
@@ -1781,18 +1512,7 @@ class _SubjectsDialogState extends State<_SubjectsDialog> with SingleTickerProvi
             ),
           ),
           Expanded(
-            child: Stack(
-              children: [
-                SlideTransition(
-                  position: _addListAnimation,
-                  child: _buildAddSubjectsList(),
-                ),
-                SlideTransition(
-                  position: _removeListAnimation,
-                  child: _buildRemoveSubjectsList(),
-                ),
-              ],
-            ),
+            child: _isAddingMode ? _buildAddSubjectsList() : _buildRemoveSubjectsList(),
           ),
           const SizedBox(height: 20),
         ],
@@ -2278,7 +1998,10 @@ class _SubjectsListState extends State<_SubjectsList> {
             ),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                final mainScreenState = context.findAncestorStateOfType<_MainScreenState>();
+                mainScreenState?._showSubjectsDialog();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4CAF50),
                 foregroundColor: Colors.white,

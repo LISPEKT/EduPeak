@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.edupeak</string>
+	<string>com.example.eduPeak</string>
 	<key>PROJECT_ID</key>
 	<string>edupeak--auth</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1080878708547:ios:20b2cedd575e0c4655e1f6</string>
+	<string>1:1080878708547:ios:ab22c7d6e924455855e1f6</string>
 </dict>
 </plist>

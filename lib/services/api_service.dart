@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -170,6 +171,44 @@ class ApiService {
     return await ApiService()._getUserResetStats();
   }
 
+  // Проверка, является ли пользователь администратором
+  static Future<bool> isAdmin() async {
+    try {
+      final token = await _getTokenStatic();
+      if (token == null) return false;
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.getUrl(Uri.parse('https://edupeak.ru/api/auth/me'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Accept', 'application/json');
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(responseBody);
+        return jsonResponse['user']['is_admin'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('❌ Ошибка проверки админа: $e');
+      return false;
+    }
+  }
+
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  static Future<String?> _getTokenStatic() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
   // === ИНСТАНСНЫЕ МЕТОДЫ (внутренние) ===
 
   Future<void> initialize() async {
@@ -234,6 +273,49 @@ class ApiService {
     } catch (e) {
       print('❌ Ошибка получения данных лиги: $e');
       return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
+  }
+
+  static Future<List<dynamic>> getNews() async {
+    try {
+      final token = await getToken();
+      if (token == null) return [];
+
+      final response = await http.get(
+        Uri.parse('https://edupeak.ru/api/content/news'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print('Ошибка загрузки новостей: $e');
+      return [];
+    }
+  }
+
+  // Получить баннеры с сервера
+  static Future<List<dynamic>> getBanners() async {
+    try {
+      final token = await getToken();
+      if (token == null) return [];
+
+      final response = await http.get(
+        Uri.parse('https://edupeak.ru/api/content/banners'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['data'] ?? [];
+      }
+      return [];
+    } catch (e) {
+      print('Ошибка загрузки баннеров: $e');
+      return [];
     }
   }
 
@@ -345,6 +427,25 @@ class ApiService {
     }
   }
 
+
+  static Future<bool> checkTokenValidity(String token) async {
+    try {
+      // Используем существующий маршрут /api/profile вместо /api/me
+      final response = await http.get(
+        Uri.parse('https://edupeak.ru/api/profile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      print('🔍 Token validity check: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Token check error: $e');
+      return false;
+    }
+  }
+
   Future<String?> downloadAvatar(String avatarUrl) async {
     print('📥 Загрузка аватара: $avatarUrl');
     return null;
@@ -447,7 +548,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> _getUserXPStats() async {
-    print('📊 Получение статистики XP');
+    print('📊 Получение статистики XP через sync/all');
     try {
       final token = await _getToken();
       if (token == null) {
@@ -457,18 +558,39 @@ class ApiService {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 10);
 
-      final request = await client.getUrl(Uri.parse('$_baseUrl/api/xp/stats'));
+      // Используем рабочий эндпоинт /api/sync/all
+      final request = await client.getUrl(Uri.parse('$_baseUrl/api/sync/all'));
       request.headers.set('Authorization', 'Bearer $token');
       request.headers.set('Accept', 'application/json');
 
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
-
       client.close();
 
-      if (response.statusCode == 200) {
-        return jsonDecode(responseBody) as Map<String, dynamic>;
+      print('📥 Ответ sync/all: ${responseBody.substring(0, responseBody.length > 500 ? 500 : responseBody.length)}...');
+
+      final jsonResponse = jsonDecode(responseBody);
+
+      if (response.statusCode == 200 && jsonResponse['success'] == true) {
+        final data = jsonResponse['data'] ?? {};
+        final xpData = data['xp'] ?? {};
+        final profileData = data['profile'] ?? {};
+
+        return {
+          'success': true,
+          'total_xp': xpData['totalXP'] ?? 0,
+          'weekly_xp': xpData['weeklyXP'] ?? 0,
+          'streak_days': xpData['streakDays'] ?? 0,
+          'last_7_days': xpData['statistics']?['last7DaysXP'] ?? 0,
+          'last_30_days': xpData['statistics']?['last30DaysXP'] ?? 0,
+          'league': {
+            'current_league': xpData['currentLeague'] ?? 'Бронзовая',
+            'league_progress': 0.0,
+          },
+          'daily_xp': xpData['dailyXP'] ?? {},
+        };
       }
+
       return {'success': false, 'message': 'Ошибка получения статистики XP'};
     } catch (e) {
       print('❌ Error getting XP stats: $e');
@@ -507,7 +629,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> _syncAllUserData() async {
-    print('🔄 Полная синхронизация данных');
+    print('🔄 Получение всех данных пользователя через sync/all');
     try {
       final token = await _getToken();
       if (token == null) {
@@ -523,13 +645,37 @@ class ApiService {
 
       final response = await request.close();
       final responseBody = await response.transform(utf8.decoder).join();
-
       client.close();
 
-      if (response.statusCode == 200) {
-        return jsonDecode(responseBody) as Map<String, dynamic>;
+      print('📥 Ответ sync/all получен, длина: ${responseBody.length}');
+
+      final jsonResponse = jsonDecode(responseBody);
+
+      if (response.statusCode == 200 && jsonResponse['success'] == true) {
+        final data = jsonResponse['data'] ?? {};
+
+        // Сохраняем XP в кэш
+        final xpData = data['xp'] ?? {};
+        final prefs = await SharedPreferences.getInstance();
+
+        if (xpData['totalXP'] != null) {
+          await prefs.setInt('cached_total_xp', xpData['totalXP']);
+          await prefs.setInt('cached_weekly_xp', xpData['weeklyXP'] ?? 0);
+          await prefs.setInt('cached_streak_days', xpData['streakDays'] ?? 0);
+          print('✅ XP сохранены в кэш: total=${xpData['totalXP']}');
+        }
+
+        // Сохраняем профиль
+        final profileData = data['profile'] ?? {};
+        if (profileData['name'] != null) {
+          await prefs.setString('username', profileData['name']);
+          print('✅ Имя сохранено: ${profileData['name']}');
+        }
+
+        return jsonResponse;
       }
-      return {'success': false, 'message': 'Ошибка синхронизации'};
+
+      return {'success': false, 'message': 'Ошибка получения данных'};
     } catch (e) {
       print('❌ Error syncing user data: $e');
       return {'success': false, 'message': 'Ошибка сети: $e'};
@@ -779,6 +925,28 @@ class ApiService {
         final token = jsonResponse['token'];
         if (token != null) {
           await _saveToken(token);
+
+          // Сохраняем данные пользователя в SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          final user = jsonResponse['user'];
+
+          if (user != null) {
+            await prefs.setString('username', user['name'] ?? '');
+            await prefs.setInt('cached_total_xp', user['total_xp'] ?? 0);
+            await prefs.setInt('cached_weekly_xp', user['weekly_xp'] ?? 0);
+            await prefs.setInt('cached_streak_days', user['streak'] ?? 0);
+            await prefs.setString('current_league', user['current_league'] ?? 'Бронзовая');
+            await prefs.setBool('is_admin', user['is_admin'] ?? false);
+            await prefs.setBool('isLoggedIn', true);
+
+            print('✅ Данные пользователя сохранены: XP=${user['total_xp']}, Лига=${user['current_league']}');
+          }
+
+          // 📱 ОТПРАВКА FCM ТОКЕНА НА СЕРВЕР ПОСЛЕ ЛОГИНА
+          await _sendFCMTokenToServer();
+
+          // Принудительная синхронизация после логина
+          await _syncAllUserData();
         }
         return jsonResponse;
       } else {
@@ -788,6 +956,50 @@ class ApiService {
     } catch (e) {
       print('❌ Ошибка при логине: $e');
       return {'success': false, 'message': 'Ошибка сети: ${e.toString()}'};
+    }
+  }
+
+  Future<void> _sendFCMTokenToServer() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final fcmToken = prefs.getString('fcm_token');
+
+      if (fcmToken == null || fcmToken.isEmpty) {
+        print('⚠️ FCM токен не найден, пропускаем отправку');
+        return;
+      }
+
+      final token = await _getToken();
+      if (token == null) {
+        print('⚠️ Токен авторизации не найден');
+        return;
+      }
+
+      print('📱 Отправка FCM токена на сервер...');
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/notifications/register-token'));
+      request.headers.set('Authorization', 'Bearer $token');
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Accept', 'application/json');
+
+      final body = jsonEncode({'fcm_token': fcmToken});
+      final utf8Bytes = utf8.encode(body);
+      request.add(utf8Bytes);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode == 200) {
+        print('✅ FCM токен успешно зарегистрирован на сервере');
+      } else {
+        print('❌ Ошибка регистрации FCM токена: $responseBody');
+      }
+    } catch (e) {
+      print('❌ Ошибка отправки FCM токена: $e');
     }
   }
 
@@ -872,6 +1084,52 @@ class ApiService {
     await prefs.setInt(progressKey, correctAnswers);
     print('💾 Прогресс сохранен локально');
     return {'success': true, 'message': 'Прогресс сохранен локально'};
+  }
+
+  Future<Map<String, dynamic>> registerFCMToken(String token) async {
+    print('📱 Регистрация FCM токена на сервере...');
+    try {
+      final authToken = await _getToken();
+      if (authToken == null) {
+        print('⚠️ Нет токена авторизации');
+        return {'success': false, 'message': 'Не авторизован'};
+      }
+
+      print('📡 URL: $_baseUrl/api/notifications/register-token');
+      print('📤 Token: $token');
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.postUrl(Uri.parse('$_baseUrl/api/notifications/register-token'));
+      request.headers.set('Authorization', 'Bearer $authToken');
+      request.headers.set('Content-Type', 'application/json');
+      request.headers.set('Accept', 'application/json');
+
+      final body = jsonEncode({'fcm_token': token});
+      print('📦 Body: $body');
+
+      final utf8Bytes = utf8.encode(body);
+      request.add(utf8Bytes);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+      client.close();
+
+      print('📥 Status: ${response.statusCode}');
+      print('📥 Response: $responseBody');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ FCM токен зарегистрирован на сервере');
+        return {'success': true};
+      }
+
+      print('❌ Ошибка регистрации токена: $responseBody');
+      return {'success': false, 'message': responseBody};
+    } catch (e) {
+      print('❌ Ошибка регистрации FCM токена: $e');
+      return {'success': false, 'message': 'Ошибка сети: $e'};
+    }
   }
 
   Future<Map<String, dynamic>?> _getUserProgress() async {

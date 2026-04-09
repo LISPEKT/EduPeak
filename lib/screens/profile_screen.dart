@@ -2,12 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
-import '../data/user_data_storage.dart';
-import '../models/user_stats.dart';
+import '../services/central_data_manager.dart';
+import '../services/multiplayer_service.dart'; // Добавить этот импорт
 import '../localization.dart';
-import '../data/subjects_data.dart';
 import 'profile_editor_screen.dart';
 import 'statistics_screen.dart';
 import 'achievements_screen.dart';
@@ -16,6 +15,9 @@ import 'streak_screen.dart';
 import 'xp_stats_screen.dart';
 import 'settings_screen.dart';
 import 'multiplayer/friends_screen.dart';
+import 'package:edu_peak/screens/admin/admin_panel_screen.dart';
+import 'package:edu_peak/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Function(int) onBottomNavTap;
@@ -34,264 +36,72 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String _username = '';
-  String _avatar = '👤';
   DateTime? _registrationDate;
-  UserStats _userStats = UserStats(
-    streakDays: 0,
-    lastActivity: DateTime.now(),
-    topicProgress: {},
-    dailyCompletion: {},
-    username: '',
-    totalXP: 0,
-    weeklyXP: 0,
-    lastWeeklyReset: DateTime.now(),
-  );
-  List<String> _selectedSubjects = [];
-  int _totalXP = 0;
-  int _weeklyXP = 0;
-  String _currentLeague = 'Бронзовая';
-  String _mostPopularSubject = 'Математика';
-  int _completedTopics = 0;
-  int _correctAnswers = 0;
-  int _achievementsCompleted = 0;
-  int _totalAchievements = 0;
   int _friendsCount = 0;
-  Map<DateTime, int> _dailyActivity = {};
-  Map<DateTime, int> _dailyXP = {};
-  Map<String, double> _subjectProgress = {};
-
-  bool _isDataLoaded = false;
-  bool _isSyncing = false;
-
-  static const String _cachedTotalXPKey = 'cached_total_xp';
-  static const String _cachedWeeklyXPKey = 'cached_weekly_xp';
-  static const String _cachedCompletedTopicsKey = 'cached_completed_topics';
-  static const String _cachedCorrectAnswersKey = 'cached_correct_answers';
-  static const String _cachedStreakDaysKey = 'cached_streak_days';
-  static const String _cachedAchievementsCompletedKey = 'cached_achievements_completed';
-  static const String _cachedTotalAchievementsKey = 'cached_total_achievements';
+  final MultiplayerService _multiplayerService = MultiplayerService(); // Добавить сервис
 
   @override
   void initState() {
     super.initState();
-    _loadCachedDataImmediately();
-    _loadInitialDataInBackground();
+    _loadRegistrationDate();
+    _loadFriendsCount();
   }
 
-  Future<void> _loadCachedDataImmediately() async {
+  Future<void> _loadRegistrationDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final registrationTimestamp = prefs.getInt('registrationDate') ?? DateTime.now().millisecondsSinceEpoch;
+    setState(() {
+      _registrationDate = DateTime.fromMillisecondsSinceEpoch(registrationTimestamp);
+    });
+  }
+
+  Future<void> _loadFriendsCount() async {
     try {
-      final cachedData = await UserDataStorage.getCachedUserData();
-      final prefs = await SharedPreferences.getInstance();
+      // Используем тот же MultiplayerService, что и в FriendsScreen
+      final response = await _multiplayerService.getFriends();
+      print('📥 ProfileScreen - Ответ от getFriends: $response');
 
-      setState(() {
-        _username = cachedData['username'];
-        _avatar = cachedData['avatar'];
-        _totalXP = prefs.getInt(_cachedTotalXPKey) ?? 0;
-        _weeklyXP = prefs.getInt(_cachedWeeklyXPKey) ?? 0;
-        _completedTopics = prefs.getInt(_cachedCompletedTopicsKey) ?? 0;
-        _correctAnswers = prefs.getInt(_cachedCorrectAnswersKey) ?? 0;
-        _userStats = _userStats.copyWith(
-          streakDays: prefs.getInt(_cachedStreakDaysKey) ?? 0,
-        );
-        _achievementsCompleted = prefs.getInt(_cachedAchievementsCompletedKey) ?? 0;
-        _totalAchievements = prefs.getInt(_cachedTotalAchievementsKey) ?? 36;
-        _currentLeague = _determineLeagueByXP(_totalXP);
-
-        final registrationTimestamp = prefs.getInt('registrationDate') ?? DateTime.now().millisecondsSinceEpoch;
-        _registrationDate = DateTime.fromMillisecondsSinceEpoch(registrationTimestamp);
-
-        _isDataLoaded = true;
-      });
-
-      final savedSubjects = prefs.getStringList('selectedSubjects');
-      if (savedSubjects != null && savedSubjects.isNotEmpty) {
+      if (response['success'] == true) {
+        final friendsList = response['friends'] as List? ?? [];
         setState(() {
-          _selectedSubjects = savedSubjects;
+          _friendsCount = friendsList.length;
         });
+        print('✅ ProfileScreen - Загружено друзей: $_friendsCount');
+      } else {
+        print('❌ ProfileScreen - Ошибка загрузки друзей: ${response['message']}');
+        // Пробуем альтернативный метод через ApiService
+        await _loadFriendsCountAlternative();
       }
-
     } catch (e) {
-      print('❌ Ошибка загрузки кэша: $e');
-      setState(() {
-        _isDataLoaded = true;
-      });
+      print('❌ ProfileScreen - Ошибка загрузки друзей: $e');
+      // Пробуем альтернативный метод через ApiService
+      await _loadFriendsCountAlternative();
     }
   }
 
-  Future<void> _loadInitialDataInBackground() async {
-    if (_isSyncing) return;
-    _isSyncing = true;
-
+  // Альтернативный метод загрузки через ApiService
+  Future<void> _loadFriendsCountAlternative() async {
     try {
-      await UserDataStorage.syncProfileInBackground();
-      await _loadUserStats();
-      await _loadSelectedSubjects();
-      _calculateSubjectProgress();
-      await _saveToCache();
-    } catch (e) {
-      print('❌ Ошибка фоновой загрузки: $e');
-    } finally {
-      _isSyncing = false;
-    }
-  }
-
-  Future<void> _saveToCache() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_cachedTotalXPKey, _totalXP);
-      await prefs.setInt(_cachedWeeklyXPKey, _weeklyXP);
-      await prefs.setInt(_cachedCompletedTopicsKey, _completedTopics);
-      await prefs.setInt(_cachedCorrectAnswersKey, _correctAnswers);
-      await prefs.setInt(_cachedStreakDaysKey, _userStats.streakDays);
-      await prefs.setInt(_cachedAchievementsCompletedKey, _achievementsCompleted);
-      await prefs.setInt(_cachedTotalAchievementsKey, _totalAchievements);
-    } catch (e) {
-      print('❌ Error saving to cache: $e');
-    }
-  }
-
-  Future<void> _loadUserStats() async {
-    try {
-      final stats = await UserDataStorage.getUserStats();
-      final statsOverview = await UserDataStorage.getUserStatsOverview();
-
-      final totalXP = statsOverview['totalXP'] as int? ?? 0;
-      final weeklyXP = statsOverview['weeklyXP'] as int? ?? 0;
-      final completedTopics = statsOverview['completedTopics'] as int? ?? 0;
-      final correctAnswers = statsOverview['totalCorrectAnswers'] as int? ?? 0;
-      final username = statsOverview['username'] as String? ?? '';
-
-      final actualLeague = _determineLeagueByXP(totalXP);
-
-      String popularSubject = AppLocalizations.of(context).noData;
-      int maxTopics = 0;
-      if (stats.topicProgress.isNotEmpty) {
-        for (final subject in stats.topicProgress.keys) {
-          final topicCount = stats.topicProgress[subject]?.length ?? 0;
-          if (topicCount > maxTopics) {
-            maxTopics = topicCount;
-            popularSubject = subject;
-          }
-        }
-      }
-
-      if (mounted) {
+      final response = await ApiService.getFriends();
+      if (response['success'] == true) {
+        final friendsList = response['friends'] as List? ?? [];
         setState(() {
-          _userStats = stats;
-          _totalXP = totalXP;
-          _weeklyXP = weeklyXP;
-          _completedTopics = completedTopics;
-          _correctAnswers = correctAnswers;
-          _currentLeague = actualLeague;
-          _mostPopularSubject = popularSubject;
-          if (username.isNotEmpty && _username.isEmpty) {
-            _username = username;
-          }
+          _friendsCount = friendsList.length;
         });
+        print('✅ ProfileScreen (alternative) - Загружено друзей: $_friendsCount');
       }
     } catch (e) {
-      print('❌ Error loading user stats: $e');
-    }
-  }
-
-  String _determineLeagueByXP(int xp) {
-    if (xp >= 5000) return 'Нереальная';
-    if (xp >= 4000) return 'Легендарная';
-    if (xp >= 3000) return 'Элитная';
-    if (xp >= 2000) return 'Бриллиантовая';
-    if (xp >= 1500) return 'Платиновая';
-    if (xp >= 1000) return 'Золотая';
-    if (xp >= 500) return 'Серебряная';
-    return 'Бронзовая';
-  }
-
-  Future<void> _loadSelectedSubjects() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedSubjects = prefs.getStringList('selectedSubjects');
-      if (savedSubjects != null && savedSubjects.isNotEmpty) {
-        if (mounted) {
-          setState(() {
-            _selectedSubjects = savedSubjects;
-          });
-        }
-      } else {
-        final allSubjects = _getAllSubjects();
-        if (mounted) {
-          setState(() {
-            _selectedSubjects = allSubjects;
-          });
-        }
-      }
-    } catch (e) {
-      print('❌ Error loading selected subjects: $e');
-    }
-  }
-
-  void _calculateSubjectProgress() {
-    final progress = <String, double>{};
-    final subjectsByGrade = getSubjectsByGrade(context);
-    final allSubjects = <String>{};
-
-    for (final grade in subjectsByGrade.keys) {
-      final subjects = subjectsByGrade[grade] ?? [];
-      for (final subject in subjects) {
-        allSubjects.add(subject.name);
-      }
-    }
-
-    for (final subjectName in allSubjects) {
-      if (_userStats.topicProgress.containsKey(subjectName)) {
-        final topics = _userStats.topicProgress[subjectName] ?? {};
-        final totalTopics = _getTotalTopicsForSubject(subjectName);
-        if (totalTopics > 0) {
-          final completedTopics = topics.length;
-          progress[subjectName] = completedTopics / totalTopics;
-        } else {
-          progress[subjectName] = 0.0;
-        }
-      } else {
-        progress[subjectName] = 0.0;
-      }
-    }
-
-    if (mounted) {
+      print('❌ ProfileScreen (alternative) - Ошибка: $e');
+      // Если совсем ничего не работает, показываем 0
       setState(() {
-        _subjectProgress = progress;
+        _friendsCount = 0;
       });
     }
   }
 
-  int _getTotalTopicsForSubject(String subjectName) {
-    final subjectsByGrade = getSubjectsByGrade(context);
-    int totalTopics = 0;
-    for (final grade in subjectsByGrade.keys) {
-      final subjects = subjectsByGrade[grade] ?? [];
-      for (final subject in subjects) {
-        if (subject.name == subjectName) {
-          final topics = subject.topicsByGrade[grade] ?? [];
-          totalTopics += topics.length;
-        }
-      }
-    }
-    return totalTopics;
-  }
-
-  List<String> _getAllSubjects() {
-    final allSubjects = <String>{};
-    final subjectsByGrade = getSubjectsByGrade(context);
-    for (final grade in subjectsByGrade.keys) {
-      final subjects = subjectsByGrade[grade] ?? [];
-      for (final subject in subjects) {
-        allSubjects.add(subject.name);
-      }
-    }
-    return allSubjects.toList();
-  }
-
-  bool _isPhotoAvatar() {
-    return _avatar.startsWith('/') || _avatar.contains('.');
+  // Публичный метод для обновления счетчика друзей (вызывается после возвращения с экрана друзей)
+  Future<void> refreshFriendsCount() async {
+    await _loadFriendsCount();
   }
 
   String _formatRegistrationDate() {
@@ -301,8 +111,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '${appLocalizations.since} ${formatter.format(_registrationDate!)}';
   }
 
-  IconData _getLeagueIcon() {
-    switch (_currentLeague) {
+  bool _isPhotoAvatar() {
+    final avatar = Provider.of<CentralDataManager>(context, listen: false).avatar;
+    return avatar.startsWith('/') || avatar.contains('.');
+  }
+
+  IconData _getLeagueIcon(String league) {
+    switch (league) {
       case 'Нереальная': return Icons.auto_awesome_rounded;
       case 'Легендарная': return Icons.whatshot_rounded;
       case 'Элитная': return Icons.star_rounded;
@@ -315,8 +130,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Color _getLeagueColor() {
-    switch (_currentLeague) {
+  Color _getLeagueColor(String league) {
+    switch (league) {
       case 'Нереальная': return const Color(0xFFE6E6FA);
       case 'Легендарная': return const Color(0xFFFF4500);
       case 'Элитная': return const Color(0xFF7F7F7F);
@@ -330,10 +145,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openStatisticsScreen() {
+    final dataManager = Provider.of<CentralDataManager>(context, listen: false);
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => StatisticsScreen(userStats: _userStats),
+        builder: (_) => StatisticsScreen(userStats: dataManager.userStats),
       ),
     );
   }
@@ -343,17 +159,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => AchievementsScreen(
-          onAchievementsLoaded: (AchievementCount count) {
-            setState(() {
-              _achievementsCompleted = count.completed;
-              _totalAchievements = count.total;
-            });
-            _saveToCache();
+          onAchievementsLoaded: (count) {
+            // Обновление через CentralDataManager не требуется,
+            // так как менеджер сам синхронизирует достижения
           },
         ),
       ),
     ).then((_) {
-      _loadInitialDataInBackground();
+      // Обновляем данные после возвращения
+      Provider.of<CentralDataManager>(context, listen: false).refresh();
     });
   }
 
@@ -363,7 +177,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       MaterialPageRoute(
         builder: (_) => FriendsScreen(),
       ),
-    );
+    ).then((_) {
+      // Обновляем счетчик друзей после возвращения с экрана друзей
+      refreshFriendsCount();
+    });
   }
 
   void _openLeagueScreen() {
@@ -376,12 +193,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openStreakScreen() {
+    final dataManager = Provider.of<CentralDataManager>(context, listen: false);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => StreakScreen(
-          dailyActivity: _dailyActivity,
-          streakDays: _userStats.streakDays,
+          dailyActivity: dataManager.userStats.getDailyActivityMap(),
+          streakDays: dataManager.streakDays,
         ),
       ),
     );
@@ -390,9 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _openXPScreen() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-          builder: (_) => XPStatsScreen()
-      ),
+      MaterialPageRoute(builder: (_) => XPStatsScreen()),
     );
   }
 
@@ -406,20 +222,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openProfileEditor() async {
+    final dataManager = Provider.of<CentralDataManager>(context, listen: false);
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProfileEditorScreen(
-          currentAvatar: _avatar,
+          currentAvatar: dataManager.avatar,
           onAvatarUpdate: (newAvatar) {
-            setState(() {
-              _avatar = newAvatar;
-            });
+            dataManager.updateProfile(avatar: newAvatar);
           },
           onUsernameUpdate: (newUsername) {
-            setState(() {
-              _username = newUsername;
-            });
+            dataManager.updateProfile(username: newUsername);
           },
           onBottomNavTap: widget.onBottomNavTap,
           currentIndex: widget.currentIndex,
@@ -428,383 +242,478 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (result == true) {
-      await _loadInitialDataInBackground();
+      await dataManager.refresh();
+      await refreshFriendsCount(); // Также обновляем счетчик друзей
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryColor = theme.colorScheme.primary;
-    final appLocalizations = AppLocalizations.of(context);
+    return Consumer<CentralDataManager>(
+      builder: (context, dataManager, child) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final primaryColor = theme.colorScheme.primary;
+        final appLocalizations = AppLocalizations.of(context);
 
-    if (!_isDataLoaded) {
-      return Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
+        // Показываем индикатор загрузки
+        if (!dataManager.isInitialized && dataManager.isSyncing) {
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Загрузка профиля...',
+                    style: TextStyle(color: theme.hintColor),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: isDark
-              ? LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              primaryColor.withOpacity(0.15),
-              theme.scaffoldBackgroundColor.withOpacity(0.7),
-              theme.scaffoldBackgroundColor,
-            ],
-            stops: const [0.0, 0.3, 0.7],
-          )
-              : LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              primaryColor.withOpacity(0.08),
-              Colors.white.withOpacity(0.7),
-              Colors.white,
-            ],
-            stops: const [0.0, 0.3, 0.7],
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Заголовок
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        // Показываем ошибку
+        if (dataManager.hasError) {
+          return Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Ошибка загрузки данных',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textTheme.titleMedium?.color,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      dataManager.errorMessage ?? 'Неизвестная ошибка',
+                      style: TextStyle(color: theme.hintColor),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => dataManager.refresh(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: const Text('Повторить'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Основной контент
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: BoxDecoration(
+              gradient: isDark
+                  ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  primaryColor.withOpacity(0.15),
+                  theme.scaffoldBackgroundColor.withOpacity(0.7),
+                  theme.scaffoldBackgroundColor,
+                ],
+                stops: const [0.0, 0.3, 0.7],
+              )
+                  : LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  primaryColor.withOpacity(0.08),
+                  Colors.white.withOpacity(0.7),
+                  Colors.white,
+                ],
+                stops: const [0.0, 0.3, 0.7],
+              ),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Заголовок
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          appLocalizations.section,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: theme.hintColor,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              appLocalizations.section,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: theme.hintColor,
+                              ),
+                            ),
+                            Text(
+                              appLocalizations.profile,
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: theme.textTheme.titleMedium?.color,
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          appLocalizations.profile,
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textTheme.titleMedium?.color,
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: isDark ? theme.cardColor : Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: IconButton(
+                            icon: Icon(Icons.settings_rounded, color: primaryColor),
+                            onPressed: _openSettingsScreen,
                           ),
                         ),
                       ],
                     ),
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: isDark ? theme.cardColor : Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: IconButton(
-                        icon: Icon(Icons.settings_rounded),
-                        color: primaryColor,
-                        onPressed: _openSettingsScreen,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
 
-              // Остальной контент в скролле
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Основная карточка профиля
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: isDark ? theme.cardColor : Colors.white,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              // Аватар
-                              GestureDetector(
-                                onTap: _openProfileEditor,
-                                child: Container(
-                                  width: 80,
-                                  height: 80,
-                                  decoration: BoxDecoration(
-                                    color: primaryColor.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: _isPhotoAvatar()
-                                      ? ClipOval(
-                                    child: Image.file(
-                                      File(_avatar),
-                                      fit: BoxFit.cover,
-                                      width: 80,
-                                      height: 80,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Icon(
+                  // Остальной контент в скролле
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: refreshFriendsCount, // Добавляем Pull-to-Refresh
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Основная карточка профиля
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: isDark ? theme.cardColor : Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Аватар
+                                    GestureDetector(
+                                      onTap: _openProfileEditor,
+                                      child: Container(
+                                        width: 80,
+                                        height: 80,
+                                        decoration: BoxDecoration(
+                                          color: primaryColor.withOpacity(0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: _isPhotoAvatar()
+                                            ? ClipOval(
+                                          child: Image.file(
+                                            File(dataManager.avatar),
+                                            fit: BoxFit.cover,
+                                            width: 80,
+                                            height: 80,
+                                            errorBuilder: (context, error, stackTrace) {
+                                              return Icon(
+                                                Icons.person_rounded,
+                                                color: primaryColor,
+                                                size: 36,
+                                              );
+                                            },
+                                          ),
+                                        )
+                                            : Icon(
                                           Icons.person_rounded,
                                           color: primaryColor,
                                           size: 36,
-                                        );
-                                      },
-                                    ),
-                                  )
-                                      : Icon(
-                                    Icons.person_rounded,
-                                    color: primaryColor,
-                                    size: 36,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-
-                              // Информация профиля
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _username.isNotEmpty ? _username : appLocalizations.noName,
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.textTheme.titleMedium?.color,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _formatRegistrationDate(),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: theme.hintColor,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    // Друзья
-                                    GestureDetector(
-                                      onTap: _openFriendsScreen,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: primaryColor.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
                                         ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.people_rounded,
-                                              size: 16,
-                                              color: primaryColor,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 20),
+
+                                    // Информация профиля
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            dataManager.username.isNotEmpty
+                                                ? dataManager.username
+                                                : appLocalizations.noName,
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: theme.textTheme.titleMedium?.color,
                                             ),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              '$_friendsCount ${appLocalizations.friendsCount}',
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: primaryColor,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            _formatRegistrationDate(),
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: theme.hintColor,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          // Друзья - теперь показывает актуальное количество
+                                          GestureDetector(
+                                            onTap: _openFriendsScreen,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: primaryColor.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                    Icons.people_rounded,
+                                                    size: 16,
+                                                    color: primaryColor,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    '$_friendsCount ${appLocalizations.friendsCount}',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: primaryColor,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
+                            ),
 
-                      // Статистика в ряд
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        child: Text(
-                          appLocalizations.statisticsPlural,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textTheme.titleMedium?.color,
-                          ),
-                        ),
-                      ),
-
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                title: appLocalizations.daysInRow,
-                                value: '${_userStats.streakDays}',
-                                color: Colors.orange,
-                                icon: Icons.local_fire_department_rounded,
-                                isDark: isDark,
-                                onTap: _openStreakScreen,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                title: appLocalizations.xpEarned,
-                                value: '$_totalXP',
-                                color: Colors.green,
-                                icon: Icons.leaderboard_rounded,
-                                isDark: isDark,
-                                onTap: _openXPScreen,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                title: appLocalizations.topicsCompleted,
-                                value: '$_completedTopics',
-                                color: Colors.blue,
-                                icon: Icons.check_circle_rounded,
-                                isDark: isDark,
-                                onTap: _openStatisticsScreen,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Изучаемые предметы
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              appLocalizations.studiedSubjects,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: theme.textTheme.titleMedium?.color,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                            // Статистика в ряд
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                               child: Text(
-                                '${_selectedSubjects.length}',
+                                appLocalizations.statisticsPlural,
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: primaryColor,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.textTheme.titleMedium?.color,
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
 
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: SizedBox(
-                          height: 40,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _selectedSubjects.length,
-                            itemBuilder: (context, index) {
-                              final subject = _selectedSubjects[index];
-                              return Container(
-                                margin: const EdgeInsets.only(right: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  subject,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: primaryColor,
-                                    fontWeight: FontWeight.w500,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      title: appLocalizations.daysInRow,
+                                      value: '${dataManager.streakDays}',
+                                      color: Colors.orange,
+                                      icon: Icons.local_fire_department_rounded,
+                                      isDark: isDark,
+                                      onTap: _openStreakScreen,
+                                    ),
                                   ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      title: appLocalizations.xpEarned,
+                                      value: '${dataManager.totalXP}',
+                                      color: Colors.green,
+                                      icon: Icons.leaderboard_rounded,
+                                      isDark: isDark,
+                                      onTap: _openXPScreen,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      title: appLocalizations.topicsCompleted,
+                                      value: '${dataManager.completedTopics}',
+                                      color: Colors.blue,
+                                      icon: Icons.check_circle_rounded,
+                                      isDark: isDark,
+                                      onTap: _openStatisticsScreen,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Изучаемые предметы
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    appLocalizations.studiedSubjects,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.textTheme.titleMedium?.color,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '${dataManager.selectedSubjects.length}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: SizedBox(
+                                height: 40,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: dataManager.selectedSubjects.length,
+                                  itemBuilder: (context, index) {
+                                    final subject = dataManager.selectedSubjects[index];
+                                    return Container(
+                                      margin: const EdgeInsets.only(right: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: primaryColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        subject,
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-
-                      // Дополнительная статистика
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                        child: Column(
-                          children: [
-                            // Достижения
-                            _buildFeatureCard(
-                              title: appLocalizations.achievements,
-                              subtitle: '$_achievementsCompleted/$_totalAchievements ${appLocalizations.achievementsCompleted}',
-                              icon: Icons.emoji_events_rounded,
-                              color: Colors.amber,
-                              isDark: isDark,
-                              onTap: _openAchievementsScreen,
+                              ),
                             ),
-                            const SizedBox(height: 12),
 
-                            // Лига
-                            _buildFeatureCard(
-                              title: appLocalizations.league,
-                              subtitle: _currentLeague,
-                              icon: _getLeagueIcon(),
-                              color: _getLeagueColor(),
-                              isDark: isDark,
-                              onTap: _openLeagueScreen,
+                            // Дополнительная статистика
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                              child: Column(
+                                children: [
+                                  // Достижения
+                                  _buildFeatureCard(
+                                    title: appLocalizations.achievements,
+                                    subtitle: '${dataManager.achievementsCompleted}/${dataManager.totalAchievements} ${appLocalizations.achievementsCompleted}',
+                                    icon: Icons.emoji_events_rounded,
+                                    color: Colors.amber,
+                                    isDark: isDark,
+                                    onTap: _openAchievementsScreen,
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Лига
+                                  _buildFeatureCard(
+                                    title: appLocalizations.league,
+                                    subtitle: dataManager.currentLeague,
+                                    icon: _getLeagueIcon(dataManager.currentLeague),
+                                    color: _getLeagueColor(dataManager.currentLeague),
+                                    isDark: isDark,
+                                    onTap: _openLeagueScreen,
+                                  ),
+
+                                  // Админ-панель (только для администраторов)
+                                  FutureBuilder<bool>(
+                                    future: ApiService.isAdmin(),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.hasData && snapshot.data == true) {
+                                        return Column(
+                                          children: [
+                                            const SizedBox(height: 12),
+                                            _buildFeatureCard(
+                                              title: 'Админ-панель',
+                                              subtitle: 'Управление пользователями, контентом и статистикой',
+                                              icon: Icons.admin_panel_settings_rounded,
+                                              color: Colors.deepPurple,
+                                              isDark: isDark,
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
+
+                            // Отступ для BottomNavigationBar
+                            const SizedBox(height: 90),
                           ],
                         ),
                       ),
-
-                      // Отступ для BottomNavigationBar
-                      const SizedBox(height: 90),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -821,7 +730,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        height: 130,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isDark ? theme.cardColor : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -834,41 +744,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     icon,
                     color: color,
-                    size: 20,
+                    size: 22,
                   ),
                 ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: color,
+                Flexible(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               title,
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: theme.textTheme.titleMedium?.color,
               ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ],
         ),

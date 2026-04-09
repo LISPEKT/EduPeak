@@ -5,8 +5,6 @@ import '../../services/multiplayer_service.dart';
 import '../../localization.dart';
 import '../../data/user_data_storage.dart';
 import 'create_game_screen.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'chat_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -22,12 +20,9 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
   bool _isLoading = true;
   bool _isSearching = false;
   String _searchQuery = '';
-  int _selectedTab = 0; // 0 - друзья, 1 - запросы, 2 - поиск
+  int _selectedTab = 0;
 
-  final RefreshIndicator _refreshIndicator = RefreshIndicator(
-    onRefresh: () async {},
-    child: Container(),
-  );
+  final String _baseUrl = 'https://edupeak.ru';
 
   @override
   bool get wantKeepAlive => true;
@@ -38,13 +33,24 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
     _loadFriends();
   }
 
-  @override
-  void didUpdateWidget(FriendsScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Обновляем данные при возврате на экран
-    if (mounted) {
-      _loadFriends();
+  // Функция для получения полного URL аватара
+  String? _getFullAvatarUrl(dynamic avatarPath) {
+    if (avatarPath == null || avatarPath.toString().isEmpty) return null;
+
+    final String path = avatarPath.toString();
+
+    // Если уже полный URL, возвращаем как есть
+    if (path.startsWith('http')) {
+      return path;
     }
+
+    // Если начинается с /images/, добавляем базовый URL
+    if (path.startsWith('/images/')) {
+      return '$_baseUrl$path';
+    }
+
+    // Если просто имя файла
+    return '$_baseUrl/images/$path';
   }
 
   Future<void> _loadFriends() async {
@@ -56,10 +62,32 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
       if (response['success'] == true) {
         setState(() {
-          _friends = List<Map<String, dynamic>>.from(response['friends'] ?? []);
-          _pendingRequests = List<Map<String, dynamic>>.from(response['pending_requests'] ?? []);
+          // Обрабатываем друзей
+          final friendsList = response['friends'] as List? ?? [];
+          _friends = friendsList.map((friend) {
+            final Map<String, dynamic> friendMap = Map<String, dynamic>.from(friend as Map);
+            final avatar = friendMap['avatar'];
+            friendMap['avatar'] = _getFullAvatarUrl(avatar);
+            return friendMap;
+          }).toList();
+
+          // Обрабатываем запросы
+          final requestsList = response['pending_requests'] as List? ?? [];
+          _pendingRequests = requestsList.map((request) {
+            final Map<String, dynamic> requestMap = Map<String, dynamic>.from(request as Map);
+            final user = requestMap['user'];
+            if (user != null) {
+              final Map<String, dynamic> userMap = Map<String, dynamic>.from(user as Map);
+              final avatar = userMap['avatar'];
+              userMap['avatar'] = _getFullAvatarUrl(avatar);
+              requestMap['user'] = userMap;
+            }
+            return requestMap;
+          }).toList();
         });
         print('✅ Загружено друзей: ${_friends.length}, запросов: ${_pendingRequests.length}');
+      } else {
+        print('❌ Ошибка загрузки: ${response['message']}');
       }
     } catch (e) {
       print('❌ Error loading friends: $e');
@@ -96,7 +124,13 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
       if (response['success'] == true) {
         setState(() {
-          _searchResults = List<Map<String, dynamic>>.from(response['users'] ?? []);
+          final usersList = response['users'] as List? ?? [];
+          _searchResults = usersList.map((user) {
+            final Map<String, dynamic> userMap = Map<String, dynamic>.from(user as Map);
+            final avatar = userMap['avatar'];
+            userMap['avatar'] = _getFullAvatarUrl(avatar);
+            return userMap;
+          }).toList();
         });
         print('✅ Найдено результатов: ${_searchResults.length}');
       } else {
@@ -129,9 +163,16 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-
-      // Обновляем поиск
       _searchUsers(_searchQuery);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(response['message'] ?? 'Ошибка отправки запроса'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
     }
   }
 
@@ -139,6 +180,14 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
     final response = await _multiplayerService.acceptFriendRequest(requestId);
 
     if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Запрос принят'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
       _loadFriends();
     }
   }
@@ -147,6 +196,14 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
     final response = await _multiplayerService.declineFriendRequest(requestId);
 
     if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Запрос отклонен'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
       _loadFriends();
     }
   }
@@ -165,14 +222,14 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
   Color _getLeagueColor(String league) {
     switch (league) {
-      case 'Бронзовая': return Color(0xFFCD7F32);
-      case 'Серебряная': return Color(0xFFC0C0C0);
-      case 'Золотая': return Color(0xFFFFD700);
-      case 'Платиновая': return Color(0xFFE5E4E2);
-      case 'Бриллиантовая': return Color(0xFFB9F2FF);
-      case 'Элитная': return Color(0xFF7F7F7F);
-      case 'Легендарная': return Color(0xFFFF4500);
-      case 'Нереальная': return Color(0xFFE6E6FA);
+      case 'Бронзовая': return const Color(0xFFCD7F32);
+      case 'Серебряная': return const Color(0xFFC0C0C0);
+      case 'Золотая': return const Color(0xFFFFD700);
+      case 'Платиновая': return const Color(0xFFE5E4E2);
+      case 'Бриллиантовая': return const Color(0xFFB9F2FF);
+      case 'Элитная': return const Color(0xFF7F7F7F);
+      case 'Легендарная': return const Color(0xFFFF4500);
+      case 'Нереальная': return const Color(0xFFE6E6FA);
       default: return Theme.of(context).colorScheme.primary;
     }
   }
@@ -291,7 +348,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
               const SizedBox(height: 16),
 
-              // Контент с обновлением при смене вкладки
+              // Контент
               Expanded(
                 child: IndexedStack(
                   index: _selectedTab,
@@ -319,7 +376,6 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
           setState(() {
             _selectedTab = index;
           });
-          // Обновляем данные при смене вкладки
           if (index == 0 || index == 1) {
             _loadFriends();
           } else if (index == 2 && _searchQuery.isNotEmpty) {
@@ -485,7 +541,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
         ),
         Expanded(
           child: _isSearching
-              ? Center(child: CircularProgressIndicator())
+              ? const Center(child: CircularProgressIndicator())
               : _searchResults.isEmpty
               ? Center(
             child: Column(
@@ -524,15 +580,25 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
   Widget _buildFriendCard(Map<String, dynamic> friend) {
     final theme = Theme.of(context);
-    final leagueColor = _getLeagueColor(friend['league'] ?? 'Бронзовая');
+    final league = friend['league'] ?? 'Бронзовая';
+    final leagueColor = _getLeagueColor(league);
+    final friendId = friend['id'];
+    final friendName = friend['name'] ?? 'Пользователь';
+    final friendAvatar = friend['avatar'];
+    final friendXp = friend['xp'] ?? 0;
 
     return GestureDetector(
       onTap: () {
-        // Открываем чат при нажатии на карточку друга
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ChatScreen(friend: friend),
+            builder: (_) => ChatScreen(friend: {
+              'id': friendId,
+              'name': friendName,
+              'avatar': friendAvatar,
+              'xp': friendXp,
+              'league': league,
+            }),
           ),
         );
       },
@@ -564,24 +630,44 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                   width: 2,
                 ),
               ),
-              child: friend['avatar'] != null
-                  ? ClipOval(
-                child: Image.network(
-                  friend['avatar'],
+              child: ClipOval(
+                child: friendAvatar != null && friendAvatar.toString().isNotEmpty
+                    ? Image.network(
+                  friendAvatar.toString(),
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Icon(
-                    Icons.person_rounded,
-                    color: leagueColor,
-                  ),
+                  width: 50,
+                  height: 50,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.person_rounded,
+                      color: leagueColor,
+                      size: 24,
+                    );
+                  },
+                )
+                    : Icon(
+                  Icons.person_rounded,
+                  color: leagueColor,
+                  size: 24,
                 ),
-              )
-                  : Icon(
-                Icons.person_rounded,
-                color: leagueColor,
               ),
             ),
             const SizedBox(width: 12),
-            // Информация
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -589,7 +675,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                   Row(
                     children: [
                       Text(
-                        friend['name'],
+                        friendName,
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -617,7 +703,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          friend['league'] ?? 'Бронзовая',
+                          league,
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
@@ -627,7 +713,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${friend['xp']} XP',
+                        '$friendXp XP',
                         style: TextStyle(
                           fontSize: 12,
                           color: theme.hintColor,
@@ -638,10 +724,8 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                 ],
               ),
             ),
-            // Кнопки действий
             Row(
               children: [
-                // Кнопка чата
                 Container(
                   width: 40,
                   height: 40,
@@ -659,14 +743,19 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ChatScreen(friend: friend),
+                          builder: (_) => ChatScreen(friend: {
+                            'id': friendId,
+                            'name': friendName,
+                            'avatar': friendAvatar,
+                            'xp': friendXp,
+                            'league': league,
+                          }),
                         ),
                       );
                     },
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Кнопка пригласить
                 Container(
                   width: 40,
                   height: 40,
@@ -693,7 +782,10 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
   Widget _buildRequestCard(Map<String, dynamic> request) {
     final theme = Theme.of(context);
-    final user = request['user'] ?? {};
+    final user = request['user'] as Map<String, dynamic>? ?? {};
+    final userId = user['id'];
+    final userName = user['name'] ?? 'Пользователь';
+    final userAvatar = user['avatar'];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -715,10 +807,42 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
+              color: theme.colorScheme.primary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.person_rounded, color: theme.colorScheme.onPrimaryContainer),
+            child: ClipOval(
+              child: userAvatar != null && userAvatar.toString().isNotEmpty
+                  ? Image.network(
+                userAvatar.toString(),
+                fit: BoxFit.cover,
+                width: 50,
+                height: 50,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.person_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 24,
+                  );
+                },
+              )
+                  : Icon(
+                Icons.person_rounded,
+                color: theme.colorScheme.primary,
+                size: 24,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -726,7 +850,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user['name'] ?? 'Пользователь',
+                  userName,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -747,11 +871,11 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
           Row(
             children: [
               IconButton(
-                icon: Icon(Icons.check_rounded, color: Colors.green),
+                icon: Icon(Icons.check_rounded, color: Colors.green, size: 28),
                 onPressed: () => _acceptRequest(request['id']),
               ),
               IconButton(
-                icon: Icon(Icons.close_rounded, color: Colors.red),
+                icon: Icon(Icons.close_rounded, color: Colors.red, size: 28),
                 onPressed: () => _declineRequest(request['id']),
               ),
             ],
@@ -763,8 +887,14 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
   Widget _buildSearchResultCard(Map<String, dynamic> user) {
     final theme = Theme.of(context);
-    final leagueColor = _getLeagueColor(user['league'] ?? 'Бронзовая');
-    final isAlreadyFriend = _friends.any((f) => f['id'] == user['id']);
+    final league = user['league'] ?? 'Бронзовая';
+    final leagueColor = _getLeagueColor(league);
+    final userId = user['id'];
+    final userName = user['name'] ?? 'Пользователь';
+    final userAvatar = user['avatar'];
+    final userXp = user['xp'] ?? 0;
+
+    final isAlreadyFriend = _friends.any((f) => f['id'] == userId);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -786,10 +916,46 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
+              color: leagueColor.withOpacity(0.2),
               shape: BoxShape.circle,
+              border: Border.all(
+                color: leagueColor,
+                width: 2,
+              ),
             ),
-            child: Icon(Icons.person_rounded, color: theme.colorScheme.onPrimaryContainer),
+            child: ClipOval(
+              child: userAvatar != null && userAvatar.toString().isNotEmpty
+                  ? Image.network(
+                userAvatar.toString(),
+                fit: BoxFit.cover,
+                width: 50,
+                height: 50,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.person_rounded,
+                    color: leagueColor,
+                    size: 24,
+                  );
+                },
+              )
+                  : Icon(
+                Icons.person_rounded,
+                color: leagueColor,
+                size: 24,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -797,7 +963,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user['name'],
+                  userName,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -814,7 +980,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        user['league'] ?? 'Бронзовая',
+                        league,
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -824,7 +990,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${user['xp']} XP',
+                      '$userXp XP',
                       style: TextStyle(
                         fontSize: 12,
                         color: theme.hintColor,
@@ -837,7 +1003,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
           ),
           if (!isAlreadyFriend)
             FilledButton(
-              onPressed: () => _sendFriendRequest(user['id']),
+              onPressed: () => _sendFriendRequest(userId),
               style: FilledButton.styleFrom(
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: Colors.white,

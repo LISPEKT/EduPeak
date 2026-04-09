@@ -22,17 +22,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'models/user_stats.dart';
 import 'screens/get_xp_screen.dart';
 import 'screens/xp_stats_screen.dart';
+import 'services/central_data_manager.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/notification_service.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Настройка ориентации (опционально)
+  // Инициализация Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Инициализация уведомлений
+  await NotificationService().initialize();
+
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  print('🚀 Запуск EduPeak без Firebase');
+  print('🚀 Запуск EduPeak');
 
   runApp(MultiProvider(
     providers: [
@@ -40,6 +51,7 @@ void main() async {
       ChangeNotifierProvider(create: (_) => LanguageManager()),
       ChangeNotifierProvider(create: (_) => RegionManager()),
       ChangeNotifierProvider(create: (_) => SubjectsManager()),
+      ChangeNotifierProvider(create: (_) => CentralDataManager()),
       Provider<IAuthRepository>(create: (_) => AuthRepository()),
     ],
     child: const MyApp(),
@@ -75,10 +87,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       routes: {
         '/main': (context) => MainScreen(onLogout: () {}),
-        '/xp': (context) => XPScreen(
-          earnedXP: 0,
-          questionsCount: 0,
-        ),
+        '/xp': (context) => XPScreen(earnedXP: 0, questionsCount: 0),
         '/xp_stats': (context) => XPStatsScreen(),
       },
     );
@@ -95,9 +104,8 @@ class _SplashWrapperState extends State<SplashWrapper> {
   @override
   void initState() {
     super.initState();
-    _loadInitialData(); // Теперь метод будет определен ниже
+    _loadInitialData();
 
-    // Устанавливаем полностью прозрачные системные панели
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -108,7 +116,6 @@ class _SplashWrapperState extends State<SplashWrapper> {
       systemNavigationBarIconBrightness: Brightness.light,
     ));
 
-    // Немедленный переход к проверке аутентификации
     Future.delayed(Duration.zero, () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -121,20 +128,16 @@ class _SplashWrapperState extends State<SplashWrapper> {
     });
   }
 
-  // Добавляем недостающий метод
   Future<void> _loadInitialData() async {
     print('📦 Загрузка начальных данных...');
-    try {
-      // Здесь можно загрузить любые начальные данные если нужно
-      // Например, предзагрузка тем, настроек и т.д.
-    } catch (e) {
+    try {} catch (e) {
       print('❌ Ошибка загрузки начальных данных: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(); // Пустой контейнер, который сразу заменится
+    return Container();
   }
 }
 
@@ -159,51 +162,71 @@ class _AuthWrapperState extends State<AuthWrapper> {
     try {
       print('🔍 Проверка аутентификации...');
 
-      // Получаем SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-
-      // Проверяем, есть ли сохраненные данные для автологина
       final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
       final savedEmail = prefs.getString('user_email');
       final savedPassword = prefs.getString('user_password');
       final authMethod = prefs.getString('auth_method');
+      final token = prefs.getString('token');
 
       print('📊 Состояние из SharedPreferences:');
       print('   - isLoggedIn: $isLoggedIn');
       print('   - email: $savedEmail');
       print('   - auth_method: $authMethod');
+      print('   - token: ${token != null ? "есть" : "нет"}');
 
       if (isLoggedIn) {
+        if (authMethod == 'google') {
+          if (token != null) {
+            print('✅ Google аккаунт, токен найден');
+            await SessionManager.initializeSession(token);
+            await _performFullSync(); // ← ДОБАВЛЕНО: синхронизация при входе
+            setState(() {
+              _isAuthenticated = true;
+              _isLoading = false;
+            });
+            return;
+          } else {
+            print('❌ Google аккаунт, но токен отсутствует');
+            await _clearInvalidSession(prefs);
+            setState(() {
+              _isAuthenticated = false;
+              _isLoading = false;
+            });
+            return;
+          }
+        }
+
         if (authMethod == 'server' && savedEmail != null && savedPassword != null) {
-          // Пытаемся автоматически войти на сервер
           print('🔄 Попытка автоматического входа на сервер...');
           await _performAutoLogin(savedEmail, savedPassword);
-        } else if (authMethod == 'local') {
-          // Локальный аккаунт
+          return;
+        }
+
+        if (authMethod == 'local') {
           print('🔐 Обнаружен локальный аккаунт');
           await _initializeLocalAccount(prefs);
+          await _performFullSync(); // ← ДОБАВЛЕНО: синхронизация при входе
           setState(() {
             _isAuthenticated = true;
             _isLoading = false;
           });
-        } else {
-          // Некорректные данные для авторизации
-          print('❌ Некорректные данные для авторизации');
-          await _clearInvalidSession(prefs);
-          setState(() {
-            _isAuthenticated = false;
-            _isLoading = false;
-          });
+          return;
         }
+
+        print('❌ Некорректные данные для авторизации');
+        await _clearInvalidSession(prefs);
+        setState(() {
+          _isAuthenticated = false;
+          _isLoading = false;
+        });
       } else {
-        // Нет сохраненной сессии
         print('❌ Нет активной сессии');
         setState(() {
           _isAuthenticated = false;
           _isLoading = false;
         });
       }
-
     } catch (e) {
       print('❌ Ошибка проверки аутентификации: $e');
       setState(() {
@@ -214,26 +237,95 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 
+  // ==================== НОВЫЙ МЕТОД ПОЛНОЙ СИНХРОНИЗАЦИИ ====================
+  Future<void> _performFullSync() async {
+    print('🔄 ПОЛНАЯ СИНХРОНИЗАЦИЯ ДАННЫХ ПРИ ВХОДЕ...');
+
+    try {
+      // 1. Синхронизируем профиль
+      await UserDataStorage.syncProfileFromServer();
+
+      // 2. Синхронизируем XP и прогресс
+      final syncResult = await UserDataStorage.syncXpAndProgress();
+      print('✅ Результат синхронизации: ${syncResult['message']}');
+
+      // 3. Синхронизируем достижения
+      try {
+        final achievementsResponse = await ApiService.getAchievementProgress();
+        if (achievementsResponse['success'] == true) {
+          final prefs = await SharedPreferences.getInstance();
+          final progress = achievementsResponse['progress'] ?? {};
+          progress.forEach((key, value) {
+            if (value == true) {
+              prefs.setBool('achievement_$key', true);
+            }
+          });
+          print('✅ Достижения синхронизированы');
+        }
+      } catch (e) {
+        print('⚠️ Ошибка синхронизации достижений: $e');
+      }
+
+      // 4. Обновляем кэшированные значения
+      final stats = await UserDataStorage.getUserStats();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('cached_total_xp', stats.totalXP);
+      await prefs.setInt('cached_weekly_xp', stats.weeklyXP);
+      await prefs.setInt('cached_streak_days', stats.streakDays);
+
+      // 5. 📱 ОТПРАВКА FCM ТОКЕНА НА СЕРВЕР
+      await _sendFCMTokenToServer();
+
+      print('✅ Полная синхронизация завершена! XP=${stats.totalXP}');
+
+    } catch (e) {
+      print('❌ Ошибка полной синхронизации: $e');
+    }
+  }
+
+// Добавьте этот метод в класс _AuthWrapperState
+  Future<void> _sendFCMTokenToServer() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('fcm_token');
+
+      if (token != null && token.isNotEmpty) {
+        print('📱 Отправка FCM токена на сервер: $token');
+        final apiService = ApiService();
+        final result = await apiService.registerFCMToken(token);
+        if (result['success'] == true) {
+          print('✅ FCM токен зарегистрирован на сервере');
+        } else {
+          print('❌ Ошибка регистрации FCM токена: ${result['message']}');
+        }
+      } else {
+        print('⚠️ FCM токен не найден в SharedPreferences');
+      }
+    } catch (e) {
+      print('❌ Ошибка отправки FCM токена: $e');
+    }
+  }
+
   Future<void> _performAutoLogin(String email, String password) async {
     try {
       print('🔄 Выполняем автоматический вход для: $email');
 
-      // Используем ApiService для логина с полной логикой
       final response = await ApiService.login(email, password);
 
       if (response['success'] == true) {
         print('✅ Автоматический вход успешен!');
 
-        // Сохраняем данные для будущих автоматических входов
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
         await prefs.setString('auth_method', 'server');
         await prefs.setString('user_email', email);
         await prefs.setString('user_password', password);
 
-        // Сохраняем токен в сессию
         final token = response['token'];
         await SessionManager.initializeSession(token);
+
+        // ← ДОБАВЛЕНО: синхронизация после авто-логина
+        await _performFullSync();
 
         setState(() {
           _isAuthenticated = true;
@@ -259,56 +351,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 
-  Future<void> _syncUserData() async {
-    final isLoggedIn = await UserDataStorage.isLoggedIn();
-    if (!isLoggedIn) return;
-
-    try {
-      // Получаем все данные с сервера
-      final response = await ApiService.syncAllUserData();
-
-      if (response['success'] == true && response['data'] != null) {
-        final serverData = response['data'];
-
-        // Обновляем локальные данные
-        final stats = await UserDataStorage.getUserStats();
-
-        // Обновляем XP
-        if (serverData['xp'] != null) {
-          stats.totalXP = serverData['xp']['totalXP'] ?? stats.totalXP;
-          stats.weeklyXP = serverData['xp']['weeklyXP'] ?? stats.weeklyXP;
-          stats.streakDays = serverData['xp']['streakDays'] ?? stats.streakDays;
-        }
-
-        // Обновляем прогресс по темам
-        if (serverData['progress'] != null) {
-          serverData['progress'].forEach((subject, topics) {
-            topics.forEach((topicName, data) {
-              int correctAnswers;
-              if (data is Map) {
-                correctAnswers = data['correct_answers'] ?? 0;
-              } else {
-                correctAnswers = data;
-              }
-              stats.saveTopicProgress(subject, topicName, correctAnswers);
-            });
-          });
-        }
-
-        await UserDataStorage.saveUserStats(stats);
-        print('✅ Данные синхронизированы с сервером');
-
-        // Сохраняем время последней синхронизации
-        await UserDataStorage.setLastSyncTime(DateTime.now());
-      }
-    } catch (e) {
-      print('❌ Ошибка синхронизации: $e');
-    }
-  }
-
   Future<void> _initializeLocalAccount(SharedPreferences prefs) async {
     try {
-      // Для локального аккаунта создаем UserStats если нет
       final userStats = await UserDataStorage.getUserStats();
       if (userStats.username.isEmpty) {
         final username = prefs.getString('username') ?? 'Локальный Пользователь';
@@ -327,10 +371,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
         print('✅ Создана базовая статистика для локального аккаунта');
       }
 
-      // Инициализируем сессию для локального аккаунта
       await SessionManager.initializeSession('local_account_token');
       await SessionManager.updateLastActivity();
-
     } catch (e) {
       print('⚠️ Ошибка инициализации локального аккаунта: $e');
     }
@@ -345,61 +387,18 @@ class _AuthWrapperState extends State<AuthWrapper> {
     print('✅ Сессия очищена');
   }
 
-  void _handleSuccessfulLogin(Map<String, dynamic> responseData, String email, String password) async {
-    print('✅ Ручной вход успешен!');
-
-    // Сохраняем данные для будущих автоматических входов
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('auth_method', 'server');
-    await prefs.setString('user_email', email);
-    await prefs.setString('user_password', password);
-
-    // Сохраняем токен в сессии
-    final token = responseData['token'];
-    await SessionManager.initializeSession(token);
-
-    setState(() {
-      _isAuthenticated = true;
-      _isLoading = false;
-    });
-  }
-
-  void _handleLocalAccountLogin(String username) async {
-    print('✅ Локальный вход успешен!');
-
-    // Сохраняем данные локального аккаунта
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('auth_method', 'local');
-    await prefs.setString('username', username);
-
-    // Инициализируем сессию для локального аккаунта
-    await SessionManager.initializeSession('local_account_token');
-
-    setState(() {
-      _isAuthenticated = true;
-      _isLoading = false;
-    });
-  }
-
   void _handleLogout() async {
-    // Получаем метод аутентификации перед очисткой
     final prefs = await SharedPreferences.getInstance();
     final authMethod = prefs.getString('auth_method');
 
-    // Очищаем сессию
     await SessionManager.clearSession();
     await prefs.setBool('isLoggedIn', false);
 
-    // Если локальный аккаунт - очищаем все данные
     if (authMethod == 'local') {
       await prefs.remove('auth_method');
       await prefs.remove('username');
       await UserDataStorage.clearAllData();
     } else if (authMethod == 'server') {
-      // Для серверного аккаунта сохраняем email для повторного входа
-      // Пароль остается сохраненным для автоматического входа
       await prefs.remove('auth_method');
     }
 
@@ -409,7 +408,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       _authError = null;
     });
 
-    // Повторно проверяем аутентификацию (вернет false)
     _checkAuth();
   }
 
@@ -424,9 +422,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
               const CircularProgressIndicator(),
               const SizedBox(height: 20),
               Text(
-                _authError != null
-                    ? _authError!
-                    : 'Проверяем сессию...',
+                _authError != null ? _authError! : 'Проверяем сессию...',
                 style: const TextStyle(fontSize: 16),
               ),
               if (_authError != null) ...[

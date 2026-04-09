@@ -41,7 +41,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   late TextEditingController _textController;
   bool _testCompleted = false;
 
-  // Хранилище для перемешанных опций и соответствий правильных ответов
   final Map<int, List<String>> _shuffledOptions = {};
   final Map<int, List<int>> _correctIndexMap = {};
 
@@ -74,34 +73,26 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
       return;
     }
 
-    // Создаем копию вопросов и перемешиваем их
     final questions = List<Question>.from(widget.topic.questions);
     questions.shuffle();
 
-    // Для каждого вопроса перемешиваем варианты ответов
     for (int i = 0; i < questions.length; i++) {
       final originalQuestion = questions[i];
 
       if (!originalQuestion.isTextAnswer) {
-        // Создаем список пар (индекс, текст) для перемешивания
         List<MapEntry<int, String>> optionsWithIndices = [];
         for (int j = 0; j < originalQuestion.options.length; j++) {
           optionsWithIndices.add(MapEntry(j, originalQuestion.options[j]));
         }
 
-        // Перемешиваем варианты
         optionsWithIndices.shuffle();
-
-        // Сохраняем перемешанные варианты
         _shuffledOptions[i] = optionsWithIndices.map((e) => e.value).toList();
 
-        // Создаем карту соответствия старых индексов новым
         if (originalQuestion.isSingleChoice) {
           final oldCorrectIndex = originalQuestion.correctIndex is List<int>
               ? (originalQuestion.correctIndex as List<int>)[0]
               : originalQuestion.correctIndex as int;
 
-          // Находим новый индекс правильного ответа
           int newCorrectIndex = -1;
           for (int k = 0; k < optionsWithIndices.length; k++) {
             if (optionsWithIndices[k].key == oldCorrectIndex) {
@@ -110,8 +101,7 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
             }
           }
           _correctIndexMap[i] = [newCorrectIndex];
-        }
-        else if (originalQuestion.isMultipleChoice) {
+        } else if (originalQuestion.isMultipleChoice) {
           final oldCorrectIndices = originalQuestion.correctIndex as List<int>;
           final List<int> newCorrectIndices = [];
 
@@ -123,7 +113,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
               }
             }
           }
-          // Сортируем новые индексы для удобства сравнения
           newCorrectIndices.sort();
           _correctIndexMap[i] = newCorrectIndices;
         }
@@ -135,21 +124,15 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     });
   }
 
-  // Получить перемешанные опции для текущего вопроса
   List<String> _getShuffledOptionsForQuestion(Question question, int index) {
-    if (question.isTextAnswer) {
-      return question.options;
-    }
+    if (question.isTextAnswer) return question.options;
     return _shuffledOptions[index] ?? question.options;
   }
 
-  // Получить правильные индексы для текущего вопроса с учетом перемешивания
   dynamic _getCorrectIndicesForQuestion(int index) {
     if (index < _shuffledQuestions.length) {
       final question = _shuffledQuestions[index];
-      if (question.isTextAnswer) {
-        return 0;
-      }
+      if (question.isTextAnswer) return 0;
       return _correctIndexMap[index] ?? question.correctIndex;
     }
     return null;
@@ -166,13 +149,23 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   int get totalQuestions => _shuffledQuestions.length;
   double get _progressValue => _hasMoreQuestions ? (_currentQuestionIndex / totalQuestions) : 1.0;
 
+  bool get _isMultipleChoice => _currentQuestion?.isMultipleChoice ?? false;
+
+  bool get _hasSelection {
+    final question = _currentQuestion;
+    if (question == null) return false;
+    if (question.isTextAnswer) return _textAnswer.trim().isNotEmpty;
+    if (question.isSingleChoice) return _selectedAnswerIndex != -1;
+    if (question.isMultipleChoice) return _selectedMultipleAnswers.isNotEmpty;
+    return false;
+  }
+
   void _checkAnswer() {
     if (_isSubmitting || _testCompleted) return;
 
     final question = _currentQuestion;
     if (question == null) return;
 
-    // Валидация
     if (question.isTextAnswer && _textAnswer.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -216,11 +209,8 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           _showResult = true;
           _isSubmitting = false;
 
-          if (isCorrect) {
-            _correctAnswersCount++;
-          }
+          if (isCorrect) _correctAnswersCount++;
 
-          // Сохраняем ответ пользователя
           if (question.isTextAnswer) {
             _userAnswers.add(_textAnswer);
             _textAnswers.add(_textAnswer);
@@ -309,41 +299,30 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     int earnedXP = 0;
 
     try {
-      // Обновляем ежедневную активность
       await UserDataStorage.updateDailyCompletion();
 
-      // Получаем предыдущий прогресс
       final oldProgress = await UserDataStorage.getTopicProgressById(topicId);
       print('📊 Previous progress: $oldProgress');
 
-      // Рассчитываем заработанный XP
       if (_correctAnswersCount > oldProgress) {
         final difference = _correctAnswersCount - oldProgress;
-        earnedXP = difference * 10; // 10 XP за каждый новый правильный ответ
+        earnedXP = difference * 10;
 
-        // Бонус за 100% прохождение (только если впервые достигли 100%)
         if (_correctAnswersCount == widget.topic.questions.length && oldProgress < widget.topic.questions.length) {
           earnedXP += 100;
         }
       }
 
-      // Сохраняем прогресс - МАКСИМУМ из старого и нового
       final newProgress = _correctAnswersCount > oldProgress ? _correctAnswersCount : oldProgress;
-      await UserDataStorage.saveTopicProgress(
-        subjectName,
-        topicId,
-        newProgress,
-      );
+      await UserDataStorage.saveTopicProgress(subjectName, topicId, newProgress);
       print('✅ Progress saved: $newProgress correct answers (was $oldProgress)');
       print('💰 XP to award: $earnedXP XP');
-
     } catch (e) {
       print('❌ ERROR in _completeTest: $e');
     }
 
     print('🎯 END _completeTest');
 
-    // Переходим на экран XP с информацией о результатах
     if (mounted) {
       Navigator.pushReplacement(
         context,
@@ -359,32 +338,6 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     }
   }
 
-  // Метод для расчета XP
-  int _calculateEarnedXP(int newProgress, int oldProgress) {
-    if (newProgress <= oldProgress) return 0;
-
-    final difference = newProgress - oldProgress;
-    int earned = difference * 10; // 10 XP за каждый новый правильный ответ
-
-    // Бонус за 100% прохождение (только если впервые достигли 100%)
-    final topic = widget.topic;
-    if (newProgress == topic.questions.length && oldProgress < topic.questions.length) {
-      earned += 100;
-    }
-
-    return earned;
-  }
-
-  int _calculateXPEarned(int newProgress, int oldProgress, bool isPerfectScore) {
-    if (newProgress <= oldProgress) return 0;
-
-    final difference = newProgress - oldProgress;
-    final baseXP = difference * 10;
-    final bonusXP = isPerfectScore ? 100 : 0;
-
-    return baseXP + bonusXP;
-  }
-
   Color _getProgressColor() {
     if (widget.topic.questions.isEmpty) return Theme.of(context).colorScheme.primary;
 
@@ -396,6 +349,9 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
   }
 
   Widget _buildQuestionIndicator() {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -408,8 +364,8 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
           height: isActive ? 10 : 6,
           decoration: BoxDecoration(
             color: isCompleted
-                ? Theme.of(context).colorScheme.primary
-                : (isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+                ? primaryColor
+                : (isActive ? primaryColor : theme.colorScheme.outline.withOpacity(0.3)),
             shape: BoxShape.circle,
           ),
         );
@@ -417,8 +373,81 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildAnswerOption(int index, Question question) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+    final options = _getShuffledOptionsForQuestion(question, _currentQuestionIndex);
+
+    final bool isSelected = question.isSingleChoice
+        ? _selectedAnswerIndex == index
+        : _selectedMultipleAnswers.contains(index);
+
+    return GestureDetector(
+      onTap: _showResult ? null : () {
+        if (question.isSingleChoice) {
+          setState(() => _selectedAnswerIndex = index);
+        } else {
+          _toggleMultipleAnswer(index);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? primaryColor.withOpacity(0.1)
+              : (isDark
+              ? theme.colorScheme.surfaceVariant.withOpacity(0.3)
+              : Colors.grey.shade50),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? primaryColor : theme.colorScheme.outline.withOpacity(0.2),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Иконка радио/чекбокс — как в GameRoomScreen
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: isSelected ? primaryColor : theme.colorScheme.surfaceVariant,
+                shape: _isMultipleChoice ? BoxShape.rectangle : BoxShape.circle,
+                borderRadius: _isMultipleChoice ? BorderRadius.circular(6) : null,
+                border: Border.all(
+                  color: isSelected ? primaryColor : theme.hintColor,
+                  width: 1.5,
+                ),
+              ),
+              child: isSelected
+                  ? Icon(
+                _isMultipleChoice ? Icons.check_rounded : Icons.circle_rounded,
+                size: 16,
+                color: Colors.white,
+              )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                options[index],
+                style: TextStyle(
+                  fontSize: 15,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildAnswerOptions(Question question) {
-    // Получаем перемешанные опции для текущего вопроса
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
     final options = _getShuffledOptionsForQuestion(question, _currentQuestionIndex);
 
     if (question.isTextAnswer) {
@@ -428,161 +457,75 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
         decoration: InputDecoration(
           hintText: AppLocalizations.of(context).enterAnswer,
           filled: true,
-          fillColor: Theme.of(context).colorScheme.surfaceVariant,
+          fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.4),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: primaryColor, width: 2),
           ),
           contentPadding: const EdgeInsets.all(16),
         ),
         maxLines: 3,
-        style: Theme.of(context).textTheme.bodyLarge,
+        style: theme.textTheme.bodyLarge,
       );
-    } else if (question.isSingleChoice) {
-      return Column(
-        children: List.generate(options.length, (index) {
-          final isSelected = _selectedAnswerIndex == index;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: FilledButton.tonal(
-              onPressed: _showResult ? null : () {
-                setState(() => _selectedAnswerIndex = index);
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: isSelected
-                    ? Theme.of(context).colorScheme.primaryContainer
-                    : Theme.of(context).colorScheme.surfaceVariant,
-                foregroundColor: isSelected
-                    ? Theme.of(context).colorScheme.onPrimaryContainer
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.transparent,
-                    width: 2,
-                  ),
-                ),
-              ),
-              child: Text(
-                options[index],
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ),
-          );
-        }),
-      );
-    } else if (question.isMultipleChoice) {
-      return Column(
-        children: [
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (question.isMultipleChoice) ...[
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)),
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.info_rounded, color: Theme.of(context).colorScheme.primary, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    AppLocalizations.of(context).selectMultipleAnswers,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
+                const Icon(Icons.check_box_rounded, size: 14, color: Colors.blue),
+                const SizedBox(width: 4),
+                Text(
+                  AppLocalizations.of(context).selectMultipleAnswers,
+                  style: const TextStyle(fontSize: 12, color: Colors.blue),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          ...List.generate(options.length, (index) {
-            final isSelected = _selectedMultipleAnswers.contains(index);
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: FilledButton.tonal(
-                onPressed: _showResult ? null : () => _toggleMultipleAnswer(index),
-                style: FilledButton.styleFrom(
-                  backgroundColor: isSelected
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surfaceVariant,
-                  foregroundColor: isSelected
-                      ? Theme.of(context).colorScheme.onPrimaryContainer
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  minimumSize: const Size(double.infinity, 56),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.outline,
-                          width: 2,
-                        ),
-                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
-                      ),
-                      child: isSelected
-                          ? Icon(Icons.check_rounded, color: Colors.white, size: 16)
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        options[index],
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
         ],
-      );
-    }
-    return Container();
+        ...List.generate(
+          options.length,
+              (index) => _buildAnswerOption(index, question),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final appLocalizations = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
 
     if (!_hasMoreQuestions && _testCompleted) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: theme.scaffoldBackgroundColor,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+              CircularProgressIndicator(color: primaryColor),
               const SizedBox(height: 20),
-              Text(
-                appLocalizations.completingTest,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
+              Text(appLocalizations.completingTest, style: theme.textTheme.bodyLarge),
             ],
           ),
         ),
@@ -591,17 +534,14 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
 
     if (!_hasMoreQuestions) {
       return Scaffold(
-        backgroundColor: Theme.of(context).colorScheme.background,
+        backgroundColor: theme.scaffoldBackgroundColor,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+              CircularProgressIndicator(color: primaryColor),
               const SizedBox(height: 20),
-              Text(
-                'Завершение теста...',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
+              Text('Завершение теста...', style: theme.textTheme.bodyLarge),
             ],
           ),
         ),
@@ -611,138 +551,248 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
     final question = _currentQuestion!;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      appBar: AppBar(
-        title: Text(
-          widget.topic.name,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-        elevation: 0,
-        centerTitle: true,
-        actions: [
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Stack(
+        children: [
+          // Градиентный фон как в GameRoomScreen
           Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: _getProgressColor().withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _getProgressColor().withOpacity(0.3)),
-            ),
-            child: Text(
-              '$_correctAnswersCount/$totalQuestions',
-              style: TextStyle(
-                color: _getProgressColor(),
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+              gradient: isDark
+                  ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  primaryColor.withOpacity(0.15),
+                  theme.scaffoldBackgroundColor.withOpacity(0.7),
+                  theme.scaffoldBackgroundColor,
+                ],
+                stops: const [0.0, 0.3, 0.7],
+              )
+                  : LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  primaryColor.withOpacity(0.08),
+                  Colors.white.withOpacity(0.7),
+                  Colors.white,
+                ],
+                stops: const [0.0, 0.3, 0.7],
               ),
             ),
           ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
+
+          SafeArea(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Прогресс бар и индикатор
-                Column(
-                  children: [
-                    AnimatedBuilder(
-                      animation: _progressAnimation,
-                      builder: (context, child) {
-                        return LinearProgressIndicator(
-                          value: _progressAnimation.value * _progressValue,
-                          backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
-                          color: _getProgressColor(),
-                          minHeight: 6,
-                          borderRadius: BorderRadius.circular(3),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildQuestionIndicator(),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // Счетчик вопросов
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    '${appLocalizations.question} ${_currentQuestionIndex + 1}/$totalQuestions',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Текст вопроса
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          question.text,
-                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontSize: 20,
-                            height: 1.4,
+                // Кастомная верхняя панель как в GameRoomScreen
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: isDark ? theme.cardColor : Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_rounded),
+                          color: primaryColor,
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${appLocalizations.question} ${_currentQuestionIndex + 1}/$totalQuestions',
+                              style: TextStyle(fontSize: 14, color: theme.hintColor),
+                            ),
+                            Text(
+                              widget.topic.name,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: theme.textTheme.titleMedium?.color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Счётчик правильных ответов — аналог таймера в GameRoomScreen
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _getProgressColor().withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: _getProgressColor(), width: 1),
+                        ),
+                        child: Text(
+                          '$_correctAnswersCount/$totalQuestions',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: _getProgressColor(),
                           ),
                         ),
-                        const SizedBox(height: 32),
-                        _buildAnswerOptions(question),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Основной контент
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        // Карточка прогресса — как в GameRoomScreen
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark ? theme.cardColor : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Прогресс теста',
+                                    style: TextStyle(fontSize: 14, color: theme.hintColor),
+                                  ),
+                                  _buildQuestionIndicator(),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              AnimatedBuilder(
+                                animation: _progressAnimation,
+                                builder: (context, child) {
+                                  return LinearProgressIndicator(
+                                    value: _progressAnimation.value * _progressValue,
+                                    backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                                    color: primaryColor,
+                                    minHeight: 8,
+                                    borderRadius: BorderRadius.circular(4),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        // Карточка вопроса — как в GameRoomScreen
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: isDark ? theme.cardColor : Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                question.text,
+                                style: theme.textTheme.headlineMedium?.copyWith(
+                                  fontSize: 20,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              _buildAnswerOptions(question),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 100),
                       ],
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 20),
-
-                // Кнопка ответа
-                if (!_showResult) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _isSubmitting ? null : _checkAnswer,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                // Закреплённая кнопка снизу — как в GameRoomScreen
+                if (!_showResult)
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: isDark ? theme.cardColor : Colors.white,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, -4),
                         ),
-                      )
-                          : Text(
-                        appLocalizations.checkAnswer,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      ],
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _hasSelection && !_isSubmitting ? _checkAnswer : null,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _hasSelection ? primaryColor : theme.disabledColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                            : Text(
+                          _hasSelection
+                              ? (_isMultipleChoice
+                              ? '${appLocalizations.checkAnswer} (${_selectedMultipleAnswers.length})'
+                              : appLocalizations.checkAnswer)
+                              : appLocalizations.pleaseSelectAnswer,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ],
               ],
             ),
           ),
 
-          // Попап с результатом ответа
-          if (_showResult) ...[
+          // Попап результата (без изменений)
+          if (_showResult)
             AnswerPopup(
               question: question,
               isCorrect: _isAnswerCorrect,
@@ -753,14 +803,12 @@ class _TestScreenState extends State<TestScreen> with SingleTickerProviderStateM
               topicName: widget.topic.name,
               questionNumber: _currentQuestionIndex + 1,
             ),
-          ],
         ],
       ),
     );
   }
 
   String _getSelectedAnswerText(Question question) {
-    // Получаем перемешанные опции для текущего вопроса
     final options = _getShuffledOptionsForQuestion(question, _currentQuestionIndex);
 
     if (question.isTextAnswer) {

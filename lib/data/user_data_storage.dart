@@ -1075,6 +1075,16 @@ class UserDataStorage {
     }
   }
 
+  static Future<bool> isAdmin() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('is_admin') ?? false;
+  }
+
+  static Future<void> setAdmin(bool isAdmin) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_admin', isAdmin);
+  }
+
   static Future<void> _syncStatistics() async {
     try {
       final response = await ApiService.getUserXPStats();

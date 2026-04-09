@@ -143,9 +143,20 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
                       ),
                     ),
                     child: ListTile(
-                      leading: Text(
-                        league['icon'] ?? '🏆',
-                        style: const TextStyle(fontSize: 28),
+                      leading: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: leagueColor,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: leagueColor.withOpacity(0.4),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
                       ),
                       title: Text(
                         league['name'] ?? 'Лига',
@@ -422,7 +433,6 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
                 Expanded(
                   child: Column(
                     children: [
-                      // Карточка текущей лиги
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: Container(
@@ -438,80 +448,86 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
                               ),
                             ],
                           ),
-                          child: Column(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Row(
-                                children: [
-                                  // Кнопка выбора лиги
-                                  GestureDetector(
-                                    onTap: _showLeaguesDialog,
+                              // Кнопка выбора лиги
+                              Flexible(
+                                child: GestureDetector(
+                                  onTap: _showLeaguesDialog,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: leagueColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(30),
+                                      border: Border.all(color: leagueColor.withOpacity(0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            _currentLeague['name'] ?? 'Бронзовая',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: leagueColor,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.arrow_drop_down_rounded,
+                                          color: leagueColor,
+                                          size: 20,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Плашка с днями
+                              if (daysLeft != null)
+                                Flexible(
+                                  child: Align(
+                                    alignment: Alignment.centerRight,
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                       decoration: BoxDecoration(
                                         color: leagueColor.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(30),
-                                        border: Border.all(color: leagueColor.withOpacity(0.3)),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
-                                            _currentLeague['name'] ?? 'Бронзовая',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: leagueColor,
-                                            ),
+                                          Icon(
+                                            Icons.calendar_today_rounded,
+                                            size: 12,
+                                            color: leagueColor,
                                           ),
                                           const SizedBox(width: 4),
-                                          Icon(
-                                            Icons.arrow_drop_down_rounded,
-                                            color: leagueColor,
-                                            size: 20,
+                                          Flexible(
+                                            child: Text(
+                                              _getDaysLeftText(daysLeft),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500,
+                                                color: leagueColor,
+                                                height: 1.2,
+                                              ),
+                                              softWrap: true,
+                                              maxLines: 2,
+                                              textAlign: TextAlign.center,
+                                            ),
                                           ),
                                         ],
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  // XP и дни
-                                  Expanded(
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        if (daysLeft != null) ...[
-                                          const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color: leagueColor.withOpacity(0.1),
-                                              borderRadius: BorderRadius.circular(20),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.calendar_today_rounded,
-                                                  size: 14,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  _getDaysLeftText(daysLeft),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: leagueColor,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
                             ],
                           ),
                         ),
@@ -560,6 +576,14 @@ class _EduLeagueScreenState extends State<EduLeagueScreen> {
         ),
       ),
     );
+  }
+
+  double _getDaysTextFontSize(String text) {
+    final length = text.length;
+    if (length <= 15) return 12;
+    if (length <= 25) return 11;
+    if (length <= 35) return 10;
+    return 9;
   }
 
   Widget _buildTab(int index, String title, int count) {

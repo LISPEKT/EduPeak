@@ -76,14 +76,6 @@ class _TopicPopupState extends State<TopicPopup> {
     return (_topicProgress / totalQuestions) * 100;
   }
 
-  int get _fullXPForTest {
-    final totalQuestions = widget.topic.questions.length;
-    if (totalQuestions == 0) return 0;
-
-    final baseXP = totalQuestions * 10;
-    return baseXP + 100;
-  }
-
   int get _earnedXP {
     final totalQuestions = widget.topic.questions.length;
     if (totalQuestions == 0) return 0;
@@ -134,374 +126,297 @@ class _TopicPopupState extends State<TopicPopup> {
     final appLocalizations = AppLocalizations.of(context)!;
     final isSmallScreen = MediaQuery.of(context).size.height < 600;
 
-    return Container(
-      margin: EdgeInsets.all(isSmallScreen ? 12 : 16),
-      decoration: BoxDecoration(
-        color: isDark ? theme.cardColor : Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          height: MediaQuery.of(context).size.height * 0.65,
+          decoration: BoxDecoration(
+            color: isDark ? theme.scaffoldBackgroundColor : const Color(0xFFF8F9FA),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, -2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: SingleChildScrollView(
-        padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Заголовок с иконкой и названием
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: isSmallScreen ? 50 : 60,
-                  height: isSmallScreen ? 50 : 60,
-                  decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Center(
-                    child: Text(
-                      widget.topic.imageAsset,
-                      style: TextStyle(fontSize: isSmallScreen ? 20 : 24),
-                    ),
-                  ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 16),
+                width: 60,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(3),
                 ),
-                SizedBox(width: isSmallScreen ? 12 : 16),
-                Expanded(
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          minHeight: isSmallScreen ? 50 : 60,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 4.0),
-                            child: Text(
-                              widget.topic.name,
-                              style: TextStyle(
-                                fontSize: isSmallScreen ? 18 : 20,
-                                fontWeight: FontWeight.bold,
-                                color: theme.textTheme.titleMedium?.color,
-                                height: 1.2,
-                              ),
-                              maxLines: 3,
-                              overflow: TextOverflow.visible,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (widget.currentGrade != null) ...[
-                        SizedBox(height: isSmallScreen ? 4 : 6),
-                        Text(
-                          '${widget.currentGrade} ${appLocalizations.gradeClass}',
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 12 : 14,
-                            color: theme.hintColor,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            SizedBox(height: isSmallScreen ? 16 : 20),
-
-            // Прогресс выполнения
-            if (_topicProgress > 0 && !_isLoading) ...[
-              Container(
-                padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-                decoration: BoxDecoration(
-                  color: isDark ? theme.cardColor : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: theme.colorScheme.outline.withOpacity(0.1),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _isTopicCompleted
-                              ? '🎉 ${appLocalizations.topicCompleted}'
-                              : '${appLocalizations.progress}:',
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 14 : 16,
-                            fontWeight: FontWeight.w600,
-                            color: _isTopicCompleted
-                                ? Colors.green
-                                : theme.textTheme.titleMedium?.color,
-                          ),
-                        ),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _isTopicCompleted
-                                ? Colors.green.withOpacity(0.1)
-                                : primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            '$_topicProgress/${widget.topic.questions.length}',
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 14 : 16,
-                              fontWeight: FontWeight.w600,
-                              color: _isTopicCompleted
-                                  ? Colors.green
-                                  : primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: isSmallScreen ? 12 : 16),
-                    LinearProgressIndicator(
-                      value: _completionPercentage / 100,
-                      backgroundColor: theme.colorScheme.surfaceVariant,
-                      color: _isTopicCompleted
-                          ? Colors.green
-                          : primaryColor,
-                      borderRadius: BorderRadius.circular(8),
-                      minHeight: isSmallScreen ? 8 : 10,
-                    ),
-                    if (_completionPercentage > 0 && _completionPercentage < 100) ...[
-                      SizedBox(height: isSmallScreen ? 8 : 12),
+                      // Заголовок
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Прогресс',
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 12 : 14,
-                              color: theme.hintColor,
+                          Container(
+                            width: isSmallScreen ? 55 : 65,
+                            height: isSmallScreen ? 55 : 65,
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Center(
+                              child: Text(
+                                widget.topic.imageAsset,
+                                style: TextStyle(fontSize: isSmallScreen ? 28 : 32),
+                              ),
                             ),
                           ),
-                          Text(
-                            '${_completionPercentage.toStringAsFixed(1)}%',
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 12 : 14,
-                              fontWeight: FontWeight.w600,
-                              color: _isTopicCompleted
-                                  ? Colors.green
-                                  : primaryColor,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.topic.name,
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 20 : 22,
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.textTheme.titleMedium?.color,
+                                  ),
+                                ),
+                                if (widget.currentGrade != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${widget.currentGrade} ${appLocalizations.gradeClass}',
+                                    style: TextStyle(
+                                      fontSize: isSmallScreen ? 13 : 14,
+                                      color: theme.hintColor,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ],
-                ),
-              ),
-              SizedBox(height: isSmallScreen ? 16 : 20),
-            ],
 
-            // Описание темы
-            Text(
-              appLocalizations.topicDescription,
-              style: TextStyle(
-                fontSize: isSmallScreen ? 16 : 18,
-                fontWeight: FontWeight.bold,
-                color: theme.textTheme.titleMedium?.color,
-              ),
-            ),
-            SizedBox(height: isSmallScreen ? 6 : 8),
-            Container(
-              padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                widget.topic.description,
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 14 : 16,
-                  color: theme.hintColor,
-                  height: 1.4,
-                ),
-              ),
-            ),
+                      const SizedBox(height: 24),
 
-            SizedBox(height: isSmallScreen ? 16 : 20),
+                      // Прогресс
+                      if (_topicProgress > 0 && !_isLoading) ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceVariant.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _isTopicCompleted
+                                        ? '✅ ${appLocalizations.topicCompleted}'
+                                        : appLocalizations.progress,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: _isTopicCompleted ? Colors.green : theme.hintColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    '$_topicProgress/${widget.topic.questions.length}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: primaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              LinearProgressIndicator(
+                                value: _completionPercentage / 100,
+                                backgroundColor: theme.colorScheme.surfaceVariant,
+                                color: _isTopicCompleted ? Colors.green : primaryColor,
+                                borderRadius: BorderRadius.circular(8),
+                                minHeight: 8,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
 
-            // Статистика темы
-            Container(
-              padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-              decoration: BoxDecoration(
-                color: isDark ? theme.cardColor : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(0.1),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Статистика темы',
-                    style: TextStyle(
-                      fontSize: isSmallScreen ? 16 : 18,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textTheme.titleMedium?.color,
-                    ),
-                  ),
-                  SizedBox(height: isSmallScreen ? 12 : 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem(
-                        Icons.quiz_rounded,
-                        '${widget.topic.questions.length}',
-                        appLocalizations.questions,
-                        isSmallScreen,
-                        Colors.blue,
+                      // Описание
+                      Text(
+                        appLocalizations.topicDescription,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: theme.textTheme.titleMedium?.color,
+                        ),
                       ),
-                      _buildStatItem(
-                        Icons.bolt_rounded,
-                        '$_remainingXP',
-                        appLocalizations.experience,
-                        isSmallScreen,
-                        Colors.orange,
-                      ),
-                      _buildStatItem(
-                        Icons.check_circle_rounded,
-                        '$_earnedXP',
-                        appLocalizations.earnedXP,
-                        isSmallScreen,
-                        Colors.green,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: isSmallScreen ? 20 : 24),
-
-            // Кнопка действия
-            Container(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _startTest,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isTopicCompleted
-                      ? Colors.green
-                      : primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 14 : 16),
-                  elevation: 0,
-                  shadowColor: Colors.transparent,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      _isTopicCompleted ? Icons.restart_alt_rounded : Icons.play_arrow_rounded,
-                      size: isSmallScreen ? 16 : 18,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      _isTopicCompleted
-                          ? appLocalizations.retakeTestButton
-                          : appLocalizations.startTestButton,
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 14 : 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (_remainingXP > 0) ...[
-                      SizedBox(width: 8),
+                      const SizedBox(height: 8),
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          color: theme.colorScheme.surfaceVariant.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
-                          '+$_remainingXP XP',
+                          widget.topic.description,
                           style: TextStyle(
-                            fontSize: isSmallScreen ? 12 : 14,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                            color: theme.hintColor,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Статистика
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceVariant.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatColumn(
+                              Icons.quiz_rounded,
+                              '${widget.topic.questions.length}',
+                              appLocalizations.questions,
+                              Colors.blue,
+                            ),
+                            _buildStatColumn(
+                              Icons.bolt_rounded,
+                              '$_remainingXP',
+                              appLocalizations.experience,
+                              Colors.orange,
+                            ),
+                            _buildStatColumn(
+                              Icons.check_circle_rounded,
+                              '$_earnedXP',
+                              appLocalizations.earnedXP,
+                              Colors.green,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Кнопка
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _startTest,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isTopicCompleted ? Colors.green : primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            elevation: 0,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _isTopicCompleted ? Icons.refresh_rounded : Icons.play_arrow_rounded,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _isTopicCompleted
+                                    ? appLocalizations.retakeTestButton
+                                    : appLocalizations.startTestButton,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (_remainingXP > 0) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '+$_remainingXP XP',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label, bool isSmallScreen, Color color) {
+  Widget _buildStatColumn(IconData icon, String value, String label, Color color) {
     final theme = Theme.of(context);
 
     return Column(
       children: [
         Container(
-          width: isSmallScreen ? 36 : 40,
-          height: isSmallScreen ? 36 : 40,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
             shape: BoxShape.circle,
-            border: Border.all(color: color.withOpacity(0.3), width: 1.5),
           ),
-          child: Icon(
-            icon,
-            size: isSmallScreen ? 18 : 20,
-            color: color,
-          ),
+          child: Icon(icon, color: color, size: 22),
         ),
-        SizedBox(height: isSmallScreen ? 6 : 8),
+        const SizedBox(height: 8),
         Text(
           value,
           style: TextStyle(
-            fontSize: isSmallScreen ? 14 : 16,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
             color: color,
           ),
         ),
-        SizedBox(height: isSmallScreen ? 2 : 4),
+        const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
-            fontSize: isSmallScreen ? 10 : 12,
+            fontSize: 11,
             color: theme.hintColor,
           ),
           textAlign: TextAlign.center,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

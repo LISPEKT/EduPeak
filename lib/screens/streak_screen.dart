@@ -1,12 +1,7 @@
+// lib/screens/streak_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../localization.dart';
-
-enum TimePeriod {
-  week,
-  month,
-  year,
-}
 
 class StreakScreen extends StatefulWidget {
   final Map<DateTime, int> dailyActivity;
@@ -23,474 +18,81 @@ class StreakScreen extends StatefulWidget {
 }
 
 class _StreakScreenState extends State<StreakScreen> {
-  TimePeriod _selectedPeriod = TimePeriod.week;
-  int _maxActivity = 0;
+  late DateTime _currentMonth;
+  int _selectedYear = 0;
+  int _selectedMonth = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentMonth = DateTime.now();
+    _selectedYear = _currentMonth.year;
+    _selectedMonth = _currentMonth.month;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final localizations = AppLocalizations.of(context)!;
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
 
-    // Подготавливаем данные в зависимости от выбранного периода
-    final chartData = _prepareChartData();
-    _maxActivity = chartData.fold(0, (max, data) {
-      final activity = data['activity'] as int;
-      return activity > max ? activity : max;
-    });
-
-    // Вычисляем статистику
-    final activeCount = chartData.where((data) => data['activity'] as int > 0).length;
-    final totalTasks = chartData.fold(0, (sum, data) => sum + (data['activity'] as int));
-    final average = activeCount > 0 ? (totalTasks / activeCount).round() : 0;
+    // Статистика
+    final totalActiveDays = widget.dailyActivity.values.where((v) => v > 0).length;
+    final totalDays = widget.dailyActivity.length;
+    final bestStreak = _calculateBestStreak();
+    final currentStreak = widget.streakDays;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      appBar: AppBar(
-        title: Text(
-          'График активности',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark
+              ? LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.15),
+              theme.scaffoldBackgroundColor.withOpacity(0.7),
+              theme.scaffoldBackgroundColor,
+            ],
+            stops: const [0.0, 0.3, 0.7],
+          )
+              : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.08),
+              Colors.white.withOpacity(0.7),
+              Colors.white,
+            ],
+            stops: const [0.0, 0.3, 0.7],
           ),
         ),
-        backgroundColor: theme.colorScheme.surface,
-        foregroundColor: theme.colorScheme.onSurface,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Информация о стрике
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Текущий стрик',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          Text(
-                            '${widget.streakDays} дней',
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.orange,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.local_fire_department_rounded,
-                          color: Colors.orange,
-                          size: 32,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  LinearProgressIndicator(
-                    value: widget.streakDays / 30,
-                    backgroundColor: theme.colorScheme.surfaceVariant,
-                    color: Colors.orange,
-                    borderRadius: BorderRadius.circular(8),
-                    minHeight: 8,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '0 дней',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      Text(
-                        '30 дней',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Переключатель периода
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildPeriodButton(
-                    context,
-                    '7 дней',
-                    TimePeriod.week,
-                    'Каждый день отдельно',
-                  ),
-                  _buildPeriodButton(
-                    context,
-                    'Месяц',
-                    TimePeriod.month,
-                    'Каждая неделя отдельно',
-                  ),
-                  _buildPeriodButton(
-                    context,
-                    'Год',
-                    TimePeriod.year,
-                    'Каждый месяц отдельно',
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // График
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _getTitleForPeriod(),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _getSubtitleForPeriod(),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Сам график - ИСПРАВЛЕННАЯ ВЕРСТКА
-                  SizedBox(
-                    height: 220,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: chartData.map((data) {
-                        final date = data['date'] as DateTime;
-                        final activity = data['activity'] as int;
-                        final label = data['label'] as String;
-                        final subLabel = data['subLabel'] as String?;
-
-                        // Вычисляем высоту столбца
-                        final barHeight = _maxActivity > 0
-                            ? (activity / _maxActivity) * 120
-                            : 0;
-                        final height = barHeight > 0 ? barHeight + 4 : 4;
-
-                        return SizedBox(
-                          width: 28,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              // Столбец
-                              Container(
-                                width: 20,
-                                height: height.toDouble(),
-                                decoration: BoxDecoration(
-                                  color: activity > 0 ? Colors.orange : theme.colorScheme.surfaceVariant,
-                                  borderRadius: BorderRadius.circular(6),
-                                  gradient: activity > 0 ? LinearGradient(
-                                    colors: [
-                                      Colors.orange.withOpacity(0.8),
-                                      Colors.orange,
-                                    ],
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                  ) : null,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-
-                              // Основная метка
-                              Text(
-                                label,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontSize: 10,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-
-                              // Дополнительная метка (если есть)
-                              if (subLabel != null) ...[
-                                const SizedBox(height: 2),
-                                Text(
-                                  subLabel,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
-                                    fontSize: 8,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-
-                              // Значение активности
-                              const SizedBox(height: 2),
-                              Text(
-                                '$activity',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  fontSize: 10,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Легенда
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.outline.withOpacity(0.1),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Выполнено задание',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 13,
-                      ),
-                      maxLines: 2,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Заданий не было',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 13,
-                      ),
-                      maxLines: 2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Статистика
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Статистика активности',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    childAspectRatio: 2.0,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    children: [
-                      _buildStatItem(
-                        context,
-                        'Активных периодов',
-                        '$activeCount/${chartData.length}',
-                        Icons.calendar_today_rounded,
-                        Colors.blue,
-                      ),
-                      _buildStatItem(
-                        context,
-                        'Всего заданий',
-                        '$totalTasks',
-                        Icons.check_circle_rounded,
-                        Colors.green,
-                      ),
-                      _buildStatItem(
-                        context,
-                        'Максимум за период',
-                        '$_maxActivity',
-                        Icons.arrow_upward_rounded,
-                        Colors.orange,
-                      ),
-                      _buildStatItem(
-                        context,
-                        'Среднее за активный период',
-                        '$average',
-                        Icons.timeline_rounded,
-                        Colors.purple,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPeriodButton(
-      BuildContext context,
-      String title,
-      TimePeriod period,
-      String subtitle,
-      ) {
-    final isSelected = _selectedPeriod == period;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedPeriod = period;
-          });
-        },
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primaryContainer
-                : Theme.of(context).colorScheme.surfaceVariant,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
-            ),
-          ),
+        child: SafeArea(
           child: Column(
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.onPrimaryContainer
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
+              // Верхняя панель
+              _buildHeader(theme, isDark, primaryColor),
+              // Основной контент
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Карточка стрика
+                      _buildStreakCard(theme, isDark, currentStreak),
+                      const SizedBox(height: 24),
+                      // Статистика - три одинаковые плашки
+                      _buildStatsRow(theme, isDark, totalActiveDays, totalDays, bestStreak),
+                      const SizedBox(height: 24),
+                      // Календарь
+                      _buildCalendar(theme, isDark, primaryColor),
+                      const SizedBox(height: 24),
+                      // Легенда
+                      _buildLegend(theme, isDark),
+                    ],
+                  ),
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.8)
-                      : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
-                ),
-                maxLines: 2,
               ),
             ],
           ),
@@ -499,126 +101,29 @@ class _StreakScreenState extends State<StreakScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _prepareChartData() {
-    final now = DateTime.now();
-    final List<Map<String, dynamic>> data = [];
-
-    switch (_selectedPeriod) {
-      case TimePeriod.week:
-      // 7 дней: каждый день отдельно
-        for (int i = 6; i >= 0; i--) {
-          final date = now.subtract(Duration(days: i));
-          final dayKey = DateTime(date.year, date.month, date.day);
-          final activity = widget.dailyActivity[dayKey] ?? 0;
-
-          data.add({
-            'date': date,
-            'activity': activity,
-            'label': DateFormat('E').format(date)[0], // Пн, Вт и т.д.
-            'subLabel': '${date.day}',
-          });
-        }
-        break;
-
-      case TimePeriod.month:
-      // Месяц: каждая неделя отдельно (последние 4 недели)
-        for (int i = 3; i >= 0; i--) {
-          final startDate = now.subtract(Duration(days: i * 7 + 6));
-          final endDate = now.subtract(Duration(days: i * 7));
-
-          // Суммируем активность за неделю
-          int weeklyActivity = 0;
-          for (int day = 0; day < 7; day++) {
-            final date = startDate.add(Duration(days: day));
-            final dayKey = DateTime(date.year, date.month, date.day);
-            weeklyActivity += widget.dailyActivity[dayKey] ?? 0;
-          }
-
-          data.add({
-            'date': endDate,
-            'activity': weeklyActivity,
-            'label': 'Н${i + 1}',
-            'subLabel': '${startDate.day}.${startDate.month}',
-          });
-        }
-        break;
-
-      case TimePeriod.year:
-      // Год: каждый месяц отдельно (последние 12 месяцев)
-        for (int i = 11; i >= 0; i--) {
-          final monthDate = DateTime(now.year, now.month - i, 1);
-
-          // Суммируем активность за месяц
-          int monthlyActivity = 0;
-          final daysInMonth = DateTime(monthDate.year, monthDate.month + 1, 0).day;
-
-          for (int day = 1; day <= daysInMonth; day++) {
-            final date = DateTime(monthDate.year, monthDate.month, day);
-            final dayKey = DateTime(date.year, date.month, date.day);
-            monthlyActivity += widget.dailyActivity[dayKey] ?? 0;
-          }
-
-          data.add({
-            'date': monthDate,
-            'activity': monthlyActivity,
-            'label': DateFormat('MMM').format(monthDate),
-            'subLabel': '${monthDate.year}',
-          });
-        }
-        break;
-    }
-
-    return data;
-  }
-
-  String _getTitleForPeriod() {
-    switch (_selectedPeriod) {
-      case TimePeriod.week:
-        return 'Активность за 7 дней';
-      case TimePeriod.month:
-        return 'Активность за месяц';
-      case TimePeriod.year:
-        return 'Активность за год';
-    }
-  }
-
-  String _getSubtitleForPeriod() {
-    switch (_selectedPeriod) {
-      case TimePeriod.week:
-        return 'Каждый столбец показывает активность за один день';
-      case TimePeriod.month:
-        return 'Каждый столбец показывает активность за неделю';
-      case TimePeriod.year:
-        return 'Каждый столбец показывает активность за месяц';
-    }
-  }
-
-  Widget _buildStatItem(
-      BuildContext context,
-      String title,
-      String value,
-      IconData icon,
-      Color color,
-      ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
-      ),
+  Widget _buildHeader(ThemeData theme, bool isDark, Color primaryColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: isDark ? theme.cardColor : Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                )
+              ],
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              color: primaryColor,
+              onPressed: () => Navigator.pop(context),
             ),
           ),
           const SizedBox(width: 12),
@@ -627,18 +132,16 @@ class _StreakScreenState extends State<StreakScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 2,
+                  'Раздел',
+                  style: TextStyle(fontSize: 14, color: theme.hintColor),
                 ),
                 Text(
-                  value,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                  'Календарь активности',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: theme.textTheme.titleMedium?.color,
                   ),
-                  maxLines: 1,
                 ),
               ],
             ),
@@ -646,5 +149,577 @@ class _StreakScreenState extends State<StreakScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildStreakCard(ThemeData theme, bool isDark, int streakDays) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.local_fire_department_rounded,
+              color: Colors.orange,
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Текущий стрик',
+                  style: TextStyle(fontSize: 14, color: theme.hintColor),
+                ),
+                Text(
+                  '$streakDays ${_getDaysWord(streakDays)}',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(
+                  value: streakDays / 30,
+                  backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(8),
+                  minHeight: 8,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '0 дней',
+                      style: TextStyle(fontSize: 10, color: theme.hintColor),
+                    ),
+                    Text(
+                      '30 дней',
+                      style: TextStyle(fontSize: 10, color: theme.hintColor),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(
+      ThemeData theme,
+      bool isDark,
+      int totalActiveDays,
+      int totalDays,
+      int bestStreak,
+      ) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            theme,
+            isDark,
+            'Активных дней',
+            '$totalActiveDays',
+            Icons.check_circle_rounded,
+            Colors.green,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            theme,
+            isDark,
+            'Всего дней',
+            '$totalDays',
+            Icons.calendar_today_rounded,
+            Colors.blue,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            theme,
+            isDark,
+            'Рекордный стрик',
+            '$bestStreak ${_getDaysWord(bestStreak)}',
+            Icons.emoji_events_rounded,
+            Colors.amber,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(
+      ThemeData theme,
+      bool isDark,
+      String title,
+      String value,
+      IconData icon,
+      Color color,
+      ) {
+    return Container(
+      height: 120, // Фиксированная высота для всех карточек
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(fontSize: 11, color: theme.hintColor),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: theme.textTheme.titleMedium?.color,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendar(ThemeData theme, bool isDark, Color primaryColor) {
+    // Получаем первый день месяца
+    final firstDayOfMonth = DateTime(_selectedYear, _selectedMonth, 1);
+
+    // Получаем день недели первого дня (1 - понедельник, 7 - воскресенье)
+    int firstWeekday = firstDayOfMonth.weekday;
+    // Преобразуем в формат где понедельник = 0
+    final startOffset = firstWeekday == 7 ? 0 : firstWeekday;
+
+    // Получаем количество дней в месяце
+    final daysInMonth = DateTime(_selectedYear, _selectedMonth + 1, 0).day;
+
+    // Строим сетку дней
+    final List<DateTime?> days = [];
+    // Пустые ячейки в начале
+    for (int i = 0; i < startOffset; i++) {
+      days.add(null);
+    }
+    // Дни месяца
+    for (int day = 1; day <= daysInMonth; day++) {
+      days.add(DateTime(_selectedYear, _selectedMonth, day));
+    }
+
+    // Названия дней недели
+    final weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+    // Форматируем название месяца в именительном падеже
+    String getMonthName(int month, int year) {
+      final date = DateTime(year, month, 15);
+      final formatter = DateFormat('LLLL', 'ru');
+      return formatter.format(date);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          // Заголовок с навигацией по месяцам
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: Icon(Icons.chevron_left, color: primaryColor),
+                onPressed: () {
+                  setState(() {
+                    if (_selectedMonth == 1) {
+                      _selectedMonth = 12;
+                      _selectedYear--;
+                    } else {
+                      _selectedMonth--;
+                    }
+                  });
+                },
+              ),
+              Text(
+                getMonthName(_selectedMonth, _selectedYear),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.chevron_right, color: primaryColor),
+                onPressed: () {
+                  setState(() {
+                    if (_selectedMonth == 12) {
+                      _selectedMonth = 1;
+                      _selectedYear++;
+                    } else {
+                      _selectedMonth++;
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Дни недели
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 1.2,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+            ),
+            itemCount: 7,
+            itemBuilder: (context, index) {
+              return Center(
+                child: Text(
+                  weekDays[index],
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.hintColor,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          // Календарь
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              childAspectRatio: 1.2,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+            ),
+            itemCount: days.length,
+            itemBuilder: (context, index) {
+              final date = days[index];
+              if (date == null) {
+                return Container();
+              }
+
+              final isActive = _isDayActive(date);
+              final isToday = _isToday(date);
+              final dayNumber = date.day;
+
+              return GestureDetector(
+                onTap: () {
+                  _showDayDetails(date, isActive);
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? Colors.orange
+                        : (isDark ? theme.cardColor : Colors.grey[100]),
+                    borderRadius: BorderRadius.circular(12),
+                    border: isToday
+                        ? Border.all(color: primaryColor, width: 2)
+                        : null,
+                    boxShadow: isActive
+                        ? [
+                      BoxShadow(
+                        color: Colors.orange.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                        : null,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$dayNumber',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                            color: isActive
+                                ? Colors.white
+                                : (isDark ? Colors.white70 : Colors.grey[700]),
+                          ),
+                        ),
+                        if (isActive)
+                          const Icon(
+                            Icons.check_circle,
+                            size: 12,
+                            color: Colors.white,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegend(ThemeData theme, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.hintColor.withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: Colors.orange,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Активный день',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.textTheme.titleMedium?.color,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: isDark ? theme.cardColor : Colors.grey[100],
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Неактивный день',
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.textTheme.titleMedium?.color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDayDetails(DateTime date, bool isActive) {
+    final activityCount = widget.dailyActivity[DateTime(date.year, date.month, date.day)] ?? 0;
+
+    // Форматируем дату с правильным падежом
+    String getFormattedDate(DateTime date) {
+      final day = date.day;
+      final month = DateFormat('LLLL', 'ru').format(date);
+      final year = date.year;
+      return '$day $month $year';
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final theme = Theme.of(context);
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.hintColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Icon(
+                isActive ? Icons.check_circle : Icons.cancel,
+                size: 48,
+                color: isActive ? Colors.green : Colors.grey,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                getFormattedDate(date),
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isActive
+                    ? 'Вы были активны в этот день'
+                    : 'В этот день активности не было',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: theme.hintColor,
+                ),
+              ),
+              if (isActive) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Выполнено заданий: $activityCount',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Закрыть'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  bool _isDayActive(DateTime date) {
+    final key = DateTime(date.year, date.month, date.day);
+    return (widget.dailyActivity[key] ?? 0) > 0;
+  }
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+  }
+
+  int _calculateBestStreak() {
+    if (widget.dailyActivity.isEmpty) return 0;
+
+    final sortedDates = widget.dailyActivity.keys.toList()
+      ..sort();
+
+    int maxStreak = 0;
+    int currentStreak = 0;
+    DateTime? lastDate;
+
+    for (final date in sortedDates) {
+      if (widget.dailyActivity[date] == 0) {
+        currentStreak = 0;
+        continue;
+      }
+
+      if (lastDate == null) {
+        currentStreak = 1;
+      } else {
+        final diff = date.difference(lastDate).inDays;
+        if (diff == 1) {
+          currentStreak++;
+        } else if (diff > 1) {
+          currentStreak = 1;
+        }
+      }
+
+      if (currentStreak > maxStreak) {
+        maxStreak = currentStreak;
+      }
+      lastDate = date;
+    }
+
+    return maxStreak;
+  }
+
+  String _getDaysWord(int days) {
+    if (days % 10 == 1 && days % 100 != 11) return 'день';
+    if (days % 10 >= 2 && days % 10 <= 4 && (days % 100 < 10 || days % 100 >= 20)) return 'дня';
+    return 'дней';
   }
 }

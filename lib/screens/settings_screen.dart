@@ -21,6 +21,8 @@ import 'settings/language_settings_screen.dart';
 import 'subscription_screen.dart';
 import 'settings/support_screen.dart';
 import 'settings/privacy_policy_screen.dart';
+import 'package:edu_peak/services/central_data_manager.dart';
+import 'package:edu_peak/services/session_manager.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onLogout;
@@ -314,7 +316,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.info_rounded,
                         iconColor: primaryColor,
                         title: 'О приложении',
-                        subtitle: 'Версия beta 0.43.0',
+                        subtitle: 'Версия beta 0.43.3',
                         onTap: () => _navigateToPrivacyPolicy(context),
                       ),
                     ),
@@ -648,13 +650,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     try {
-      await ApiService.logout();
+      // 1. Очищаем все данные через UserDataStorage
       await UserDataStorage.clearUserData();
+
+      // 2. Очищаем SharedPreferences полностью
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear(); // Очищаем ВСЕ данные
+
+      // 3. Очищаем SecureStorage если используется
+      await SessionManager.clearSession();
+
+      // 4. Вызываем логаут на сервере (если есть интернет)
+      try {
+        await ApiService.logout();
+      } catch (e) {
+        print('⚠️ Server logout error (ignored): $e');
+      }
+
+      // 5. Очищаем кэш в памяти CentralDataManager
+      try {
+        final dataManager = Provider.of<CentralDataManager>(context, listen: false);
+        await dataManager.clear();
+      } catch (e) {
+        print('⚠️ CentralDataManager clear error: $e');
+      }
 
       if (context.mounted) Navigator.pop(context);
 
+      // Вызываем колбэк логаута
       widget.onLogout();
 
+      // Переходим на экран авторизации с полной заменой стека
       if (context.mounted) {
         Navigator.pushAndRemoveUntil(
           context,

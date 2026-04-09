@@ -11,9 +11,7 @@ enum TimePeriod {
 }
 
 class XPStatsScreen extends StatefulWidget {
-  const XPStatsScreen({
-    Key? key,
-  }) : super(key: key);
+  const XPStatsScreen({Key? key}) : super(key: key);
 
   @override
   State<XPStatsScreen> createState() => _XPStatsScreenState();
@@ -42,14 +40,10 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
         _currentWeeklyXP = _userStats!.weeklyXP;
         _isLoading = false;
       });
-
-      // Обновляем отфильтрованные данные
       _updateFilteredData();
     } catch (e) {
       print('❌ Error loading XP data: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -61,21 +55,17 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
 
     switch (_selectedPeriod) {
       case TimePeriod.week:
-      // 7 последних дней
         for (int i = 6; i >= 0; i--) {
           final date = now.subtract(Duration(days: i));
           final xp = _userStats!.getDailyXP(date);
           data[DateTime(date.year, date.month, date.day)] = xp;
         }
         break;
-
       case TimePeriod.month:
-      // 4 последние недели
         final today = DateTime.now();
         for (int week = 0; week < 4; week++) {
           final weekStart = today.subtract(Duration(days: week * 7 + 6));
           final weekEnd = today.subtract(Duration(days: week * 7));
-
           int weeklyXP = 0;
           for (int day = 0; day < 7; day++) {
             final date = weekStart.add(Duration(days: day));
@@ -84,9 +74,7 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
           data[DateTime(weekEnd.year, weekEnd.month, weekEnd.day)] = weeklyXP;
         }
         break;
-
       case TimePeriod.year:
-      // 12 последних месяцев
         final today = DateTime.now();
         for (int month = 0; month < 12; month++) {
           final monthDate = DateTime(today.year, today.month - month, 1);
@@ -98,10 +86,8 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
 
     setState(() {
       _filteredData = data;
-      // Находим максимальное значение для масштабирования графика
       if (data.isNotEmpty) {
         _maxXP = data.values.reduce((a, b) => a > b ? a : b);
-        // Минимальная высота 100 для лучшей визуализации
         if (_maxXP < 100) _maxXP = 100;
       } else {
         _maxXP = 100;
@@ -111,21 +97,18 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
 
   List<Map<String, dynamic>> _prepareChartData() {
     final entries = _filteredData.entries.toList();
-    // Сортируем по дате
     entries.sort((a, b) => a.key.compareTo(b.key));
 
     final List<Map<String, dynamic>> data = [];
-
     for (final entry in entries) {
       final date = entry.key;
       final xp = entry.value;
-
       String label = '';
       String? subLabel = '';
 
       switch (_selectedPeriod) {
         case TimePeriod.week:
-          label = DateFormat('E').format(date)[0]; // Пн, Вт и т.д.
+          label = DateFormat('E').format(date)[0];
           subLabel = '${date.day}';
           break;
         case TimePeriod.month:
@@ -138,178 +121,186 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
           subLabel = '${date.year}';
           break;
       }
-
-      data.add({
-        'date': date,
-        'xp': xp,
-        'label': label,
-        'subLabel': subLabel,
-      });
+      data.add({'date': date, 'xp': xp, 'label': label, 'subLabel': subLabel});
     }
-
     return data;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: theme.colorScheme.background,
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     final chartData = _prepareChartData();
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
-      appBar: AppBar(
-        title: Text('Статистика опыта'),
-        backgroundColor: theme.colorScheme.surface,
-        foregroundColor: theme.colorScheme.onSurface,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Карточка с общей информацией - ТОЛЬКО ОПЫТ
-            _buildTotalXPInfo(),
-            const SizedBox(height: 24),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark
+              ? LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.15),
+              theme.scaffoldBackgroundColor.withOpacity(0.7),
+              theme.scaffoldBackgroundColor,
+            ],
+            stops: const [0.0, 0.3, 0.7],
+          )
+              : LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              primaryColor.withOpacity(0.08),
+              Colors.white.withOpacity(0.7),
+              Colors.white,
+            ],
+            stops: const [0.0, 0.3, 0.7],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Верхняя панель
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isDark ? theme.cardColor : Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 6, offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded),
+                        color: primaryColor,
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Раздел', style: TextStyle(fontSize: 14, color: theme.hintColor)),
+                          Text('Статистика опыта', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: theme.textTheme.titleMedium?.color)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-            // Переключатель периода
-            _buildPeriodSelector(),
-            const SizedBox(height: 24),
-
-            // График
-            _buildChart(chartData),
-            const SizedBox(height: 24),
-
-            // Статистика
-            _buildStatistics(chartData),
-          ],
+              // Основной контент
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTotalXPInfo(theme, isDark),
+                      const SizedBox(height: 24),
+                      _buildPeriodSelector(theme, isDark),
+                      const SizedBox(height: 24),
+                      _buildChart(chartData, theme, isDark),
+                      const SizedBox(height: 24),
+                      _buildStatistics(chartData, theme, isDark),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTotalXPInfo() {
-    final theme = Theme.of(context);
-
+  Widget _buildTotalXPInfo(ThemeData theme, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Всего опыта',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    '$_totalXP XP',
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: Colors.blue,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.star_rounded,
-                  color: Colors.blue,
-                  size: 32,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          LinearProgressIndicator(
-            value: _totalXP > 10000 ? 1.0 : _totalXP / 10000,
-            backgroundColor: theme.colorScheme.surfaceVariant,
-            color: Colors.blue,
-            borderRadius: BorderRadius.circular(8),
-            minHeight: 8,
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '0 XP',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              Text(
-                '10000 XP',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPeriodSelector() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(isDark ? 0.2 : 0.08), blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildPeriodButton('7 дней', TimePeriod.week, 'Каждый день'),
-          _buildPeriodButton('Месяц', TimePeriod.month, 'Каждая неделя'),
-          _buildPeriodButton('Год', TimePeriod.year, 'Каждый месяц'),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
+            child: const Icon(Icons.star_rounded, color: Colors.blue, size: 32),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Всего опыта', style: TextStyle(fontSize: 14, color: theme.hintColor)),
+                Text('$_totalXP XP', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.blue)),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(
+                  value: _totalXP > 10000 ? 1.0 : _totalXP / 10000,
+                  backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(8),
+                  minHeight: 8,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('0 XP', style: TextStyle(fontSize: 10, color: theme.hintColor)),
+                    Text('10000 XP', style: TextStyle(fontSize: 10, color: theme.hintColor)),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPeriodButton(String title, TimePeriod period, String subtitle) {
+  Widget _buildPeriodSelector(ThemeData theme, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(isDark ? 0.1 : 0.05), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          _buildPeriodButton('7 дней', TimePeriod.week, 'Каждый день', theme, isDark),
+          const SizedBox(width: 8),
+          _buildPeriodButton('Месяц', TimePeriod.month, 'Каждая неделя', theme, isDark),
+          const SizedBox(width: 8),
+          _buildPeriodButton('Год', TimePeriod.year, 'Каждый месяц', theme, isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodButton(String title, TimePeriod period, String subtitle, ThemeData theme, bool isDark) {
     final isSelected = _selectedPeriod == period;
     return Expanded(
       child: GestureDetector(
@@ -320,45 +311,17 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
           });
         },
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           decoration: BoxDecoration(
-            color: isSelected
-                ? Theme.of(context).colorScheme.primaryContainer
-                : Theme.of(context).colorScheme.surfaceVariant,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
-            ),
+            color: isSelected ? theme.colorScheme.primary : (isDark ? theme.cardColor : Colors.grey[100]),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: isSelected ? theme.colorScheme.primary : Colors.transparent),
           ),
           child: Column(
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.onPrimaryContainer
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.8)
-                      : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.6),
-                ),
-                maxLines: 2,
-              ),
+              Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : theme.hintColor)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(fontSize: 10, color: isSelected ? Colors.white70 : theme.hintColor)),
             ],
           ),
         ),
@@ -366,41 +329,23 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
     );
   }
 
-  Widget _buildChart(List<Map<String, dynamic>> chartData) {
-    final theme = Theme.of(context);
-
+  Widget _buildChart(List<Map<String, dynamic>> chartData, ThemeData theme, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(isDark ? 0.1 : 0.05), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _getTitleForPeriod(),
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _getSubtitleForPeriod(),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+          Text(_getTitleForPeriod(), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.textTheme.titleMedium?.color)),
+          const SizedBox(height: 4),
+          Text(_getSubtitleForPeriod(), style: TextStyle(fontSize: 12, color: theme.hintColor)),
           const SizedBox(height: 20),
-
-          // Сам график
           SizedBox(
             height: 220,
             child: Row(
@@ -410,68 +355,29 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
                 final xp = data['xp'] as int;
                 final label = data['label'] as String;
                 final subLabel = data['subLabel'] as String?;
-
-                final barHeight = _maxXP > 0
-                    ? (xp / _maxXP) * 160
-                    : 0;
+                final barHeight = _maxXP > 0 ? (xp / _maxXP) * 160 : 0;
                 final height = barHeight > 4 ? barHeight : 4;
-
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Container(
-                      width: 20,
+                      width: 28,
                       height: height.toDouble(),
                       decoration: BoxDecoration(
-                        color: xp > 0 ? Colors.blue : theme.colorScheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(6),
-                        gradient: xp > 0 ? LinearGradient(
-                          colors: [
-                            Colors.lightBlue.withOpacity(0.8),
-                            Colors.blue,
-                          ],
+                        color: xp > 0 ? Colors.blue : (isDark ? Colors.grey[800] : Colors.grey[200]),
+                        borderRadius: BorderRadius.circular(8),
+                        gradient: xp > 0
+                            ? LinearGradient(
+                          colors: [Colors.lightBlue, Colors.blue],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                        ) : null,
+                        )
+                            : null,
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Значение
-                    Text(
-                      '$xp',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontSize: 10,
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Основная метка
-                    Text(
-                      label,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontSize: 10,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                    ),
-
-                    // Дополнительная метка
-                    if (subLabel != null && subLabel.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subLabel,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
-                          fontSize: 8,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                      ),
-                    ],
+                    Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: theme.hintColor)),
+                    if (subLabel != null) Text(subLabel, style: TextStyle(fontSize: 9, color: theme.hintColor.withOpacity(0.7))),
                   ],
                 );
               }).toList(),
@@ -482,16 +388,11 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
     );
   }
 
-  Widget _buildStatistics(List<Map<String, dynamic>> chartData) {
+  Widget _buildStatistics(List<Map<String, dynamic>> chartData, ThemeData theme, bool isDark) {
     final activeDays = chartData.where((data) => data['xp'] as int > 0).length;
     final totalXPSum = chartData.fold(0, (sum, data) => sum + (data['xp'] as int));
     final average = activeDays > 0 ? (totalXPSum / activeDays).round() : 0;
-    final maxDailyXP = chartData.fold(0, (max, data) {
-      final xp = data['xp'] as int;
-      return xp > max ? xp : max;
-    });
-
-    // Получаем дополнительные статистики
+    final maxDailyXP = chartData.fold(0, (max, data) => (data['xp'] as int) > max ? (data['xp'] as int) : max);
     final xpStats = _userStats?.getXpStatistics() ?? {};
     final last7DaysXP = xpStats['last7DaysXP'] ?? 0;
     final last30DaysXP = xpStats['last30DaysXP'] ?? 0;
@@ -499,80 +400,32 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        color: isDark ? theme.cardColor : Colors.white,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(isDark ? 0.1 : 0.05), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Статистика',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text('Статистика', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.textTheme.titleMedium?.color)),
           const SizedBox(height: 16),
-
           GridView.count(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
-            childAspectRatio: 1.8,
+            childAspectRatio: 1.6,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             children: [
-              _buildStatItem(
-                'Активных дней',
-                '$activeDays/${chartData.length}',
-                Icons.calendar_today_rounded,
-                Colors.green,
-              ),
-              _buildStatItem(
-                'Всего XP',
-                '$totalXPSum',
-                Icons.star_rounded,
-                Colors.blue,
-              ),
-              _buildStatItem(
-                'Максимум',
-                '$maxDailyXP XP',
-                Icons.arrow_upward_rounded,
-                Colors.orange,
-              ),
-              _buildStatItem(
-                'Средний XP',
-                '$average',
-                Icons.timeline_rounded,
-                Colors.purple,
-              ),
-              if (_selectedPeriod == TimePeriod.week)
-                _buildStatItem(
-                  'Недельный XP',
-                  '$_currentWeeklyXP',
-                  Icons.weekend_rounded,
-                  Colors.amber,
-                ),
-              if (_selectedPeriod == TimePeriod.month)
-                _buildStatItem(
-                  'За 7 дней',
-                  '$last7DaysXP',
-                  Icons.today_rounded,
-                  Colors.lightBlue,
-                ),
-              if (_selectedPeriod == TimePeriod.year)
-                _buildStatItem(
-                  'За 30 дней',
-                  '$last30DaysXP',
-                  Icons.calendar_month_rounded,
-                  Colors.deepOrange,
-                ),
+              _buildStatItem('Активных дней', '$activeDays/${chartData.length}', Icons.calendar_today_rounded, Colors.green, theme, isDark),
+              _buildStatItem('Всего XP', '$totalXPSum', Icons.star_rounded, Colors.blue, theme, isDark),
+              _buildStatItem('Максимум', '$maxDailyXP XP', Icons.arrow_upward_rounded, Colors.orange, theme, isDark),
+              _buildStatItem('Средний XP', '$average', Icons.timeline_rounded, Colors.purple, theme, isDark),
+              if (_selectedPeriod == TimePeriod.week) _buildStatItem('Недельный XP', '$_currentWeeklyXP', Icons.weekend_rounded, Colors.amber, theme, isDark),
+              if (_selectedPeriod == TimePeriod.month) _buildStatItem('За 7 дней', '$last7DaysXP', Icons.today_rounded, Colors.lightBlue, theme, isDark),
+              if (_selectedPeriod == TimePeriod.year) _buildStatItem('За 30 дней', '$last30DaysXP', Icons.calendar_month_rounded, Colors.deepOrange, theme, isDark),
             ],
           ),
         ],
@@ -580,49 +433,29 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
     );
   }
 
-  Widget _buildStatItem(String title, String value, IconData icon, Color color) {
+  Widget _buildStatItem(String title, String value, IconData icon, Color color, ThemeData theme, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(12),
+        color: isDark ? theme.cardColor.withOpacity(0.7) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Row(
         children: [
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
-            ),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                ),
+                Text(title, style: TextStyle(fontSize: 11, color: theme.hintColor), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: theme.textTheme.titleMedium?.color), maxLines: 1),
               ],
             ),
           ),
@@ -633,23 +466,17 @@ class _XPStatsScreenState extends State<XPStatsScreen> {
 
   String _getTitleForPeriod() {
     switch (_selectedPeriod) {
-      case TimePeriod.week:
-        return 'Опыт за 7 дней';
-      case TimePeriod.month:
-        return 'Опыт за 4 недели';
-      case TimePeriod.year:
-        return 'Опыт за 12 месяцев';
+      case TimePeriod.week: return 'Опыт за 7 дней';
+      case TimePeriod.month: return 'Опыт за 4 недели';
+      case TimePeriod.year: return 'Опыт за 12 месяцев';
     }
   }
 
   String _getSubtitleForPeriod() {
     switch (_selectedPeriod) {
-      case TimePeriod.week:
-        return 'Каждый столбец показывает опыт за один день';
-      case TimePeriod.month:
-        return 'Каждый столбец показывает опыт за неделю';
-      case TimePeriod.year:
-        return 'Каждый столбец показывает опыт за месяц';
+      case TimePeriod.week: return 'Каждый столбец — опыт за день';
+      case TimePeriod.month: return 'Каждый столбец — опыт за неделю';
+      case TimePeriod.year: return 'Каждый столбец — опыт за месяц';
     }
   }
 }

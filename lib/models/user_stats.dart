@@ -415,6 +415,39 @@ class UserStats {
     return total;
   }
 
+  Map<DateTime, int> getDailyActivityMap() {
+    final Map<DateTime, int> result = {};
+
+    // Преобразуем dailyXP в Map<DateTime, int>
+    for (var entry in dailyXP.entries) {
+      try {
+        final date = DateTime.parse(entry.key);
+        result[DateTime(date.year, date.month, date.day)] = entry.value;
+      } catch (e) {
+        // Игнорируем неверные форматы
+      }
+    }
+
+    // Также добавляем данные о ежедневном выполнении (dailyCompletion)
+    for (var entry in dailyCompletion.entries) {
+      try {
+        final date = DateTime.parse(entry.key);
+        final dateKey = DateTime(date.year, date.month, date.day);
+
+        // Если для этого дня уже есть XP, добавляем его, иначе ставим 1 за активность
+        if (result.containsKey(dateKey)) {
+          // Уже есть XP, оставляем как есть
+        } else if (entry.value == true) {
+          result[dateKey] = 1; // Отмечаем день как активный, но без XP
+        }
+      } catch (e) {
+        // Игнорируем неверные форматы
+      }
+    }
+
+    return result;
+  }
+
   // Метод для получения статистики по предметам
   Map<String, Map<String, dynamic>> getSubjectStatistics() {
     final statistics = <String, Map<String, dynamic>>{};

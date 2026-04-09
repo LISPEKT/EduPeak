@@ -65,10 +65,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Получаем достижения с сервера
       final response = await ApiService.getAchievements();
 
-      // Получаем прогресс (может быть отдельным запросом или встроенным)
       Map<String, dynamic> progressResponse;
       try {
         progressResponse = await ApiService.getAchievementProgress();
@@ -78,8 +76,6 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
 
       if (response['success'] == true) {
         final achievementsData = response['achievements'] as List;
-
-        // Получаем прогресс из ответа или отдельного запроса
         final progressData = response['progress'] ??
             (progressResponse['success'] == true ? progressResponse['progress'] : {});
 
@@ -88,25 +84,20 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
             return Achievement.fromJson(data);
           }).toList();
 
-          // Обновляем прогресс из ответа
           if (progressData is Map) {
             _progress = progressData.map((key, value) => MapEntry(key.toString(), value as int));
           }
 
-          // Обновляем счетчики
           _completedCount = _achievements.where((a) => a.isUnlocked).length;
           _totalCount = _achievements.length;
         });
 
-        // Уведомляем о загрузке данных
         if (widget.onAchievementsLoaded != null) {
           widget.onAchievementsLoaded!(achievementCount);
         }
 
-        // Проверяем и разблокируем достижения
         await _checkAndUnlockAchievements();
       } else {
-        // Если сервер недоступен, загружаем локальные
         await _loadLocalAchievements();
       }
     } catch (e) {
@@ -505,7 +496,6 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
       _totalCount = _achievements.length;
     });
 
-    // Уведомляем о загрузке данных
     if (widget.onAchievementsLoaded != null) {
       widget.onAchievementsLoaded!(achievementCount);
     }
@@ -521,17 +511,14 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
 
   Future<void> _checkAndUnlockAchievements() async {
     try {
-      // Проверяем, какие достижения можно разблокировать
       for (final achievement in _achievements) {
         if (!achievement.isUnlocked && achievement.currentValue >= achievement.requiredValue) {
-          // Отправляем запрос на разблокировку
           try {
             final response = await ApiService.unlockAchievement(achievement.id);
             if (response['success'] == true) {
               print('🎉 Achievement unlocked: ${achievement.name}');
               _showUnlockNotification(achievement);
 
-              // Обновляем состояние
               setState(() {
                 achievement.currentValue = achievement.requiredValue;
                 _completedCount = _achievements.where((a) => a.isUnlocked).length;
@@ -611,6 +598,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     final primaryColor = theme.colorScheme.primary;
     final completedCount = _achievements.where((a) => a.isUnlocked).length;
     final totalCount = _achievements.length;
+    final inProgressCount = _achievements.where((a) => !a.isUnlocked && a.currentValue > 0).length;
+    final lockedCount = _achievements.where((a) => !a.isUnlocked && a.currentValue == 0).length;
     final progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
     return Scaffold(
@@ -647,7 +636,6 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 child: Row(
                   children: [
-                    // Кнопка назад
                     Container(
                       width: 44,
                       height: 44,
@@ -714,7 +702,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                     : SingleChildScrollView(
                   child: Column(
                     children: [
-                      // Статистика прогресса
+                      // Прогресс карточка
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         child: Container(
@@ -735,8 +723,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                               Row(
                                 children: [
                                   Container(
-                                    width: 80,
-                                    height: 80,
+                                    width: 60,
+                                    height: 60,
                                     decoration: BoxDecoration(
                                       color: primaryColor.withOpacity(0.1),
                                       shape: BoxShape.circle,
@@ -744,36 +732,39 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                     child: Icon(
                                       Icons.emoji_events_rounded,
                                       color: primaryColor,
-                                      size: 36,
+                                      size: 30,
                                     ),
                                   ),
-                                  const SizedBox(width: 20),
+                                  const SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
+                                        Text(
+                                          'Общий прогресс',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: theme.hintColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text(
-                                              'Прогресс',
+                                              '$completedCount/$totalCount',
                                               style: TextStyle(
-                                                fontSize: 14,
-                                                color: theme.hintColor,
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: theme.textTheme.titleMedium?.color,
                                               ),
                                             ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                              decoration: BoxDecoration(
-                                                color: primaryColor.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(12),
-                                              ),
-                                              child: Text(
-                                                '$completedCount/$totalCount',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  color: primaryColor,
-                                                ),
+                                            Text(
+                                              '${progressPercentage.toStringAsFixed(0)}%',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: primaryColor,
                                               ),
                                             ),
                                           ],
@@ -784,15 +775,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                           backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
                                           color: primaryColor,
                                           borderRadius: BorderRadius.circular(4),
-                                          minHeight: 10,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          '$completedCount открыто • ${totalCount - completedCount} осталось',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: theme.hintColor,
-                                          ),
+                                          minHeight: 8,
                                         ),
                                       ],
                                     ),
@@ -804,57 +787,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         ),
                       ),
 
-                      // Статистика в ряд
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                title: 'Открыто',
-                                value: completedCount.toString(),
-                                color: Colors.green,
-                                icon: Icons.check_circle_rounded,
-                                isDark: isDark,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                title: 'В прогрессе',
-                                value: _achievements.where((a) => !a.isUnlocked && a.currentValue > 0).length.toString(),
-                                color: Colors.orange,
-                                icon: Icons.trending_up_rounded,
-                                isDark: isDark,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildStatCard(
-                                title: 'Заблокировано',
-                                value: _achievements.where((a) => !a.isUnlocked && a.currentValue == 0).length.toString(),
-                                color: Colors.grey,
-                                icon: Icons.lock_rounded,
-                                isDark: isDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
                       // Сетка достижений
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        child: Text(
-                          'Все достижения',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: theme.textTheme.titleMedium?.color,
-                          ),
-                        ),
-                      ),
-
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: GridView.builder(
@@ -864,7 +797,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                             crossAxisCount: 2,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
-                            childAspectRatio: 0.9,
+                            childAspectRatio: 0.85,
                           ),
                           itemCount: _achievements.length,
                           itemBuilder: (context, index) {
@@ -899,55 +832,56 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDark ? theme.cardColor : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+            color: Colors.black.withOpacity(isDark ? 0.15 : 0.06),
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 3),
           ),
         ],
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 20,
-                ),
-              ),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              icon,
+              color: color,
+              size: 22,
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
           Text(
             title,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: theme.textTheme.titleMedium?.color,
+              color: theme.hintColor,
             ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
           ),
         ],
       ),
@@ -984,7 +918,6 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Иконка достижения
               Container(
                 width: 80,
                 height: 80,
@@ -1002,10 +935,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // Название достижения
               Text(
                 achievement.name,
                 style: TextStyle(
@@ -1015,10 +945,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-
               const SizedBox(height: 12),
-
-              // Описание достижения
               Text(
                 achievement.description,
                 style: TextStyle(
@@ -1027,10 +954,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-
               const SizedBox(height: 24),
-
-              // Статус бейдж
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
@@ -1066,7 +990,6 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   ],
                 ),
               ),
-
               if (!isUnlocked && achievement.requiredValue > 1) ...[
                 const SizedBox(height: 24),
                 Container(
@@ -1118,10 +1041,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                   ),
                 ),
               ],
-
               const SizedBox(height: 24),
-
-              // Кнопка закрытия
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -1171,111 +1091,105 @@ class _AchievementCard extends StatelessWidget {
         ? achievement.currentValue / achievement.requiredValue
         : 0.0;
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      color: isDark ? theme.cardColor : Colors.white,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? theme.cardColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.15 : 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+          border: Border.all(
+            color: isUnlocked
+                ? achievement.iconColor.withOpacity(0.3)
+                : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
         child: Stack(
           children: [
-            // Основной контент
-            Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Иконка достижения
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: isUnlocked
-                            ? achievement.iconColor.withOpacity(0.1)
-                            : theme.colorScheme.surfaceVariant,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(
-                        child: Icon(
-                          achievement.icon,
-                          color: isUnlocked
-                              ? achievement.iconColor
-                              : achievement.iconColor.withOpacity(0.5),
-                          size: 28,
-                        ),
-                      ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: isUnlocked
+                          ? achievement.iconColor.withOpacity(0.12)
+                          : (isDark ? Colors.grey[800] : Colors.grey[100]),
+                      borderRadius: BorderRadius.circular(18),
                     ),
-
-                    const SizedBox(height: 12),
-
-                    // Название достижения
+                    child: Icon(
+                      achievement.icon,
+                      color: isUnlocked
+                          ? achievement.iconColor
+                          : achievement.iconColor.withOpacity(0.4),
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    achievement.name,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isUnlocked
+                          ? theme.textTheme.titleMedium?.color
+                          : theme.textTheme.titleMedium?.color?.withOpacity(0.5),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    achievement.description,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: theme.hintColor,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (!isUnlocked && achievement.requiredValue > 1) ...[
+                    const SizedBox(height: 10),
+                    LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(4),
+                      minHeight: 4,
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      achievement.name,
-                      textAlign: TextAlign.center,
+                      '${achievement.currentValue}/${achievement.requiredValue}',
                       style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isUnlocked
-                            ? theme.textTheme.titleMedium?.color
-                            : theme.textTheme.titleMedium?.color?.withOpacity(0.6),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Описание достижения
-                    Expanded(
-                      child: Text(
-                        achievement.description,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.hintColor,
-                          height: 1.3,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
+                        fontSize: 9,
+                        color: theme.hintColor,
                       ),
                     ),
-
-                    // Прогресс для заблокированных достижений
-                    if (!isUnlocked && achievement.requiredValue > 1) ...[
-                      const SizedBox(height: 8),
-                      LinearProgressIndicator(
-                        value: progress,
-                        backgroundColor: theme.colorScheme.surfaceVariant,
-                        color: theme.colorScheme.primary,
-                        borderRadius: BorderRadius.circular(4),
-                        minHeight: 6,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${achievement.currentValue}/${achievement.requiredValue}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: theme.hintColor,
-                        ),
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
             ),
-
-            // Галочка для завершенных
             if (isUnlocked)
               Positioned(
                 top: 8,
                 right: 8,
                 child: Container(
-                  width: 24,
-                  height: 24,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: Colors.green,
                     shape: BoxShape.circle,
@@ -1283,13 +1197,13 @@ class _AchievementCard extends StatelessWidget {
                       BoxShadow(
                         color: Colors.black26,
                         blurRadius: 4,
-                        offset: Offset(0, 2),
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.check_rounded,
-                    size: 16,
+                    size: 14,
                     color: Colors.white,
                   ),
                 ),
@@ -1401,7 +1315,6 @@ Color _getColorFromString(String colorString) {
     if (colorString.startsWith('#')) {
       return Color(int.parse(colorString.substring(1), radix: 16) + 0xFF000000);
     }
-    // Для именованных цветов
     switch (colorString) {
       case 'red': return Colors.red;
       case 'blue': return Colors.blue;
