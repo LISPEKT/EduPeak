@@ -24,6 +24,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   List<dynamic> _news = [];
   List<dynamic> _games = [];
   List<dynamic> _adminLogs = [];
+  List<dynamic> _examSubjects = [];
+  bool _isLoadingExams = false;
+  int? _selectedExamSubjectId;
+  List<dynamic> _examVariants = [];
+  List<dynamic> _examPool = [];
   List<dynamic> _systemLogs = [];
   Map<String, dynamic> _logsStats = {};
 
@@ -35,8 +40,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   bool _hasMoreAdminLogs = true;
   bool _hasMoreSystemLogs = true;
 
-  final List<String> _tabs = ['dashboard', 'people', 'sports_esports', 'newspaper', 'history'];
-  final List<String> _tabNames = ['Дашборд', 'Пользователи', 'Игры', 'Контент', 'Логи'];
+  final List<String> _tabs = ['dashboard', 'people', 'sports_esports', 'newspaper', 'school', 'history'];
+  final List<String> _tabNames = ['Дашборд', 'Пользователи', 'Игры', 'Контент', 'Экзамены', 'Логи'];
 
   // Формы
   final TextEditingController _newsTitleController = TextEditingController();
@@ -71,9 +76,100 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     _loadData();
   }
 
+  Future<void> _loadExamSubjects() async {
+    setState(() => _isLoadingExams = true);
+    try {
+      final token = await _getToken();
+      if (token == null) return;
+      final response = await http.get(
+        Uri.parse('https://edupeak.ru/api/admin/exams/subjects'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() => _examSubjects = data['data'] ?? []);
+      }
+    } catch (e) {
+      print('Ошибка загрузки экзаменов: $e');
+    } finally {
+      setState(() => _isLoadingExams = false);
+    }
+  }
+
+  Future<void> _loadExamVariants(int examSubjectId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) return;
+      final response = await http.get(
+        Uri.parse('https://edupeak.ru/api/admin/exams/subjects/$examSubjectId/variants'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() => _examVariants = data['data'] ?? []);
+      }
+    } catch (e) {
+      print('Ошибка загрузки вариантов: $e');
+    }
+  }
+
+  Future<void> _loadExamPool(int examSubjectId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) return;
+      final response = await http.get(
+        Uri.parse('https://edupeak.ru/api/admin/exams/subjects/$examSubjectId/pool'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() => _examPool = data['data'] ?? []);
+      }
+    } catch (e) {
+      print('Ошибка загрузки пула: $e');
+    }
+  }
+
+  Future<void> _addExamQuestion(Map<String, dynamic> questionData) async {
+    try {
+      final token = await _getToken();
+      if (token == null) return;
+      final response = await http.post(
+        Uri.parse('https://edupeak.ru/api/admin/exams/questions'),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+        body: jsonEncode(questionData),
+      );
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Вопрос добавлен'), backgroundColor: Colors.green),
+        );
+        if (_selectedExamSubjectId != null) {
+          _loadExamPool(_selectedExamSubjectId!);
+        }
+      }
+    } catch (e) {
+      print('Ошибка добавления вопроса: $e');
+    }
+  }
+
+  Future<void> _deleteExamQuestion(int questionId) async {
+    try {
+      final token = await _getToken();
+      if (token == null) return;
+      await http.delete(
+        Uri.parse('https://edupeak.ru/api/admin/exams/questions/$questionId'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (_selectedExamSubjectId != null) _loadExamPool(_selectedExamSubjectId!);
+    } catch (e) {
+      print('Ошибка удаления вопроса: $e');
+    }
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     await Future.wait([
+      _loadExamSubjects(),
       _loadDashboard(),
       _loadUsers(),
       _loadBanners(),
@@ -1794,6 +1890,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     _buildDashboardTab(theme, isDark),
                     _buildUsersTab(theme, isDark),
                     _buildGamesTab(theme, isDark),
+                    _buildExamsTab(theme, isDark),
                     _buildContentTab(theme, isDark),
                     _buildLogsTab(theme, isDark),
                   ],
@@ -2362,5 +2459,362 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       case 'Нереальная': return const Color(0xFFE6E6FA);
       default: return Colors.grey;
     }
+  }
+
+  Widget _buildExamsTab(ThemeData theme, bool isDark) {
+    final primaryColor = theme.colorScheme.primary;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Заголовок
+          Text('Управление экзаменами', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.textTheme.titleMedium?.color)),
+          const SizedBox(height: 4),
+          Text('Добавляйте вопросы в пул или управляйте вариантами', style: TextStyle(fontSize: 13, color: theme.hintColor)),
+          const SizedBox(height: 16),
+
+          // Кнопка добавить вопрос
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _selectedExamSubjectId == null
+                  ? null
+                  : () => _showAddQuestionDialog(theme, isDark),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Добавить вопрос в пул'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Список предметов
+          Text('Выберите предмет:', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color)),
+          const SizedBox(height: 8),
+
+          if (_isLoadingExams)
+            const Center(child: CircularProgressIndicator())
+          else
+            ..._buildExamSubjectsList(theme, isDark),
+
+          // Если предмет выбран — показываем вкладки вариантов/пула
+          if (_selectedExamSubjectId != null) ...[
+            const SizedBox(height: 24),
+            _buildExamSubjectDetails(theme, isDark),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildExamSubjectsList(ThemeData theme, bool isDark) {
+    // Группируем по exam_type
+    final ogeSubjects = _examSubjects.where((s) => s['exam_type'] == 'oge').toList();
+    final egeSubjects = _examSubjects.where((s) => s['exam_type'] == 'ege').toList();
+
+    return [
+      if (ogeSubjects.isNotEmpty) ...[
+        _buildExamTypeSection('ОГЭ', ogeSubjects, const Color(0xFF1565C0), theme, isDark),
+        const SizedBox(height: 12),
+      ],
+      if (egeSubjects.isNotEmpty)
+        _buildExamTypeSection('ЕГЭ', egeSubjects, const Color(0xFF8B2FC9), theme, isDark),
+    ];
+  }
+
+  Widget _buildExamTypeSection(String title, List subjects, Color color, ThemeData theme, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+          child: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: subjects.map<Widget>((s) {
+            final isSelected = _selectedExamSubjectId == s['id'];
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedExamSubjectId = s['id'];
+                  _examVariants = [];
+                  _examPool = [];
+                });
+                _loadExamVariants(s['id']);
+                _loadExamPool(s['id']);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected ? color.withOpacity(0.15) : (isDark ? theme.cardColor : Colors.white),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isSelected ? color : theme.dividerColor, width: isSelected ? 2 : 1),
+                ),
+                child: Text(
+                  s['name'] ?? '',
+                  style: TextStyle(fontSize: 13, fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal, color: isSelected ? color : theme.textTheme.bodyMedium?.color),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExamSubjectDetails(ThemeData theme, bool isDark) {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TabBar(
+            tabs: [
+              Tab(text: 'Варианты (${_examVariants.length})'),
+              Tab(text: 'Пул вопросов (${_examPool.length})'),
+            ],
+            labelColor: theme.colorScheme.primary,
+            unselectedLabelColor: theme.hintColor,
+            indicatorColor: theme.colorScheme.primary,
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 400,
+            child: TabBarView(
+              children: [
+                // Варианты
+                _examVariants.isEmpty
+                    ? Center(child: Text('Вариантов нет', style: TextStyle(color: theme.hintColor)))
+                    : ListView.builder(
+                  itemCount: _examVariants.length,
+                  itemBuilder: (ctx, i) {
+                    final v = _examVariants[i];
+                    return ListTile(
+                      leading: Icon(
+                        v['is_generated'] == true ? Icons.auto_awesome_rounded : Icons.description_rounded,
+                        color: theme.colorScheme.primary,
+                      ),
+                      title: Text('Вариант ${v['variant_number']} (${v['year']})'),
+                      subtitle: Text('${v['questions_count'] ?? 0} вопросов${v['is_generated'] == true ? ' • авто' : ''}'),
+                      trailing: Text(v['is_active'] == true ? 'Активен' : 'Скрыт', style: TextStyle(color: v['is_active'] == true ? Colors.green : Colors.red, fontSize: 12)),
+                    );
+                  },
+                ),
+
+                // Пул вопросов
+                _examPool.isEmpty
+                    ? Center(child: Text('Пул пуст. Добавьте вопросы.', style: TextStyle(color: theme.hintColor)))
+                    : ListView.builder(
+                  itemCount: _examPool.length,
+                  itemBuilder: (ctx, i) {
+                    final q = _examPool[i];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? theme.cardColor : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32, height: 32,
+                            decoration: BoxDecoration(color: theme.colorScheme.primary.withOpacity(0.1), shape: BoxShape.circle),
+                            child: Center(child: Text('${q['question_number']}', style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.primary, fontSize: 12))),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(q['question_text'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                                const SizedBox(height: 2),
+                                Text('Часть ${q['part']} • ${q['answer_type']} • ${q['max_score']} б.', style: TextStyle(fontSize: 11, color: theme.hintColor)),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                            onPressed: () => _showDeleteQuestionConfirm(q['id'], theme),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteQuestionConfirm(int questionId, ThemeData theme) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Удалить вопрос?'),
+        content: const Text('Вопрос будет удалён из пула. Варианты, где он использован, не изменятся.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () { Navigator.pop(ctx); _deleteExamQuestion(questionId); },
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddQuestionDialog(ThemeData theme, bool isDark) {
+    final textController = TextEditingController();
+    final answerController = TextEditingController();
+    final explanationController = TextEditingController();
+    final maxScoreController = TextEditingController(text: '1');
+    final questionNumController = TextEditingController();
+    final topicController = TextEditingController();
+    String selectedType = 'single_choice';
+    int selectedPart = 1;
+    List<String> options = ['', '', '', ''];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Новый вопрос в пул'),
+          content: SizedBox(
+            width: 500,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: questionNumController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Номер задания', border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<int>(
+                          value: selectedPart,
+                          decoration: const InputDecoration(labelText: 'Часть', border: OutlineInputBorder()),
+                          items: const [DropdownMenuItem(value: 1, child: Text('Часть 1')), DropdownMenuItem(value: 2, child: Text('Часть 2'))],
+                          onChanged: (v) => setDialogState(() => selectedPart = v!),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedType,
+                    decoration: const InputDecoration(labelText: 'Тип ответа', border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(value: 'single_choice', child: Text('Один вариант')),
+                      DropdownMenuItem(value: 'multiple_choice', child: Text('Несколько вариантов')),
+                      DropdownMenuItem(value: 'short_answer', child: Text('Краткий ответ')),
+                      DropdownMenuItem(value: 'essay', child: Text('Развёрнутый ответ')),
+                    ],
+                    onChanged: (v) => setDialogState(() => selectedType = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: textController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: 'Текст задания *', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  if (selectedType == 'single_choice' || selectedType == 'multiple_choice') ...[
+                    const Text('Варианты ответов:', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    ...List.generate(4, (i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: TextField(
+                        onChanged: (v) => options[i] = v,
+                        decoration: InputDecoration(labelText: 'Вариант ${i + 1}', border: const OutlineInputBorder()),
+                      ),
+                    )),
+                  ],
+                  TextField(
+                    controller: answerController,
+                    decoration: InputDecoration(
+                      labelText: selectedType == 'essay' ? 'Правильный ответ (необязательно)' : 'Правильный ответ *',
+                      hintText: selectedType == 'single_choice' ? '0 (индекс)' : selectedType == 'multiple_choice' ? '0,2 (индексы через запятую)' : 'Текст ответа',
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: maxScoreController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Макс. балл', border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: topicController,
+                          decoration: const InputDecoration(labelText: 'Тема/раздел', border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: explanationController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'Пояснение к ответу', border: OutlineInputBorder()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Отмена')),
+            FilledButton(
+              onPressed: () {
+                if (textController.text.trim().isEmpty) return;
+                Navigator.pop(ctx);
+                _addExamQuestion({
+                  'exam_subject_id': _selectedExamSubjectId,
+                  'question_number': int.tryParse(questionNumController.text) ?? 1,
+                  'part':            selectedPart,
+                  'question_text':   textController.text.trim(),
+                  'answer_type':     selectedType,
+                  'options':         (selectedType == 'single_choice' || selectedType == 'multiple_choice')
+                      ? options.where((o) => o.isNotEmpty).toList()
+                      : null,
+                  'correct_answer':  answerController.text.trim().isEmpty ? null : answerController.text.trim(),
+                  'explanation':     explanationController.text.trim().isEmpty ? null : explanationController.text.trim(),
+                  'max_score':       int.tryParse(maxScoreController.text) ?? 1,
+                  'topic':           topicController.text.trim().isEmpty ? null : topicController.text.trim(),
+                  'is_pool_question': true,
+                });
+              },
+              child: const Text('Добавить'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

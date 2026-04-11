@@ -3,6 +3,8 @@ import '../data/subjects_data.dart';
 import '../data/user_data_storage.dart';
 import '../models/user_stats.dart';
 import 'subject_screen.dart';
+import '../services/exam_service.dart';
+import 'exam_variants_screen.dart';
 
 class SubjectInfoScreen extends StatefulWidget {
   final String subjectName;
@@ -424,6 +426,20 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> with SingleTicker
                         ),
                       ),
 
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                        child: Text(
+                          'Подготовка к экзаменам',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: theme.textTheme.titleMedium?.color,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _ExamButtonsSection(subjectName: widget.subjectName),
+
                       // Доступные классы
                       if (_grades.isNotEmpty) ...[
                         Padding(
@@ -831,6 +847,139 @@ class _SubjectInfoScreenState extends State<SubjectInfoScreen> with SingleTicker
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ExamButtonsSection extends StatefulWidget {
+  final String subjectName;
+  const _ExamButtonsSection({required this.subjectName});
+
+  @override
+  State<_ExamButtonsSection> createState() => _ExamButtonsSectionState();
+}
+
+class _ExamButtonsSectionState extends State<_ExamButtonsSection> {
+  List<Map<String, dynamic>> _exams = [];
+  bool _isLoading = true;
+
+  // Маппинг русских названий предметов -> subject_key
+  static const Map<String, String> _subjectKeyMap = {
+    'Математика': 'mathematics',
+    'Алгебра': 'mathematics',
+    'Геометрия': 'mathematics',
+    'Русский язык': 'russian',
+    'Литература': 'literature',
+    'История': 'history',
+    'Обществознание': 'social',
+    'География': 'geography',
+    'Биология': 'biology',
+    'Физика': 'physics',
+    'Химия': 'chemistry',
+    'Английский язык': 'english',
+    'Информатика': 'computer_science',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExams();
+  }
+
+  Future<void> _loadExams() async {
+    final subjectKey = _subjectKeyMap[widget.subjectName];
+    if (subjectKey == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final response = await ExamService().getSubjectExams(subjectKey);
+    if (response['success'] == true && mounted) {
+      setState(() {
+        _exams = List<Map<String, dynamic>>.from(response['data']);
+        _isLoading = false;
+      });
+    } else {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 20),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_exams.isEmpty) return const SizedBox();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: _exams.map((exam) {
+          final examType = exam['exam_type'] as String;
+          final isEge = examType == 'ege';
+          final color = isEge ? const Color(0xFF8B2FC9) : const Color(0xFF1565C0);
+          final subtype = exam['exam_subtype'] as String?;
+          final subtypeLabel = subtype == 'base' ? ' (база)' : subtype == 'profile' ? ' (профиль)' : '';
+
+          return GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ExamVariantsScreen(examSubject: exam),
+              ),
+            ),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? theme.cardColor : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: color.withOpacity(0.3)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46, height: 46,
+                    decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+                    child: Center(
+                      child: Text(
+                        examType.toUpperCase(),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${examType.toUpperCase()}$subtypeLabel',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${exam['time_minutes']} мин  •  ${exam['max_primary_score']} первичных баллов',
+                          style: TextStyle(fontSize: 12, color: theme.hintColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 16, color: color),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
